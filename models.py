@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -61,3 +61,51 @@ class AnchorResponse(BaseModel):
     )
     anchored_at: int = Field(description="Unix epoch seconds when the anchor txs were broadcast.")
     note: str | None = None
+
+
+# --- /v1/screen ---
+
+
+class ScreenResponse(BaseModel):
+    wallet: str
+    chain_inferred: str = Field(description='"ethereum" | "solana" | "unknown"')
+    sanctions_match: bool
+    sanctioned_lists: list[str] = Field(default_factory=list)
+    risk_level: str = Field(description='"low" | "medium" | "high"')
+    notes: str
+    checked_at: int
+
+
+# --- /v1/attest ---
+
+
+class AttestRequest(BaseModel):
+    input_hash: str = Field(description="64-char hex SHA-256 of the agent's input.")
+    output_hash: str = Field(description="64-char hex SHA-256 of the agent's output / decision payload.")
+    decision: str = Field(max_length=64, description='Free-form short label, e.g. "APPROVED", "REJECTED", "CONFIDENCE=0.93".')
+    scheme: Literal["eip191", "ed25519"] = Field(description='Signature scheme: "eip191" (EVM personal_sign) or "ed25519" (Solana).')
+    signature: str = Field(description="0x-prefixed hex (eip191) or base58 (ed25519).")
+    signer_pubkey: str | None = Field(
+        default=None,
+        description="Required for ed25519 (Solana base58 pubkey). Ignored for eip191 — address is recovered.",
+    )
+
+    @model_validator(mode="after")
+    def _check_hashes(self):
+        if not _HEX_RE.match(self.input_hash):
+            raise ValueError("`input_hash` must be 64 hex chars")
+        if not _HEX_RE.match(self.output_hash):
+            raise ValueError("`output_hash` must be 64 hex chars")
+        if self.scheme == "ed25519" and not self.signer_pubkey:
+            raise ValueError("`signer_pubkey` is required when scheme=ed25519")
+        return self
+
+
+class AttestResponse(BaseModel):
+    merkle_root: str = Field(description="SHA-256 over the domain-separated (input_hash, output_hash, decision) — this is what gets anchored.")
+    signer_verified: bool
+    signer: str = Field(description="Recovered EVM address (eip191) or supplied Solana pubkey (ed25519).")
+    base: ChainAnchor | None = None
+    solana: ChainAnchor | None = None
+    decision: str
+    signed_at: int

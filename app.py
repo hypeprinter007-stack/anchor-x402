@@ -34,8 +34,17 @@ from x402.extensions.bazaar import (
 from x402.mechanisms.evm.exact import ExactEvmServerScheme
 from x402.mechanisms.svm.exact import register_exact_svm_server
 
-from models import AnchorRequest, AnchorResponse, ChainAnchor
+from models import (
+    AnchorRequest,
+    AnchorResponse,
+    AttestRequest,
+    AttestResponse,
+    ChainAnchor,
+    ScreenResponse,
+)
 from services import anchor as anchor_svc
+from services import attest as attest_svc
+from services import screen as screen_svc
 from services.cdp_auth import build_cdp_auth_provider
 
 TREASURY = os.getenv("TREASURY_ADDRESS", "")
@@ -89,21 +98,82 @@ _anchor_bazaar_ext = declare_discovery_extension(
 _anchor_bazaar_ext["bazaar"]["discoverable"] = True
 _anchor_bazaar_ext["bazaar"]["category"] = "security"
 
-_accepts: list[PaymentOption] = []
-if TREASURY:
-    _accepts.append(PaymentOption(
-        scheme="exact", pay_to=TREASURY, price="$0.005", network="eip155:8453",
-    ))
-if SOLANA_TREASURY:
-    _accepts.append(PaymentOption(
-        scheme="exact", pay_to=SOLANA_TREASURY, price="$0.005", network=SOLANA_MAINNET_CAIP2,
-    ))
+def _accepts_at(price: str) -> list[PaymentOption]:
+    out: list[PaymentOption] = []
+    if TREASURY:
+        out.append(PaymentOption(scheme="exact", pay_to=TREASURY, price=price, network="eip155:8453"))
+    if SOLANA_TREASURY:
+        out.append(PaymentOption(scheme="exact", pay_to=SOLANA_TREASURY, price=price, network=SOLANA_MAINNET_CAIP2))
+    return out
+
+
+# --- Bazaar declarations for /v1/screen and /v1/attest ---
+
+_screen_bazaar_ext = declare_discovery_extension(
+    input={"wallet": "0x8589427373d6d84e98730d7795d8f6f8731fda16"},  # Tornado Cash example
+    input_schema={
+        "properties": {
+            "wallet": {"type": "string", "description": "Wallet address — EVM 0x… (40 hex) or Solana base58 pubkey."},
+        },
+        "required": ["wallet"],
+    },
+    output=OutputConfig(example={
+        "wallet": "0x8589427373d6d84e98730d7795d8f6f8731fda16",
+        "chain_inferred": "ethereum",
+        "sanctions_match": True,
+        "sanctioned_lists": ["OFAC SDN", "Tornado Cash"],
+        "risk_level": "high",
+        "notes": "Address matches 2 sanctions program(s)…",
+        "checked_at": 1746820000,
+    }),
+)
+
+_attest_bazaar_ext = declare_discovery_extension(
+    input={
+        "input_hash": "ab0898397c86fbf97c99c6f8b29e55ab697315705777ee1d106e2dcb9bd686b3",
+        "output_hash": "121bff3514725274e35bf3407fec31b5bbf458ee89ae8b75f3a01492f8a9ecef",
+        "decision": "APPROVED",
+        "scheme": "eip191",
+        "signature": "0x...",
+    },
+    input_schema={
+        "properties": {
+            "input_hash": {"type": "string", "description": "64-char hex SHA-256 of the agent's input."},
+            "output_hash": {"type": "string", "description": "64-char hex SHA-256 of the agent's output / decision payload."},
+            "decision": {"type": "string", "maxLength": 64, "description": "Free-form short label."},
+            "scheme": {"type": "string", "enum": ["eip191", "ed25519"]},
+            "signature": {"type": "string", "description": "0x-prefixed hex (eip191) or base58 (ed25519)."},
+            "signer_pubkey": {"type": "string", "description": "Required for ed25519. Ignored for eip191."},
+        },
+        "required": ["input_hash", "output_hash", "decision", "scheme", "signature"],
+    },
+    body_type="json",
+    output=OutputConfig(example={
+        "merkle_root": "10ce4d38b59746febff0651a2d19d5da9a36f4e209e4333414d6d8e4abad898b",
+        "signer_verified": True,
+        "signer": "0xFE708ED41DE893390240C95A801A49ed8F974702",
+        "base": {"tx": "0x...", "explorer_url": "https://basescan.org/tx/0x..."},
+        "solana": {"tx": "...", "explorer_url": "https://solscan.io/tx/..."},
+        "decision": "APPROVED",
+        "signed_at": 1746820000,
+    }),
+)
 
 x402_routes = {
     "POST /v1/anchor": RouteConfig(
-        accepts=_accepts,
+        accepts=_accepts_at("$0.005"),
         description="Anchor a 32-byte hash to Base + Solana mainnet — $0.005 USDC",
         extensions={**_anchor_bazaar_ext},
+    ),
+    "GET /v1/screen": RouteConfig(
+        accepts=_accepts_at("$0.001"),
+        description="Sanctions + AML screening for any wallet address — $0.001 USDC",
+        extensions={**_screen_bazaar_ext},
+    ),
+    "POST /v1/attest": RouteConfig(
+        accepts=_accepts_at("$0.01"),
+        description="Verify a signature over (input_hash, output_hash, decision) and dual-chain anchor the result — $0.01 USDC",
+        extensions={**_attest_bazaar_ext},
     ),
 }
 
@@ -144,6 +214,56 @@ def anchor(req: AnchorRequest) -> AnchorResponse:
         solana=solana,
         anchored_at=started,
         note=req.note,
+    )
+
+
+@app.get("/v1/screen", response_model=ScreenResponse)
+def screen(wallet: str) -> ScreenResponse:
+    verdict = screen_svc.screen(wallet)
+    verdict["checked_at"] = int(time.time())
+    return ScreenResponse(**verdict)
+
+
+@app.post("/v1/attest", response_model=AttestResponse)
+def attest(req: AttestRequest) -> AttestResponse:
+    ok, recovered = attest_svc.verify(
+        scheme=req.scheme,
+        input_hash=req.input_hash,
+        output_hash=req.output_hash,
+        decision=req.decision,
+        signature=req.signature,
+        signer_pubkey=req.signer_pubkey,
+    )
+    if not ok:
+        raise HTTPException(status_code=400, detail="signature verification failed")
+
+    merkle_root = attest_svc.attest_merkle_root(req.input_hash, req.output_hash, req.decision)
+    started = int(time.time())
+    base_anchor: ChainAnchor | None = None
+    solana_anchor: ChainAnchor | None = None
+    try:
+        result = anchor_svc.anchor_dual_chain(merkle_root)
+        base_anchor = ChainAnchor(
+            tx=result["base_tx"],
+            explorer_url=f"https://basescan.org/tx/{result['base_tx']}",
+        )
+        if result["solana_tx"]:
+            solana_anchor = ChainAnchor(
+                tx=result["solana_tx"],
+                explorer_url=f"https://solscan.io/tx/{result['solana_tx']}",
+            )
+    except Exception as e:
+        logging.getLogger("attest").exception("anchor failed")
+        raise HTTPException(status_code=502, detail=f"anchor failed: {type(e).__name__}: {e}")
+
+    return AttestResponse(
+        merkle_root=merkle_root,
+        signer_verified=True,
+        signer=recovered,
+        base=base_anchor,
+        solana=solana_anchor,
+        decision=req.decision,
+        signed_at=started,
     )
 
 
