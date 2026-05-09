@@ -1,0 +1,191 @@
+{
+  "version": "2.0",
+  "name": "anchor-x402",
+  "description": "Nine x402-paid commodity services for AI agents: dual-chain hash anchoring (Base + Solana), OFAC sanctions screening, signed decision attestation, mainnet tx decode, ENS/SNS resolution, USD spot price, EVM calldata decode, freeform datetime parsing, and bundled wallet intelligence. Pay-per-call USDC, no API keys.",
+  "operator": "anchor-x402",
+  "homepage": "https://anchor-x402.com",
+  "trust_portal": "https://anchor-x402.com/trust/",
+  "openapi_url": "https://api.anchor-x402.com/openapi.json",
+  "base_url": "https://api.anchor-x402.com",
+  "facilitator": "https://api.cdp.coinbase.com/platform/v2/x402",
+  "x402_version": 2,
+  "discovery_extension": "bazaar",
+  "networks": [
+    {
+      "id": "eip155:8453",
+      "name": "Base mainnet",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "asset_name": "USDC",
+      "payment_address": "0x127462e296fAc1A7F5cF33bA57bB2f0FFf5cD0B6"
+    },
+    {
+      "id": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+      "name": "Solana mainnet",
+      "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "asset_name": "USDC",
+      "payment_address": "6apuZvJQ51Led9iEjnHw6f5jfnXL4qjt8S1h58PeXzuR"
+    }
+  ],
+  "free_endpoints": [
+    {"path": "/health", "method": "GET", "description": "Liveness probe — returns {status,service}"},
+    {"path": "/openapi.json", "method": "GET", "description": "Full OpenAPI 3 spec for all 9 paid services"},
+    {"path": "/docs", "method": "GET", "description": "Swagger UI for interactive exploration"}
+  ],
+  "routes": [
+    {
+      "path": "/v1/anchor",
+      "method": "POST",
+      "price_usd": 0.005,
+      "price": "$0.005",
+      "category": "security",
+      "description": "Anchor a 32-byte hash to Base + Solana mainnet in parallel. Returns both tx URLs as cryptographic proof of when the hash existed.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "hash": {"type": "string", "description": "Pre-computed 32-byte hex hash (64 chars, no 0x prefix). Mutually exclusive with `data`."},
+          "data": {"description": "Arbitrary JSON to be canonicalized + SHA-256'd by the server. Mutually exclusive with `hash`."},
+          "note": {"type": "string", "description": "Optional 200-char note returned in response (NOT on-chain).", "maxLength": 200}
+        }
+      },
+      "tags": ["anchor", "merkle", "timestamp", "audit", "dual-chain"]
+    },
+    {
+      "path": "/v1/screen",
+      "method": "GET",
+      "price_usd": 0.001,
+      "price": "$0.001",
+      "category": "security",
+      "description": "OFAC SDN sanctions + AML screening for any wallet address. Returns sanctions match boolean, flagged programs (Tornado Cash, Lazarus, etc.), risk level.",
+      "params": {
+        "wallet": {"type": "string", "required": true, "description": "EVM 0x… (40 hex) or Solana base58 pubkey"}
+      },
+      "tags": ["sanctions", "ofac", "aml", "compliance", "kyc"]
+    },
+    {
+      "path": "/v1/attest",
+      "method": "POST",
+      "price_usd": 0.010,
+      "price": "$0.010",
+      "category": "security",
+      "description": "Verify a wallet signature over (input_hash, output_hash, decision) with domain separation, then dual-chain anchor the resulting Merkle root. Returns verified signer + on-chain proof.",
+      "input_schema": {
+        "type": "object",
+        "required": ["input_hash", "output_hash", "decision", "scheme", "signature"],
+        "properties": {
+          "input_hash": {"type": "string", "description": "64-char hex SHA-256 of agent input"},
+          "output_hash": {"type": "string", "description": "64-char hex SHA-256 of agent output"},
+          "decision": {"type": "string", "maxLength": 64, "description": "Free-form short label"},
+          "scheme": {"type": "string", "enum": ["eip191", "ed25519"]},
+          "signature": {"type": "string", "description": "0x-hex (eip191) or base58 (ed25519)"},
+          "signer_pubkey": {"type": "string", "description": "Required for ed25519 (Solana base58 pubkey)"}
+        }
+      },
+      "tags": ["attestation", "signature", "audit", "ai-decision", "compliance"]
+    },
+    {
+      "path": "/v1/decode/tx",
+      "method": "POST",
+      "price_usd": 0.001,
+      "price": "$0.001",
+      "category": "devtools",
+      "description": "Structured decode of any mainnet transaction. EVM (Base/Ethereum): from/to/value/gas/status/calldata. Solana: slot/fee/signers/program_calls.",
+      "input_schema": {
+        "type": "object",
+        "required": ["chain", "tx_hash"],
+        "properties": {
+          "chain": {"type": "string", "enum": ["base", "ethereum", "solana"]},
+          "tx_hash": {"type": "string"}
+        }
+      },
+      "tags": ["transaction", "decode", "blockchain", "rpc-proxy"]
+    },
+    {
+      "path": "/v1/resolve/name",
+      "method": "GET",
+      "price_usd": 0.001,
+      "price": "$0.001",
+      "category": "identity",
+      "description": "Cross-chain name resolution: ENS (.eth) and Bonfida SNS (.sol). Returns resolved address(es) per registry.",
+      "params": {
+        "name": {"type": "string", "required": true, "description": "Human-readable name"}
+      },
+      "tags": ["ens", "sns", "bonfida", "name-service", "resolver"]
+    },
+    {
+      "path": "/v1/price/token",
+      "method": "GET",
+      "price_usd": 0.001,
+      "price": "$0.001",
+      "category": "finance",
+      "description": "USD spot price for any major token by symbol or chain+contract. CoinGecko-backed, 60s cache.",
+      "params": {
+        "symbol": {"type": "string", "description": "Token symbol (BTC, ETH, etc.). Mutually exclusive with chain+contract."},
+        "chain": {"type": "string", "description": "Chain slug: base, ethereum, solana, polygon, arbitrum, optimism, bsc, avalanche."},
+        "contract": {"type": "string", "description": "Token contract address. Required with chain."}
+      },
+      "tags": ["price", "spot", "coingecko", "usdc", "tokens"]
+    },
+    {
+      "path": "/v1/decode/calldata",
+      "method": "POST",
+      "price_usd": 0.001,
+      "price": "$0.001",
+      "category": "devtools",
+      "description": "Decode raw EVM calldata into function name + typed parameters via openchain.xyz signature directory + eth_abi.",
+      "input_schema": {
+        "type": "object",
+        "required": ["chain", "calldata_hex"],
+        "properties": {
+          "chain": {"type": "string", "enum": ["ethereum", "solana"], "description": "EVM-only; solana returns 400"},
+          "calldata_hex": {"type": "string", "description": "Raw EVM calldata, with or without 0x prefix"}
+        }
+      },
+      "tags": ["calldata", "abi", "4byte", "openchain", "decode"]
+    },
+    {
+      "path": "/v1/parse/datetime",
+      "method": "POST",
+      "price_usd": 0.001,
+      "price": "$0.001",
+      "category": "devtools",
+      "description": "Parse any freeform datetime string into structured ISO 8601 + components + relative time + confidence.",
+      "input_schema": {
+        "type": "object",
+        "required": ["input"],
+        "properties": {
+          "input": {"type": "string", "maxLength": 500},
+          "base_time": {"type": "string", "description": "Optional ISO 8601 reference"},
+          "timezone": {"type": "string", "description": "Optional IANA tz name"}
+        }
+      },
+      "tags": ["datetime", "iso8601", "parser", "natural-language"]
+    },
+    {
+      "path": "/v1/intel/wallet",
+      "method": "GET",
+      "price_usd": 0.005,
+      "price": "$0.005",
+      "category": "data",
+      "description": "Unified wallet intelligence bundle. ONE call returns balances on Base + Ethereum + Solana, USDC across chains, tx counts, ENS/SNS reverse, sanctions verdict — aggregated from 8-10 parallel sources.",
+      "params": {
+        "wallet": {"type": "string", "required": true, "description": "EVM 0x… or Solana base58 pubkey"}
+      },
+      "tags": ["wallet-intel", "balances", "kyb", "counterparty", "aggregator"]
+    }
+  ],
+  "discovery": {
+    "mcp_server": "https://www.npmjs.com/package/anchor-x402-mcp",
+    "github": {
+      "server": "https://github.com/hypeprinter007-stack/anchor-x402",
+      "mcp": "https://github.com/hypeprinter007-stack/anchor-x402-mcp"
+    },
+    "trust_portal": "https://anchor-x402.com/trust/",
+    "status_page": "https://anchor-x402.betteruptime.com",
+    "agent_card": "https://anchor-x402.com/.well-known/agent-card.json",
+    "llms_txt": "https://anchor-x402.com/llms.txt"
+  },
+  "contact": {
+    "general": "hello@anchor-x402.com",
+    "security": "security@anchor-x402.com"
+  }
+}

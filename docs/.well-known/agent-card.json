@@ -1,0 +1,148 @@
+{
+  "schemaVersion": "1.0.0",
+  "name": "anchor-x402",
+  "description": "Nine x402-paid commodity services for AI agents — pay-per-call USDC on Base or Solana mainnet. Skills: dual-chain hash anchoring, OFAC sanctions screening, signed decision attestation, mainnet tx decode, ENS/SNS resolution, USD spot price, EVM calldata decode, freeform datetime parsing, and bundled wallet intelligence.",
+  "version": "1.0.0",
+  "url": "https://api.anchor-x402.com",
+  "documentationUrl": "https://anchor-x402.com",
+  "provider": {
+    "name": "anchor-x402",
+    "url": "https://anchor-x402.com",
+    "support_contact": "hello@anchor-x402.com"
+  },
+  "capabilities": {
+    "a2aVersion": "1.0",
+    "mcpVersion": "1.0",
+    "streaming": false,
+    "pushNotifications": false,
+    "x402": true,
+    "supportedMessageParts": ["text", "data"]
+  },
+  "authentication": {
+    "schemes": ["x402"],
+    "x402": {
+      "version": 2,
+      "facilitator": "https://api.cdp.coinbase.com/platform/v2/x402",
+      "networks": ["eip155:8453", "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"],
+      "asset": "USDC",
+      "discovery_extension": "bazaar"
+    }
+  },
+  "defaultInputModes": ["application/json", "application/x-www-form-urlencoded"],
+  "defaultOutputModes": ["application/json"],
+  "skills": [
+    {
+      "id": "anchor_hash",
+      "name": "anchor",
+      "description": "Anchor a 32-byte hash to Base + Solana mainnet in parallel. Returns both tx URLs as cryptographic proof of when the hash existed. $0.005 USDC.",
+      "url": "https://api.anchor-x402.com/v1/anchor",
+      "method": "POST",
+      "price_usd": 0.005,
+      "inputModes": ["application/json"],
+      "outputModes": ["application/json"],
+      "tags": ["anchor", "merkle", "timestamp", "audit", "dual-chain"],
+      "examples": [
+        {"hash": "ab0898397c86fbf97c99c6f8b29e55ab697315705777ee1d106e2dcb9bd686b3"},
+        {"data": {"vendor": "Acme", "decision": "APPROVED"}, "note": "Q2 vendor diligence"}
+      ]
+    },
+    {
+      "id": "screen_wallet",
+      "name": "screen",
+      "description": "OFAC SDN sanctions + AML screening for any wallet address. Returns sanctions match, flagged programs, risk level. $0.001 USDC.",
+      "url": "https://api.anchor-x402.com/v1/screen",
+      "method": "GET",
+      "price_usd": 0.001,
+      "inputModes": ["query"],
+      "outputModes": ["application/json"],
+      "tags": ["sanctions", "ofac", "aml", "compliance"],
+      "examples": [{"wallet": "0x8589427373d6d84e98730d7795d8f6f8731fda16"}]
+    },
+    {
+      "id": "attest_decision",
+      "name": "attest",
+      "description": "Verify a wallet signature over (input_hash, output_hash, decision), then dual-chain anchor the result. Returns verified signer + on-chain proof URLs. $0.010 USDC.",
+      "url": "https://api.anchor-x402.com/v1/attest",
+      "method": "POST",
+      "price_usd": 0.010,
+      "inputModes": ["application/json"],
+      "outputModes": ["application/json"],
+      "tags": ["attestation", "signature", "audit", "ai-decision"]
+    },
+    {
+      "id": "decode_tx",
+      "name": "decode/tx",
+      "description": "Structured decode of any mainnet transaction by hash. Supports Base, Ethereum, Solana. Mined txs cached. $0.001 USDC.",
+      "url": "https://api.anchor-x402.com/v1/decode/tx",
+      "method": "POST",
+      "price_usd": 0.001,
+      "inputModes": ["application/json"],
+      "outputModes": ["application/json"],
+      "tags": ["transaction", "decode", "rpc"]
+    },
+    {
+      "id": "resolve_name",
+      "name": "resolve/name",
+      "description": "Cross-chain name resolution: ENS (.eth) and Bonfida SNS (.sol). Returns resolved address(es). 1h cache. $0.001 USDC.",
+      "url": "https://api.anchor-x402.com/v1/resolve/name",
+      "method": "GET",
+      "price_usd": 0.001,
+      "inputModes": ["query"],
+      "outputModes": ["application/json"],
+      "tags": ["ens", "sns", "name-service"]
+    },
+    {
+      "id": "token_price",
+      "name": "price/token",
+      "description": "USD spot price for any major token. By symbol or chain+contract. CoinGecko-backed, 60s cache. $0.001 USDC.",
+      "url": "https://api.anchor-x402.com/v1/price/token",
+      "method": "GET",
+      "price_usd": 0.001,
+      "inputModes": ["query"],
+      "outputModes": ["application/json"],
+      "tags": ["price", "coingecko", "tokens"]
+    },
+    {
+      "id": "decode_calldata",
+      "name": "decode/calldata",
+      "description": "Decode raw EVM calldata into function name + typed parameters via openchain.xyz + eth_abi. EVM-only. $0.001 USDC.",
+      "url": "https://api.anchor-x402.com/v1/decode/calldata",
+      "method": "POST",
+      "price_usd": 0.001,
+      "inputModes": ["application/json"],
+      "outputModes": ["application/json"],
+      "tags": ["calldata", "abi", "4byte"]
+    },
+    {
+      "id": "parse_datetime",
+      "name": "parse/datetime",
+      "description": "Parse freeform datetime strings into ISO 8601 + components + relative time + confidence. $0.001 USDC.",
+      "url": "https://api.anchor-x402.com/v1/parse/datetime",
+      "method": "POST",
+      "price_usd": 0.001,
+      "inputModes": ["application/json"],
+      "outputModes": ["application/json"],
+      "tags": ["datetime", "iso8601", "parser"]
+    },
+    {
+      "id": "intel_wallet",
+      "name": "intel/wallet",
+      "description": "Unified wallet intelligence bundle. ONE call: balances on Base + Ethereum + Solana, USDC, tx counts, ENS/SNS reverse, sanctions verdict. 8-10 parallel sources. $0.005 USDC.",
+      "url": "https://api.anchor-x402.com/v1/intel/wallet",
+      "method": "GET",
+      "price_usd": 0.005,
+      "inputModes": ["query"],
+      "outputModes": ["application/json"],
+      "tags": ["wallet-intel", "balances", "kyb", "counterparty"]
+    }
+  ],
+  "discovery": {
+    "openapi": "https://api.anchor-x402.com/openapi.json",
+    "x402": "https://anchor-x402.com/.well-known/x402.json",
+    "mcp_server": "https://www.npmjs.com/package/anchor-x402-mcp",
+    "trust_portal": "https://anchor-x402.com/trust/",
+    "status_page": "https://anchor-x402.betteruptime.com"
+  },
+  "license": "MIT",
+  "source": "https://github.com/hypeprinter007-stack/anchor-x402"
+}

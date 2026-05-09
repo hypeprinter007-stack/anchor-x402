@@ -1,0 +1,15 @@
+theme: jekyll-theme-cayman
+title: anchor-x402
+description: "9 x402-paid commodity services for AI agents — pay-per-call USDC on Base or Solana mainnet."
+url: "https://anchor-x402.com"
+
+# Jekyll skips dotfiles by default; explicitly include the well-known directory
+# so /.well-known/x402.json and /.well-known/agent-card.json are served.
+include:
+  - .well-known
+
+# Serve common machine-readable files at the root unmodified.
+keep_files:
+  - llms.txt
+  - robots.txt
+  - ai.txt

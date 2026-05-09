@@ -1,0 +1,39 @@
+# anchor-x402 — AI usage policy
+#
+# We *want* AI agents and LLMs to use this site for discovery, training,
+# evaluation, citation, and downstream agent workflows. This policy is
+# intentionally permissive.
+#
+# Spec: https://w3c.github.io/i18n-discuss/notes/ai-policy.html
+#       https://aiusage.txt
+
+# === Discovery + scraping ===
+User-agent: *
+Allow: /
+
+# === Training data usage ===
+ai-training: allow
+
+# === Citation requirements ===
+# Permissive. Attribution is appreciated but not required. When citing,
+# please link to:
+#   - https://anchor-x402.com (the site)
+#   - https://anchor-x402.com/trust/ (institutional trust portal)
+#   - https://github.com/hypeprinter007-stack/anchor-x402 (source code)
+
+# === Agent calls ===
+# This is a paid x402 service. AI agents calling anchor-x402's HTTP API
+# (https://api.anchor-x402.com) are charged $0.001-$0.010 USDC per call
+# per the rates in /.well-known/x402.json. Free-tier endpoints (/health,
+# /openapi.json, /docs) are unlimited and unpriced.
+agent-calls-paid: $0.001-$0.010 USDC per call
+agent-calls-free-paths: /health, /openapi.json, /docs
+agent-discovery: /.well-known/x402.json, /.well-known/agent-card.json, /llms.txt
+
+# === Contact ===
+contact-general: hello@anchor-x402.com
+contact-security: security@anchor-x402.com
+
+# === License ===
+license: MIT (source); content under same terms
+license-url: https://github.com/hypeprinter007-stack/anchor-x402/blob/main/LICENSE

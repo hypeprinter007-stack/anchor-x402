@@ -1,0 +1,66 @@
+# anchor-x402
+
+> Nine x402-paid commodity services for AI agents. Pay-per-call USDC on Base or Solana mainnet — no API keys, no accounts, no subscriptions.
+
+anchor-x402 exposes 9 stateless agent-utility services on AWS Lambda + FastAPI. Each endpoint returns v2 PaymentRequired with `extensions.bazaar`; agents pay $0.001–$0.010 USDC per call from any Base wallet. Live at https://api.anchor-x402.com.
+
+## Discovery (machine-readable)
+
+- [OpenAPI spec](https://api.anchor-x402.com/openapi.json) — full schema for all 9 services
+- [x402 discovery](https://anchor-x402.com/.well-known/x402.json) — service catalog with prices, schemas, and payment networks
+- [A2A AgentCard](https://anchor-x402.com/.well-known/agent-card.json) — Google A2A protocol manifest
+- [Status](https://anchor-x402.betteruptime.com) — live uptime
+- [Source code](https://github.com/hypeprinter007-stack/anchor-x402) — MIT licensed
+
+## Services
+
+| Endpoint | Price | What it does |
+|---|---|---|
+| POST /v1/anchor | $0.005 | Anchor a 32-byte hash to Base + Solana mainnet in parallel |
+| GET /v1/screen | $0.001 | OFAC SDN sanctions + AML screening for any wallet |
+| POST /v1/attest | $0.010 | Verify wallet signature, dual-chain anchor the receipt |
+| POST /v1/decode/tx | $0.001 | Structured decode of any mainnet transaction |
+| GET /v1/resolve/name | $0.001 | ENS / Bonfida SNS cross-chain name resolution |
+| GET /v1/price/token | $0.001 | USD spot price by symbol or chain+contract (CoinGecko) |
+| POST /v1/decode/calldata | $0.001 | 4byte selector + ABI parameter decode |
+| POST /v1/parse/datetime | $0.001 | Freeform datetime → structured ISO 8601 |
+| GET /v1/intel/wallet | $0.005 | Bundled wallet intelligence (balances, identity, sanctions in one call) |
+
+## How agents use it
+
+[anchor-x402-mcp on npm](https://www.npmjs.com/package/anchor-x402-mcp) — MCP server exposing all 9 services as tools. Works with Claude Desktop, Claude Code, Codex CLI (OpenAI), ChatGPT Desktop, Cursor, OpenAI Agents SDK, and any MCP-compatible client.
+
+```json
+{
+  "mcpServers": {
+    "anchor-x402": {
+      "command": "npx",
+      "args": ["-y", "anchor-x402-mcp"],
+      "env": { "ANCHOR_WALLET_PRIVATE_KEY": "0xYOUR_BASE_WALLET_KEY" }
+    }
+  }
+}
+```
+
+The MCP wrapper auto-pays each call from the agent's Base wallet via x402-fetch + viem. No prepay, no API key, no rate limits beyond what the underlying endpoints implement.
+
+Or call the HTTP API directly using any [x402 client SDK](https://github.com/coinbase/x402) (Python, TypeScript, Rust). Same payment dance: 402 → sign → retry.
+
+## Trust posture
+
+Open source (MIT), AWS Lambda + Secrets Manager + CloudWatch. The trust portal at https://anchor-x402.com/trust/ carries a full STRIDE threat model, pre-filled SIG-Lite security questionnaire, code-level self-audit guide, regulated deployment guide, on-chain verifiability primer, and observability docs.
+
+Not certified for SOC 2, ISO 27001, PCI, HIPAA, or GDPR DPA — appropriate for sandbox/POC/non-binding workflows; the regulated deployment guide explicitly scopes what it should and shouldn't be used for.
+
+## On-chain verifiability
+
+Every `/v1/anchor` and `/v1/attest` call writes a 32-byte hash to **both** Base and Solana mainnet. The on-chain bytes are independent of the service — anyone can verify a receipt by reading the chain, no contact with anchor-x402 required. Forging requires breaking SHA-256 OR reorging two L1s simultaneously.
+
+Worked example with live mainnet hashes: https://anchor-x402.com/trust/on-chain-verifiability
+
+## Contact
+
+- General: hello@anchor-x402.com
+- Security disclosures: security@anchor-x402.com
+- Source: https://github.com/hypeprinter007-stack/anchor-x402
+- License: MIT
