@@ -33,6 +33,8 @@ title: anchor-x402
 
 The full security posture lives at [/trust/](trust/) — threat model, pre-filled SIG-Lite security questionnaire, code-level self-audit guide, regulated deployment guide, on-chain verifiability primer, and observability setup. Start with [trust/](trust/).
 
+If you need an **institutional tier** beyond what anchor-x402's commodity tier provides — per-tenant authentication, signed MSA / DPA / SLA contracts, WORM evidence vault, GDPR Article 17 erasure, dedicated support — email [hello@anchor-x402.com](mailto:hello@anchor-x402.com). Available $499–$5,000+/mo depending on volume and posture.
+
 ## For agents and developers
 
 - **MCP server:** [`anchor-x402-mcp`](https://www.npmjs.com/package/anchor-x402-mcp) on npm — drop one config block into Claude Desktop, Cursor, or any MCP client and the 9 services become callable tools that auto-pay from your Base wallet. Install: `npx anchor-x402-mcp`. Source: [github.com/hypeprinter007-stack/anchor-x402-mcp](https://github.com/hypeprinter007-stack/anchor-x402-mcp).

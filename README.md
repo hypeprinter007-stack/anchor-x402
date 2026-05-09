@@ -259,6 +259,10 @@ aws sns subscribe \
 
 For institutional review: **https://anchor-x402.com/trust/** carries the full security posture — threat model, pre-filled SIG-Lite security questionnaire, code-level self-audit guide, regulated deployment guide, on-chain verifiability primer, and observability/status setup. Source files live at [docs/trust/](docs/trust/).
 
+## Institutional tier
+
+anchor-x402 is the public-utility commodity tier. An **institutional tier** with per-tenant authentication, WORM evidence vault on S3 Object Lock, GDPR Article 17 erasure with AML retention reconciliation, signed MSA / DPA / SLA contracts, and dedicated support is available on request — pricing $499–$5,000+/mo depending on volume and posture. Reach out to [hello@anchor-x402.com](mailto:hello@anchor-x402.com) with your use case, expected call volume, and any compliance certifications you require.
+
 ## Listings
 
 | Catalog | Status | Discovery mechanism |
