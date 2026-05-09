@@ -251,6 +251,10 @@ aws sns subscribe \
 
 **Treasury balance.** Anchor + attest + intel-wallet pay native gas (Base ETH + Solana SOL). Fund the treasury with ~0.001 ETH and ~0.05 SOL to cover several hundred anchors.
 
+## Trust portal
+
+For institutional review: [docs/trust/](docs/trust/) carries the full security posture — threat model, pre-filled SIG-Lite security questionnaire, code-level self-audit guide, regulated deployment guide, on-chain verifiability primer, and observability/status setup. Start with [docs/trust/README.md](docs/trust/README.md).
+
 ## Listings
 
 | Catalog | Status | Discovery mechanism |
