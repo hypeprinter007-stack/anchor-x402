@@ -2,6 +2,8 @@
 
 > Nine x402-paid commodity services for AI agents. One AWS Lambda, one OpenAPI spec, dual-listed for [CDP Bazaar](https://docs.cdp.coinbase.com/x402/bazaar) + [pay.sh](https://pay.sh). Pay per call in USDC on Base or Solana mainnet — no API keys, no accounts, no subscriptions.
 
+**Site:** https://anchor-x402.com
+**Trust portal:** https://anchor-x402.com/trust/
 **Live API:** `https://1c09pdnrx1.execute-api.us-east-1.amazonaws.com`
 **Swagger UI:** [/docs](https://1c09pdnrx1.execute-api.us-east-1.amazonaws.com/docs)
 **OpenAPI:** [/openapi.json](https://1c09pdnrx1.execute-api.us-east-1.amazonaws.com/openapi.json)
@@ -253,7 +255,7 @@ aws sns subscribe \
 
 ## Trust portal
 
-For institutional review: [docs/trust/](docs/trust/) carries the full security posture — threat model, pre-filled SIG-Lite security questionnaire, code-level self-audit guide, regulated deployment guide, on-chain verifiability primer, and observability/status setup. Start with [docs/trust/README.md](docs/trust/README.md).
+For institutional review: **https://anchor-x402.com/trust/** carries the full security posture — threat model, pre-filled SIG-Lite security questionnaire, code-level self-audit guide, regulated deployment guide, on-chain verifiability primer, and observability/status setup. Source files live at [docs/trust/](docs/trust/).
 
 ## Listings
 
