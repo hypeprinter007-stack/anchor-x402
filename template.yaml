@@ -1,0 +1,60 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: anchor-x402 — dual-chain mainnet anchoring as an x402-paid service
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Architectures: [x86_64]
+    Timeout: 60
+    MemorySize: 1024
+
+Parameters:
+  TreasuryAddress:
+    Type: String
+    Description: Base treasury address (receives x402 inbound, pays anchor gas)
+  TreasuryPrivateKey:
+    Type: String
+    NoEcho: true
+  SolanaTreasuryAddress:
+    Type: String
+    Default: ""
+    Description: Solana treasury pubkey (required for pay-skills listing)
+  SolanaTreasuryKey:
+    Type: String
+    NoEcho: true
+    Default: ""
+  CdpApiKeyId:
+    Type: String
+    Description: CDP API key id (non-sensitive)
+  CdpApiKeySecret:
+    Type: String
+    NoEcho: true
+
+Resources:
+  AnchorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: app.handler
+      Environment:
+        Variables:
+          TREASURY_ADDRESS: !Ref TreasuryAddress
+          TREASURY_PRIVATE_KEY: !Ref TreasuryPrivateKey
+          SOLANA_TREASURY_ADDRESS: !Ref SolanaTreasuryAddress
+          SOLANA_TREASURY_KEY: !Ref SolanaTreasuryKey
+          CDP_API_KEY_ID: !Ref CdpApiKeyId
+          CDP_API_KEY_SECRET: !Ref CdpApiKeySecret
+          BASE_RPC_URL: https://mainnet.base.org
+          SOLANA_RPC_URL: https://api.mainnet-beta.solana.com
+      Events:
+        ApiEvent:
+          Type: HttpApi
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+
+Outputs:
+  ApiUrl:
+    Value: !Sub 'https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com'
+    Description: anchor-x402 public URL
