@@ -10,6 +10,8 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 
+from services import secrets
+
 log = logging.getLogger("anchor")
 
 BASE_RPC_URL = os.getenv("BASE_RPC_URL", "https://mainnet.base.org")
@@ -18,11 +20,11 @@ _MEMO_PROGRAM_ID = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
 
 
 def _treasury_evm_key() -> str:
-    return os.getenv("TREASURY_PRIVATE_KEY", "")
+    return secrets.get("treasury_evm_key", env_fallback="TREASURY_PRIVATE_KEY")
 
 
 def _treasury_solana_key() -> str:
-    return os.getenv("SOLANA_TREASURY_KEY", "")
+    return secrets.get("treasury_solana_key", env_fallback="SOLANA_TREASURY_KEY")
 
 
 def anchor_to_base(merkle_root: str) -> str:

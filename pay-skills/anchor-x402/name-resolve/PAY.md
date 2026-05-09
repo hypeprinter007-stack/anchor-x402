@@ -1,7 +1,7 @@
 ---
 name: name-resolve
 title: "anchor-x402: name resolver"
-description: "Cross-chain name service resolver. Pass any `.eth` (ENS) or `.sol` (Bonfida / Solana Name Service) name and get back the on-chain address, the chain, and a TTL hint — for $0.0005 USDC per call. Other TLDs return a graceful unsupported notice."
+description: "Cross-chain name service resolver. Pass any `.eth` (ENS) or `.sol` (Bonfida / Solana Name Service) name and get back the on-chain address, the chain, and a TTL hint — for $0.001 USDC per call. Other TLDs return a graceful unsupported notice."
 use_case: "Use for agent payment routing, vendor onboarding, cross-chain address book lookups, AML pre-flight name normalization, wallet-display UX, contact-resolution before transfers, or any flow that hands a human-typed `.eth`/`.sol` name to a paying agent."
 category: identity
 service_url: https://1c09pdnrx1.execute-api.us-east-1.amazonaws.com
@@ -9,7 +9,7 @@ openapi:
   url: https://1c09pdnrx1.execute-api.us-east-1.amazonaws.com/openapi.json
 ---
 
-`GET /v1/resolve/name?name=<value>` — pay $0.0005 USDC, get back a
+`GET /v1/resolve/name?name=<value>` — pay $0.001 USDC, get back a
 canonical address for any supported name. The response carries:
 
 - `name` — the input (echoed verbatim)

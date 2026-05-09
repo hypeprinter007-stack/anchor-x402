@@ -16,6 +16,7 @@ Parameters:
   TreasuryPrivateKey:
     Type: String
     NoEcho: true
+    Description: Base treasury private key. Consumed at deploy-time only to seed the runtime secret; never lands in Lambda env.
   SolanaTreasuryAddress:
     Type: String
     Default: ""
@@ -24,12 +25,21 @@ Parameters:
     Type: String
     NoEcho: true
     Default: ""
+    Description: Solana treasury keypair (base58). Consumed at deploy-time only to seed the runtime secret.
   CdpApiKeyId:
     Type: String
     Description: CDP API key id (non-sensitive)
   CdpApiKeySecret:
     Type: String
     NoEcho: true
+    Description: CDP API key secret. Consumed at deploy-time only to seed the runtime secret.
+  AlarmEmail:
+    Type: String
+    Default: ""
+    Description: Optional email address subscribed to AlarmTopic. Leave empty to skip auto-subscription.
+
+Conditions:
+  HasAlarmEmail: !Not [!Equals [!Ref AlarmEmail, ""]]
 
 Resources:
   AnchorFunction:
@@ -40,19 +50,154 @@ Resources:
       Environment:
         Variables:
           TREASURY_ADDRESS: !Ref TreasuryAddress
-          TREASURY_PRIVATE_KEY: !Ref TreasuryPrivateKey
           SOLANA_TREASURY_ADDRESS: !Ref SolanaTreasuryAddress
-          SOLANA_TREASURY_KEY: !Ref SolanaTreasuryKey
           CDP_API_KEY_ID: !Ref CdpApiKeyId
-          CDP_API_KEY_SECRET: !Ref CdpApiKeySecret
           BASE_RPC_URL: https://mainnet.base.org
           SOLANA_RPC_URL: https://api.mainnet-beta.solana.com
+          # Sensitive runtime values (treasury keys, CDP secret) are NOT
+          # in env vars — they live in Secrets Manager and are fetched
+          # at cold-start via services/secrets.py. The Lambda env only
+          # carries the resolvable ARN.
+          ANCHOR_SECRET_ARN: !Ref AnchorRuntimeSecret
       Events:
         ApiEvent:
           Type: HttpApi
           Properties:
             Path: /{proxy+}
             Method: ANY
+      Policies:
+        # Secrets Manager: only the runtime composite secret. CloudTrail
+        # logs every GetSecretValue, KMS-encrypted at rest, scoped by ARN.
+        - Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: !Ref AnchorRuntimeSecret
+
+  # Composite runtime secret. Seeded from CloudFormation parameters on
+  # first deploy; rotate independently afterward via:
+  #   aws secretsmanager update-secret --secret-id <arn> \
+  #     --secret-string '{...}'
+  # Lambda code reads this at cold-start (services/secrets.py) and
+  # caches in process memory.
+  AnchorRuntimeSecret:
+    Type: AWS::SecretsManager::Secret
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Name: anchor-x402/runtime
+      Description: anchor-x402 runtime secrets — treasury wallet keys, CDP secret
+      SecretString: !Sub |
+        {
+          "treasury_evm_key": "${TreasuryPrivateKey}",
+          "treasury_solana_key": "${SolanaTreasuryKey}",
+          "cdp_api_key_secret": "${CdpApiKeySecret}"
+        }
+
+  AlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: anchor-x402 alarms
+
+  AlarmTopicEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasAlarmEmail
+    Properties:
+      TopicArn: !Ref AlarmTopic
+      Protocol: email
+      Endpoint: !Ref AlarmEmail
+
+  LambdaErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-LambdaErrorsElevated'
+      AlarmDescription: AnchorFunction Lambda Errors > 5 over 5 minutes
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref AnchorFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+      OKActions:
+        - !Ref AlarmTopic
+
+  LambdaDurationP95Alarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-LambdaDurationP95High'
+      AlarmDescription: AnchorFunction Duration P95 > 25s over 5 minutes (timeout is 30s for anchor + RPC)
+      Namespace: AWS/Lambda
+      MetricName: Duration
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref AnchorFunction
+      ExtendedStatistic: p95
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 25000
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+      OKActions:
+        - !Ref AlarmTopic
+
+  ApiGateway5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-ApiGateway5xxElevated'
+      AlarmDescription: ServerlessHttpApi 5xx > 3 over 5 minutes
+      Namespace: AWS/ApiGateway
+      MetricName: 5xx
+      Dimensions:
+        - Name: ApiId
+          Value: !Ref ServerlessHttpApi
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 3
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+      OKActions:
+        - !Ref AlarmTopic
+
+  SolanaAnchorFailuresMetricFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AnchorFunction}'
+      FilterPattern: '"solana anchor failed"'
+      MetricTransformations:
+        - MetricNamespace: anchor-x402
+          MetricName: SolanaAnchorFailures
+          MetricValue: '1'
+          DefaultValue: 0
+
+  SolanaAnchorFailuresAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-SolanaAnchorFailureRateHigh'
+      AlarmDescription: '"solana anchor failed" log occurrences > 5 per 5 minutes'
+      Namespace: anchor-x402
+      MetricName: SolanaAnchorFailures
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+      OKActions:
+        - !Ref AlarmTopic
 
 Outputs:
   ApiUrl:

@@ -1,7 +1,7 @@
 ---
 name: datetime-parse
 title: "anchor-x402: datetime parser"
-description: "Parse freeform datetime strings ('next Tuesday at 3pm', 'yesterday noon UTC', '2026-05-08T15:30Z', 'in 2 hours', 'march 15 2026') into a fully normalized structured form: ISO 8601, unix epoch, broken-out components, signed relative-seconds delta, human-readable relative phrase, and a confidence label — all for $0.0001 USDC per call."
+description: "Parse freeform datetime strings ('next Tuesday at 3pm', 'yesterday noon UTC', '2026-05-08T15:30Z', 'in 2 hours', 'march 15 2026') into a fully normalized structured form: ISO 8601, unix epoch, broken-out components, signed relative-seconds delta, human-readable relative phrase, and a confidence label — all for $0.001 USDC per call."
 use_case: "Use whenever an AI agent receives a user-supplied datetime in any natural form and needs reliable structured output for scheduling, reminders, contract effective dates, deadline math, calendar events, or any tool-call argument that demands ISO 8601 — without burning LLM tokens on parsing."
 category: devtools
 service_url: https://1c09pdnrx1.execute-api.us-east-1.amazonaws.com
@@ -9,7 +9,7 @@ openapi:
   url: https://1c09pdnrx1.execute-api.us-east-1.amazonaws.com/openapi.json
 ---
 
-`POST /v1/parse/datetime` — pay $0.0001 USDC, send `{ "input": "next
+`POST /v1/parse/datetime` — pay $0.001 USDC, send `{ "input": "next
 Tuesday at 3pm" }` (optionally `base_time` ISO 8601 and `timezone` IANA
 name), get back a fully structured normalized datetime: `iso`, `unix`,
 resolved `timezone`, `components` (year/month/day/hour/minute/second
@@ -26,7 +26,7 @@ clear error — never a silently-wrong timestamp.
 
 ## Spend-aware usage
 
-- Use this BEFORE asking your model to reason about a date — at $0.0001
+- Use this BEFORE asking your model to reason about a date — at $0.001
   per call you replace many thousands of tokens of LLM date-arithmetic
   with a deterministic, reproducible structured answer.
 - `relative_seconds` is signed; you can branch on `< 0` to detect past

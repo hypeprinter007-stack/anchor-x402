@@ -1,7 +1,7 @@
 ---
 name: tx-decode
 title: "anchor-x402: tx decoder"
-description: "Structured decode of any mainnet tx by hash. Supply {chain, tx_hash} for base | ethereum | solana, get back from/to, value, gas, status, calldata (EVM) or slot, fee, signers, program_calls (Solana). Mined txs cached in-process. $0.0005 USDC per call."
+description: "Structured decode of any mainnet tx by hash. Supply {chain, tx_hash} for base | ethereum | solana, get back from/to, value, gas, status, calldata (EVM) or slot, fee, signers, program_calls (Solana). Mined txs cached in-process. $0.001 USDC per call."
 use_case: "Use when an agent needs to verify or summarize a payment, audit a contract interaction, build a tx feed, attach a transaction summary to a receipt, or normalize cross-chain tx data without running its own RPC infra."
 category: devtools
 service_url: https://1c09pdnrx1.execute-api.us-east-1.amazonaws.com
@@ -9,7 +9,7 @@ openapi:
   url: https://1c09pdnrx1.execute-api.us-east-1.amazonaws.com/openapi.json
 ---
 
-`POST /v1/decode/tx` — pay $0.0005 USDC, get a normalized decode of any
+`POST /v1/decode/tx` — pay $0.001 USDC, get a normalized decode of any
 mainnet transaction. Submit `{ "chain": "base" | "ethereum" | "solana",
 "tx_hash": "..." }`.
 

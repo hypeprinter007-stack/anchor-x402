@@ -44,6 +44,7 @@ from models import (
     ChainAnchor,
     DatetimeParseRequest,
     DatetimeParseResponse,
+    IntelWalletResponse,
     NameResolveResponse,
     ScreenResponse,
     TokenPriceResponse,
@@ -54,6 +55,7 @@ from services import anchor as anchor_svc
 from services import attest as attest_svc
 from services import calldata_decode as calldata_decode_svc
 from services import datetime_parse as datetime_parse_svc
+from services import intel_wallet as intel_wallet_svc
 from services import name_resolve as name_resolve_svc
 from services import screen as screen_svc
 from services import token_price as token_price_svc
@@ -252,6 +254,25 @@ _calldata_decode_bazaar_ext = declare_discovery_extension(
     }),
 )
 
+_intel_wallet_bazaar_ext = declare_discovery_extension(
+    input={"wallet": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"},
+    input_schema={
+        "properties": {"wallet": {"type": "string", "description": "EVM 0x… (40 hex) or Solana base58 pubkey."}},
+        "required": ["wallet"],
+    },
+    output=OutputConfig(example={
+        "wallet": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+        "chain_inferred": "ethereum",
+        "balances": {"base_eth": "0.0123", "eth_eth": "4.21", "base_usdc": "1503.27", "sol": None, "solana_usdc": None},
+        "activity": {"base_tx_count": 42, "has_history": True},
+        "identity": {"ens_name": "vitalik.eth", "sns_name": None},
+        "sanctions": {"wallet": "0xd8da…", "chain_inferred": "ethereum", "sanctions_match": False, "sanctioned_lists": [], "risk_level": "low", "notes": "…", "checked_at": 1746820000},
+        "errors": [],
+        "fetched_at": 1746820000,
+        "cache_age_seconds": 0,
+    }),
+)
+
 _datetime_parse_bazaar_ext = declare_discovery_extension(
     input={"input": "next Tuesday at 3pm", "timezone": "America/New_York"},
     input_schema={
@@ -292,13 +313,13 @@ x402_routes = {
         extensions={**_attest_bazaar_ext},
     ),
     "POST /v1/decode/tx": RouteConfig(
-        accepts=_accepts_at("$0.0005"),
-        description="Structured decode of any mainnet tx (base | ethereum | solana) — $0.0005 USDC",
+        accepts=_accepts_at("$0.001"),
+        description="Structured decode of any mainnet tx (base | ethereum | solana) — $0.001 USDC",
         extensions={**_tx_decode_bazaar_ext},
     ),
     "GET /v1/resolve/name": RouteConfig(
-        accepts=_accepts_at("$0.0005"),
-        description="Cross-chain name resolver (ENS, Bonfida SNS) — $0.0005 USDC",
+        accepts=_accepts_at("$0.001"),
+        description="Cross-chain name resolver (ENS, Bonfida SNS) — $0.001 USDC",
         extensions={**_name_resolve_bazaar_ext},
     ),
     "GET /v1/price/token": RouteConfig(
@@ -312,9 +333,14 @@ x402_routes = {
         extensions={**_calldata_decode_bazaar_ext},
     ),
     "POST /v1/parse/datetime": RouteConfig(
-        accepts=_accepts_at("$0.0001"),
-        description="Parse any freeform datetime string into a structured normalized form — $0.0001 USDC",
+        accepts=_accepts_at("$0.001"),
+        description="Parse any freeform datetime string into a structured normalized form — $0.001 USDC",
         extensions={**_datetime_parse_bazaar_ext},
+    ),
+    "GET /v1/intel/wallet": RouteConfig(
+        accepts=_accepts_at("$0.005"),
+        description="Unified wallet intelligence bundle (balances + activity + identity + sanctions) — $0.005 USDC",
+        extensions={**_intel_wallet_bazaar_ext},
     ),
 }
 
@@ -466,6 +492,11 @@ def parse_datetime(req: DatetimeParseRequest) -> DatetimeParseResponse:
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return DatetimeParseResponse(**result)
+
+
+@app.get("/v1/intel/wallet", response_model=IntelWalletResponse)
+def intel_wallet(wallet: str) -> IntelWalletResponse:
+    return IntelWalletResponse(**intel_wallet_svc.fetch(wallet))
 
 
 handler = Mangum(app)

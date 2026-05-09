@@ -227,3 +227,41 @@ class DatetimeParseResponse(BaseModel):
     relative_human: str
     confidence: Literal["high", "medium", "low"]
     parsed_input: str
+
+
+# --- /v1/intel/wallet ---
+
+
+class IntelWalletBalances(BaseModel):
+    base_eth: str | None = None
+    eth_eth: str | None = None
+    base_usdc: str | None = None
+    sol: str | None = None
+    solana_usdc: str | None = None
+
+
+class IntelWalletActivity(BaseModel):
+    base_tx_count: int | None = None
+    has_history: bool | None = None
+
+
+class IntelWalletIdentity(BaseModel):
+    ens_name: str | None = None
+    sns_name: str | None = None
+
+
+class IntelWalletError(BaseModel):
+    source: str
+    message: str
+
+
+class IntelWalletResponse(BaseModel):
+    wallet: str
+    chain_inferred: str
+    balances: IntelWalletBalances
+    activity: IntelWalletActivity
+    identity: IntelWalletIdentity
+    sanctions: ScreenResponse | None = None
+    errors: list[IntelWalletError] = Field(default_factory=list)
+    fetched_at: int
+    cache_age_seconds: int

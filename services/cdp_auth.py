@@ -13,12 +13,14 @@ import time
 from secrets import token_hex
 from urllib.parse import urlparse
 
+from services import secrets as _secrets
+
 CDP_API_KEY_ID = os.getenv("CDP_API_KEY_ID", "")
 FACILITATOR_URL = "https://api.cdp.coinbase.com/platform/v2/x402"
 
 
 def _cdp_api_key_secret() -> str:
-    return os.getenv("CDP_API_KEY_SECRET", "")
+    return _secrets.get("cdp_api_key_secret", env_fallback="CDP_API_KEY_SECRET")
 
 
 def _b64url(data: bytes) -> str:
