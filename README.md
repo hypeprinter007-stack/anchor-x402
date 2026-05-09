@@ -6,6 +6,7 @@
 **Trust portal:** https://anchor-x402.com/trust/
 **Live API:** `https://api.anchor-x402.com`
 **Status:** https://anchor-x402.betteruptime.com
+**MCP server:** [`anchor-x402-mcp`](https://www.npmjs.com/package/anchor-x402-mcp) on npm — `npx anchor-x402-mcp` plugs all 9 services into Claude Desktop / Cursor / Continue as tools
 **Swagger UI:** [/docs](https://api.anchor-x402.com/docs)
 **OpenAPI:** [/openapi.json](https://api.anchor-x402.com/openapi.json)
 

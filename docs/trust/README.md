@@ -49,6 +49,7 @@ These are concrete deficiencies relative to what a Fortune 500 vendor would offe
 - **Source code:** https://github.com/hypeprinter007-stack/anchor-x402
 - **Live API:** https://api.anchor-x402.com
 - **Status page:** https://anchor-x402.betteruptime.com
+- **MCP server (npm):** https://www.npmjs.com/package/anchor-x402-mcp ([source](https://github.com/hypeprinter007-stack/anchor-x402-mcp))
 - **Security disclosure / questions:** security@anchor-x402.com
 - **General inquiries:** hello@anchor-x402.com
 

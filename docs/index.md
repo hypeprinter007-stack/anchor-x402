@@ -35,7 +35,8 @@ The full security posture lives at [/trust/](trust/) — threat model, pre-fille
 
 ## For agents and developers
 
-- **Source:** [github.com/hypeprinter007-stack/anchor-x402](https://github.com/hypeprinter007-stack/anchor-x402)
+- **MCP server:** [`anchor-x402-mcp`](https://www.npmjs.com/package/anchor-x402-mcp) on npm — drop one config block into Claude Desktop, Cursor, or any MCP client and the 9 services become callable tools that auto-pay from your Base wallet. Install: `npx anchor-x402-mcp`. Source: [github.com/hypeprinter007-stack/anchor-x402-mcp](https://github.com/hypeprinter007-stack/anchor-x402-mcp).
+- **Server source:** [github.com/hypeprinter007-stack/anchor-x402](https://github.com/hypeprinter007-stack/anchor-x402)
 - **License:** MIT — fork it, audit it, deploy your own
 - **x402 client SDK:** [github.com/coinbase/x402](https://github.com/coinbase/x402)
 - **Quickstart:** see the [repo README](https://github.com/hypeprinter007-stack/anchor-x402#quickstart-agent--consumer)
