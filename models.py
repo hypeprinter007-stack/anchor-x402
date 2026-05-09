@@ -109,3 +109,121 @@ class AttestResponse(BaseModel):
     solana: ChainAnchor | None = None
     decision: str
     signed_at: int
+
+
+# --- /v1/decode/tx ---
+
+
+class TxDecodeRequest(BaseModel):
+    chain: Literal["base", "ethereum", "solana"]
+    tx_hash: str = Field(min_length=1, max_length=128)
+
+
+class TxDecodeResponse(BaseModel):
+    chain: str
+    tx_hash: str
+    block_number: int | None = None
+    timestamp: int | None = None
+    from_address: str | None = None
+    to_address: str | None = None
+    value_wei: str | None = None
+    value_eth: str | None = None
+    gas_used: int | None = None
+    status: int | str | None = None
+    input_calldata_hex: str | None = None
+    native_currency: str | None = None
+    slot: int | None = None
+    block_time: int | None = None
+    fee_lamports: int | None = None
+    signers: list[str] | None = None
+    program_calls: list[dict] | None = None
+
+
+# --- /v1/resolve/name ---
+
+
+class NameAddress(BaseModel):
+    chain: str = Field(description='"ethereum" | "solana"')
+    address: str
+    ttl_hint_seconds: int
+
+
+class NameResolveResponse(BaseModel):
+    name: str
+    addresses: list[NameAddress] = Field(default_factory=list)
+    resolved_at: int
+    registry_used: str | None = Field(default=None, description='"ENS" | "SNS" | null')
+    supported_tlds: list[str]
+    notes: str | None = None
+
+
+# --- /v1/price/token ---
+
+
+class TokenPriceResponse(BaseModel):
+    symbol: str | None = None
+    name: str | None = None
+    contract: str | None = None
+    chain: str | None = None
+    usd: float
+    usd_24h_change_pct: float | None = None
+    market_cap_usd: float | None = None
+    source: str = "coingecko"
+    fetched_at: int
+    age_seconds: int
+
+
+# --- /v1/decode/calldata ---
+
+
+class CalldataDecodeRequest(BaseModel):
+    chain: Literal["ethereum", "solana"] = Field(description='"ethereum" supported; "solana" returns 400.')
+    calldata_hex: str = Field(min_length=8, description="Raw EVM calldata (>=4-byte selector), with or without 0x prefix.")
+    contract_address: str | None = Field(default=None, description="Optional. Reserved for future on-chain ABI lookups; currently unused.")
+
+
+class DecodedParam(BaseModel):
+    name: str | None = None
+    type: str
+    value: Any
+
+
+class CalldataDecodeResponse(BaseModel):
+    function_selector: str
+    function_name: str | None = None
+    function_signature: str | None = None
+    params: list[DecodedParam] = Field(default_factory=list)
+    decoded: bool
+    candidates: list[str] = Field(default_factory=list, description="Other matching sigs when the 4byte selector is ambiguous.")
+    source: str = "openchain.xyz"
+
+
+# --- /v1/parse/datetime ---
+
+
+class DatetimeParseRequest(BaseModel):
+    input: str = Field(min_length=1, max_length=500, description="Freeform datetime string in any format.")
+    base_time: str | None = Field(default=None, description="ISO 8601 reference; defaults to now UTC.")
+    timezone: str = Field(default="UTC", description="IANA tz name (e.g. 'America/New_York').")
+
+
+class DatetimeComponents(BaseModel):
+    year: int
+    month: int
+    day: int
+    hour: int
+    minute: int
+    second: int
+    weekday: int = Field(ge=0, le=6)
+    day_name: str
+
+
+class DatetimeParseResponse(BaseModel):
+    iso: str
+    unix: int
+    timezone: str
+    components: DatetimeComponents
+    relative_seconds: int
+    relative_human: str
+    confidence: Literal["high", "medium", "low"]
+    parsed_input: str

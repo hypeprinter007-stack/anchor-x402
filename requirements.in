@@ -10,3 +10,6 @@ web3
 solders
 base58
 requests
+eth-abi
+dateparser
+python-dateutil

@@ -39,12 +39,25 @@ from models import (
     AnchorResponse,
     AttestRequest,
     AttestResponse,
+    CalldataDecodeRequest,
+    CalldataDecodeResponse,
     ChainAnchor,
+    DatetimeParseRequest,
+    DatetimeParseResponse,
+    NameResolveResponse,
     ScreenResponse,
+    TokenPriceResponse,
+    TxDecodeRequest,
+    TxDecodeResponse,
 )
 from services import anchor as anchor_svc
 from services import attest as attest_svc
+from services import calldata_decode as calldata_decode_svc
+from services import datetime_parse as datetime_parse_svc
+from services import name_resolve as name_resolve_svc
 from services import screen as screen_svc
+from services import token_price as token_price_svc
+from services import tx_decode as tx_decode_svc
 from services.cdp_auth import build_cdp_auth_provider
 
 TREASURY = os.getenv("TREASURY_ADDRESS", "")
@@ -159,6 +172,109 @@ _attest_bazaar_ext = declare_discovery_extension(
     }),
 )
 
+_tx_decode_bazaar_ext = declare_discovery_extension(
+    input={"chain": "base", "tx_hash": "0x7fb4d107d8c1b65b33851434c6fd178b682a143904a2bfa89ff2c1fa70974e96"},
+    input_schema={
+        "properties": {
+            "chain": {"type": "string", "enum": ["base", "ethereum", "solana"]},
+            "tx_hash": {"type": "string", "description": "EVM 0x+64hex or Solana base58 signature."},
+        },
+        "required": ["chain", "tx_hash"],
+    },
+    body_type="json",
+    output=OutputConfig(example={
+        "chain": "base", "tx_hash": "0x7fb4...", "block_number": 24000000,
+        "timestamp": 1746820000, "from_address": "0xFE70...", "to_address": "0xFE70...",
+        "value_wei": "0", "value_eth": "0", "gas_used": 21064, "status": 1,
+        "input_calldata_hex": "0xab08...", "native_currency": "ETH",
+    }),
+)
+
+_name_resolve_bazaar_ext = declare_discovery_extension(
+    input={"name": "vitalik.eth"},
+    input_schema={
+        "properties": {
+            "name": {"type": "string", "description": "Human-readable name (e.g. vitalik.eth, bonfida.sol)."},
+        },
+        "required": ["name"],
+    },
+    output=OutputConfig(example={
+        "name": "vitalik.eth",
+        "addresses": [{"chain": "ethereum", "address": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045", "ttl_hint_seconds": 3600}],
+        "resolved_at": 1746820000,
+        "registry_used": "ENS",
+        "supported_tlds": [".eth", ".sol"],
+        "notes": None,
+    }),
+)
+
+_token_price_bazaar_ext = declare_discovery_extension(
+    input={"symbol": "ETH"},
+    input_schema={
+        "properties": {
+            "symbol": {"type": "string", "description": "Token symbol (BTC, ETH, SOL, USDC, …). Mutually exclusive with chain+contract."},
+            "chain": {"type": "string", "description": "Chain slug: base, ethereum, solana, polygon, arbitrum, optimism, bsc, avalanche."},
+            "contract": {"type": "string", "description": "Token contract address. Required with chain."},
+        },
+    },
+    output=OutputConfig(example={
+        "symbol": "ETH", "name": "Ethereum", "contract": None, "chain": None,
+        "usd": 3120.55, "usd_24h_change_pct": 1.23, "market_cap_usd": 375000000000.0,
+        "source": "coingecko", "fetched_at": 1746820000, "age_seconds": 0,
+    }),
+)
+
+_calldata_decode_bazaar_ext = declare_discovery_extension(
+    input={
+        "chain": "ethereum",
+        "calldata_hex": "0xa9059cbb000000000000000000000000ab5801a7d398351b8be11c439e05c5b3259aec9b0000000000000000000000000000000000000000000000000de0b6b3a7640000",
+    },
+    input_schema={
+        "properties": {
+            "chain": {"type": "string", "enum": ["ethereum", "solana"], "description": 'EVM-only; "solana" returns 400.'},
+            "calldata_hex": {"type": "string", "description": "Raw EVM calldata (>=4 byte selector), with or without 0x prefix."},
+            "contract_address": {"type": "string", "description": "Optional. Reserved for future on-chain ABI lookups."},
+        },
+        "required": ["chain", "calldata_hex"],
+    },
+    body_type="json",
+    output=OutputConfig(example={
+        "function_selector": "0xa9059cbb",
+        "function_name": "transfer",
+        "function_signature": "transfer(address,uint256)",
+        "params": [
+            {"name": None, "type": "address", "value": "0xab5801a7d398351b8be11c439e05c5b3259aec9b"},
+            {"name": None, "type": "uint256", "value": "1000000000000000000"},
+        ],
+        "decoded": True,
+        "candidates": [],
+        "source": "openchain.xyz",
+    }),
+)
+
+_datetime_parse_bazaar_ext = declare_discovery_extension(
+    input={"input": "next Tuesday at 3pm", "timezone": "America/New_York"},
+    input_schema={
+        "properties": {
+            "input": {"type": "string", "description": "Freeform datetime string."},
+            "base_time": {"type": "string", "description": "Optional ISO 8601 reference; defaults to now UTC."},
+            "timezone": {"type": "string", "description": "Optional IANA tz name; defaults to UTC."},
+        },
+        "required": ["input"],
+    },
+    body_type="json",
+    output=OutputConfig(example={
+        "iso": "2026-05-13T15:00:00-04:00",
+        "unix": 1778000400,
+        "timezone": "America/New_York",
+        "components": {"year": 2026, "month": 5, "day": 13, "hour": 15, "minute": 0, "second": 0, "weekday": 2, "day_name": "Wednesday"},
+        "relative_seconds": 432000,
+        "relative_human": "in 5 days",
+        "confidence": "medium",
+        "parsed_input": "next Tuesday at 3pm",
+    }),
+)
+
 x402_routes = {
     "POST /v1/anchor": RouteConfig(
         accepts=_accepts_at("$0.005"),
@@ -174,6 +290,31 @@ x402_routes = {
         accepts=_accepts_at("$0.01"),
         description="Verify a signature over (input_hash, output_hash, decision) and dual-chain anchor the result — $0.01 USDC",
         extensions={**_attest_bazaar_ext},
+    ),
+    "POST /v1/decode/tx": RouteConfig(
+        accepts=_accepts_at("$0.0005"),
+        description="Structured decode of any mainnet tx (base | ethereum | solana) — $0.0005 USDC",
+        extensions={**_tx_decode_bazaar_ext},
+    ),
+    "GET /v1/resolve/name": RouteConfig(
+        accepts=_accepts_at("$0.0005"),
+        description="Cross-chain name resolver (ENS, Bonfida SNS) — $0.0005 USDC",
+        extensions={**_name_resolve_bazaar_ext},
+    ),
+    "GET /v1/price/token": RouteConfig(
+        accepts=_accepts_at("$0.001"),
+        description="USD price for any major token by symbol or chain+contract — $0.001 USDC",
+        extensions={**_token_price_bazaar_ext},
+    ),
+    "POST /v1/decode/calldata": RouteConfig(
+        accepts=_accepts_at("$0.001"),
+        description="Decode raw EVM calldata into function + typed params via openchain.xyz — $0.001 USDC",
+        extensions={**_calldata_decode_bazaar_ext},
+    ),
+    "POST /v1/parse/datetime": RouteConfig(
+        accepts=_accepts_at("$0.0001"),
+        description="Parse any freeform datetime string into a structured normalized form — $0.0001 USDC",
+        extensions={**_datetime_parse_bazaar_ext},
     ),
 }
 
@@ -265,6 +406,66 @@ def attest(req: AttestRequest) -> AttestResponse:
         decision=req.decision,
         signed_at=started,
     )
+
+
+@app.post("/v1/decode/tx", response_model=TxDecodeResponse)
+def decode_tx(req: TxDecodeRequest) -> TxDecodeResponse:
+    try:
+        decoded = tx_decode_svc.decode(req.chain, req.tx_hash)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logging.getLogger("tx_decode").exception("decode failed")
+        raise HTTPException(status_code=502, detail=f"decode failed: {type(e).__name__}: {e}")
+    return TxDecodeResponse(**decoded)
+
+
+@app.get("/v1/resolve/name", response_model=NameResolveResponse)
+def resolve_name(name: str) -> NameResolveResponse:
+    return NameResolveResponse(**name_resolve_svc.resolve(name))
+
+
+@app.get("/v1/price/token", response_model=TokenPriceResponse)
+def token_price(symbol: str | None = None, chain: str | None = None, contract: str | None = None) -> TokenPriceResponse:
+    if symbol and (chain or contract):
+        raise HTTPException(400, "supply either `symbol` or (`chain` and `contract`), not both")
+    try:
+        if symbol:
+            data = token_price_svc.by_symbol(symbol)
+        elif chain and contract:
+            data = token_price_svc.by_contract(chain, contract)
+        else:
+            raise HTTPException(400, "supply `symbol` or (`chain` and `contract`)")
+    except token_price_svc.TokenPriceError as e:
+        status = {"not_found": 404, "bad_request": 400, "upstream_error": 503}.get(e.kind, 500)
+        detail: dict = {"error": e.message}
+        if e.supported:
+            detail["supported_symbols"] = e.supported
+        raise HTTPException(status, detail)
+    return TokenPriceResponse(**data)
+
+
+@app.post("/v1/decode/calldata", response_model=CalldataDecodeResponse)
+def decode_calldata(req: CalldataDecodeRequest) -> CalldataDecodeResponse:
+    if req.chain == "solana":
+        raise HTTPException(status_code=400, detail="calldata-decode is EVM-only; Solana instruction decoding is not supported")
+    try:
+        result = calldata_decode_svc.decode_calldata(req.calldata_hex)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logging.getLogger("calldata_decode").exception("decode failed")
+        raise HTTPException(status_code=502, detail=f"decode failed: {type(e).__name__}: {e}")
+    return CalldataDecodeResponse(**result)
+
+
+@app.post("/v1/parse/datetime", response_model=DatetimeParseResponse)
+def parse_datetime(req: DatetimeParseRequest) -> DatetimeParseResponse:
+    try:
+        result = datetime_parse_svc.parse_datetime(req.input, base_time=req.base_time, timezone_name=req.timezone)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return DatetimeParseResponse(**result)
 
 
 handler = Mangum(app)
