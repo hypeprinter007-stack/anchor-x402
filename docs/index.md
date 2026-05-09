@@ -13,6 +13,7 @@ title: anchor-x402
 - **Swagger UI:** [/docs](https://api.anchor-x402.com/docs)
 - **OpenAPI spec:** [/openapi.json](https://api.anchor-x402.com/openapi.json)
 - **Health:** [/health](https://api.anchor-x402.com/health)
+- **Status page:** [anchor-x402.betteruptime.com](https://anchor-x402.betteruptime.com)
 
 ## Services
 

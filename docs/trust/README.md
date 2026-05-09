@@ -38,7 +38,7 @@ We're transparent about the gaps:
 - **No SOC 2 / ISO 27001 / PCI / HIPAA certification.** Roadmap items, not blockers for the commodity tier. The architecture supports an institutional-tier service that would carry these.
 - **No insurance.** Cyber liability + tech E&O — we'll obtain when first contractually required by an institutional customer.
 - **No formal incident response runbook.** A disclosure email exists; written runbook is on the roadmap.
-- **No status page.** The service is observable via direct probes (`/health`) and via CloudWatch alarms (operator-internal). Public status page is on the roadmap.
+- **Status page:** [anchor-x402.betteruptime.com](https://anchor-x402.betteruptime.com) — public uptime page (BetterStack-hosted) probing `/health` every minute and the landing site every 5 minutes.
 - **No DPA template.** GDPR Article 28 controller-processor agreement; available on customer request, not yet pre-published.
 - **No third-party penetration test.** On the roadmap; the codebase is open-source so independent review is possible today.
 
@@ -48,6 +48,7 @@ These are concrete deficiencies relative to what a Fortune 500 vendor would offe
 
 - **Source code:** https://github.com/hypeprinter007-stack/anchor-x402
 - **Live API:** https://api.anchor-x402.com
+- **Status page:** https://anchor-x402.betteruptime.com
 - **Security disclosure / questions:** security@anchor-x402.com
 - **General inquiries:** hello@anchor-x402.com
 

@@ -1,6 +1,8 @@
 # Observability — public metrics + status page
 
-> Two transparency mechanisms: a CloudWatch dashboard you can share publicly + a status page your customers can subscribe to.
+> Two transparency mechanisms: a CloudWatch dashboard you can share publicly + a public status page customers can subscribe to.
+
+**Public status page (live):** [https://anchor-x402.betteruptime.com](https://anchor-x402.betteruptime.com) — BetterStack-hosted; probes `/health` every minute and the landing site every 5 minutes; supports email/SMS subscription for incident notifications.
 
 ## CloudWatch dashboard (created)
 

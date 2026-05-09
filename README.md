@@ -5,6 +5,7 @@
 **Site:** https://anchor-x402.com
 **Trust portal:** https://anchor-x402.com/trust/
 **Live API:** `https://api.anchor-x402.com`
+**Status:** https://anchor-x402.betteruptime.com
 **Swagger UI:** [/docs](https://api.anchor-x402.com/docs)
 **OpenAPI:** [/openapi.json](https://api.anchor-x402.com/openapi.json)
 
