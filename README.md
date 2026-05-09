@@ -1,139 +1,274 @@
 # anchor-x402
 
-> Dual-chain mainnet anchoring as an x402-paid service. Pay $0.005 USDC, get a 32-byte hash anchored on **both** Base and Solana mainnet, with on-chain proof URLs returned in the response.
+> Nine x402-paid commodity services for AI agents. One AWS Lambda, one OpenAPI spec, dual-listed for [CDP Bazaar](https://docs.cdp.coinbase.com/x402/bazaar) + [pay.sh](https://pay.sh). Pay per call in USDC on Base or Solana mainnet — no API keys, no accounts, no subscriptions.
 
-## What it does
+**Live API:** `https://1c09pdnrx1.execute-api.us-east-1.amazonaws.com`
+**Swagger UI:** [/docs](https://1c09pdnrx1.execute-api.us-east-1.amazonaws.com/docs)
+**OpenAPI:** [/openapi.json](https://1c09pdnrx1.execute-api.us-east-1.amazonaws.com/openapi.json)
 
-`POST /v1/anchor` — submit a 32-byte hex hash (or arbitrary JSON to be hashed). The server writes the hash to:
+## Services
 
-- **Base mainnet** as EIP-1559 calldata
-- **Solana mainnet** via the Memo program
+| Endpoint | Method | Price | Purpose |
+|---|---|---|---|
+| `/v1/anchor` | POST | $0.005 | Anchor a 32-byte hash to Base + Solana mainnet in parallel |
+| `/v1/screen` | GET | $0.001 | Sanctions + AML screening for any wallet address |
+| `/v1/attest` | POST | $0.010 | Verify a wallet signature, dual-chain anchor the result |
+| `/v1/decode/tx` | POST | $0.001 | Structured decode of any mainnet tx (Base / Ethereum / Solana) |
+| `/v1/resolve/name` | GET | $0.001 | Cross-chain name resolution (ENS, Bonfida SNS) |
+| `/v1/price/token` | GET | $0.001 | USD spot price by symbol or chain+contract |
+| `/v1/decode/calldata` | POST | $0.001 | 4byte selector + ABI param decode for EVM calldata |
+| `/v1/parse/datetime` | POST | $0.001 | Freeform datetime string → structured ISO 8601 |
+| `/v1/intel/wallet` | GET | $0.005 | Bundled wallet intelligence: balances + activity + identity + sanctions |
 
-…in parallel, and returns both tx hashes plus block-explorer URLs. Two independent L1s, one Merkle root, one paid call.
-
-Forging the anchor requires reorging two L1s.
+All endpoints accept payment on **Base** or **Solana** mainnet. All return v2 `PaymentRequired` with `extensions.bazaar` so they're auto-indexed by the CDP facilitator on settlement.
 
 ## Why
 
-There's no other primitive in the agentic API economy that gives an AI agent a cryptographic, public, multi-chain proof that *something specific happened at a specific time* — for half a cent.
+Two product theses live in this repo:
 
-Use cases:
-- DAO vote receipts
-- AI decision attestations
-- Contract notarization
-- Scientific data integrity
-- Custom audit trails for any agent workflow
+1. **Trust infrastructure** (`anchor`, `attest`, `screen`, `intel-wallet`) — agents pay for cryptographic, multi-chain, signed receipts that an AI's decision happened the way it claims. Nothing else in the agentic API economy provides this primitive.
 
-## Listings
-
-This service is dual-listed for x402-native discovery:
-
-- **CDP Bazaar** — auto-indexed via `extensions.bazaar` in the 402 response (see `app.py`).
-- **pay.sh** — submission lives at `pay-skills/PAY.md`; PR'd into `solana-foundation/pay-skills`.
-
-Same endpoint serves both. Same Solana USDC payment satisfies both.
-
-## Pricing
-
-| | |
-|---|---|
-| Per-call price | $0.005 USDC |
-| Settlement | Base mainnet **or** Solana mainnet |
-| Anchor cost (Base) | ~$0.0006 in ETH (paid by treasury) |
-| Anchor cost (Solana) | ~$0.0008 in SOL (paid by treasury) |
-
-Margin per call: ~$0.0036 before AWS Lambda + RPC overhead.
+2. **Commodity utilities** (`decode/tx`, `resolve/name`, `price/token`, `decode/calldata`, `parse/datetime`) — agents pay sub-cent prices to skip orchestration code, cache misses, and rate-limited free APIs. Each call replaces 2–10 lines of boilerplate.
 
 ## Quickstart (operator)
 
 ```bash
-# 1. Install
+# 1. Install deps in a venv
 make install
 
-# 2. Set env (treasury keys, CDP creds — see .env.example)
+# 2. Configure (treasury keys, CDP creds — see .env.example)
 cp .env.example .env
 $EDITOR .env
 
-# 3. Local dev (no real anchors)
+# 3. Local dev (no real anchors — just import smoke-test)
 make local
 
 # 4. Deploy to AWS
 make build && make deploy-guided
+
+# 5. End-to-end paid tests (costs ~$0.026 USDC total)
+.venv/bin/python scripts/test_e2e.py
+
+# 6. Test a single service
+.venv/bin/python scripts/test_e2e.py --only anchor
 ```
+
+## Quickstart (agent / consumer)
+
+If you're an AI agent (or building one) using the [x402 client SDK](https://github.com/coinbase/x402):
+
+```python
+from x402 import x402ClientSync
+from x402.mechanisms.evm.exact import ExactEvmClientScheme
+from x402.mechanisms.evm.signers import EthAccountSigner
+from x402.http.clients.requests import x402_requests
+from eth_account import Account
+
+cli = x402ClientSync()
+cli.register("eip155:8453", ExactEvmClientScheme(signer=EthAccountSigner(Account.from_key("0xYOUR_KEY"))))
+session = x402_requests(cli)
+
+# Anchor any hash for $0.005
+r = session.post("https://1c09pdnrx1.execute-api.us-east-1.amazonaws.com/v1/anchor",
+                 json={"hash": "ab0898397c86fbf97c99c6f8b29e55ab697315705777ee1d106e2dcb9bd686b3"})
+print(r.json())  # {merkle_root, base.tx, solana.tx, anchored_at}
+```
+
+The client handles x402 payment negotiation automatically — intercepts the 402, signs a USDC payment, retries.
 
 ## API
 
-### `POST /v1/anchor` — x402-gated, $0.005 USDC
+For each endpoint, the schema is auto-generated by FastAPI and served at [`/openapi.json`](https://1c09pdnrx1.execute-api.us-east-1.amazonaws.com/openapi.json). Try Swagger UI at [`/docs`](https://1c09pdnrx1.execute-api.us-east-1.amazonaws.com/docs).
 
-Body (one of `hash` or `data` required):
+### `POST /v1/anchor` — dual-chain anchor
+
+```json
+{ "hash": "<64-hex>", "note": "optional" }
+```
+or
+```json
+{ "data": { "any": "json" }, "note": "optional" }
+```
+
+Returns: `{merkle_root, base: {tx, explorer_url}, solana: {tx, explorer_url}, anchored_at, note}`.
+
+### `GET /v1/screen?wallet=<address>` — sanctions screening
+
+Returns: `{wallet, chain_inferred, sanctions_match, sanctioned_lists, risk_level, notes, checked_at}`.
+
+Active corpus: OFAC SDN crypto entries (Tornado Cash, Lazarus Group, Hydra Market, Garantex, Blender.io, etc.).
+
+### `POST /v1/attest` — signed decision attestation
 
 ```json
 {
-  "hash": "ab0898397c86fbf97c99c6f8b29e55ab697315705777ee1d106e2dcb9bd686b3",
-  "note": "optional 200-char note (off-chain)"
+  "input_hash": "<64-hex>",
+  "output_hash": "<64-hex>",
+  "decision": "APPROVED",
+  "scheme": "eip191" | "ed25519",
+  "signature": "<hex or base58>",
+  "signer_pubkey": "<solana pubkey, required for ed25519>"
 }
 ```
 
-Or:
+Verifies the signature over the domain-separated message:
+```
+anchor-x402/attest/v1
+input=<input_hash>
+output=<output_hash>
+decision=<decision>
+```
+
+Anchors the SHA-256 of that message on Base + Solana. Returns the verified signer + on-chain proof URLs.
+
+### `POST /v1/decode/tx`
 
 ```json
-{
-  "data": { "any": "json", "the": "server", "will": "hash" },
-  "note": "optional"
-}
+{ "chain": "base" | "ethereum" | "solana", "tx_hash": "..." }
 ```
 
-Response:
+Returns structured tx receipt (from, to, value, gas, status, calldata for EVM; slot, signers, program_calls for Solana).
+
+### `GET /v1/resolve/name?name=<name>` — name → addresses
+
+Supports `.eth` (ENS) and `.sol` (Bonfida SNS).
+
+### `GET /v1/price/token`
+
+`?symbol=ETH` or `?chain=base&contract=0x...`. Returns USD spot, 24h change, market cap. CoinGecko-backed, 60s in-process cache.
+
+### `POST /v1/decode/calldata`
 
 ```json
-{
-  "merkle_root": "ab0898397c86fbf97c99c6f8b29e55ab697315705777ee1d106e2dcb9bd686b3",
-  "base": {
-    "tx": "0x...",
-    "explorer_url": "https://basescan.org/tx/0x..."
-  },
-  "solana": {
-    "tx": "...",
-    "explorer_url": "https://solscan.io/tx/..."
-  },
-  "anchored_at": 1746820000,
-  "note": "..."
-}
+{ "chain": "ethereum", "calldata_hex": "0xa9059cbb..." }
 ```
+
+Decodes via openchain.xyz signature directory + eth_abi. Returns function name + typed params.
+
+### `POST /v1/parse/datetime`
+
+```json
+{ "input": "tomorrow at noon", "timezone": "America/New_York" }
+```
+
+Returns ISO 8601 + components + relative_seconds + confidence.
+
+### `GET /v1/intel/wallet?wallet=<address>` — bundle play
+
+ONE call, 8–10 parallel sources fetched, signed bundle returned: balances on Base + Ethereum + Solana, USDC across chains, tx counts, ENS/SNS reverse, sanctions verdict.
 
 ### `GET /health` — public, no payment
 
-Returns `{"status": "ok", "service": "anchor-x402"}`.
-
-### `GET /docs` — public Swagger UI
-
-Auto-generated from the FastAPI app. Browse the schema, try the unauth routes.
-
-### `GET /openapi.json` — public OpenAPI spec
-
-Used by both Bazaar and pay.sh discovery.
+`{"status": "ok", "service": "anchor-x402"}`.
 
 ## Architecture
 
 ```
-client agent ── x402 $0.005 USDC ──► anchor-x402 (AWS Lambda)
-                                          │
-                                          ├──► Base mainnet (calldata tx)
-                                          └──► Solana mainnet (Memo tx)
-                                          │
-                                          ▼
-                                    {merkle_root, base, solana, anchored_at}
+                          ┌───────────────────────────────────┐
+client agent              │  AWS Lambda (Python 3.12)         │
+   │                      │    ↓                              │
+   │ x402 USDC ─────────▶ │  FastAPI + x402 middleware        │
+   │ (Base or Solana)     │    ↓                              │
+   │                      │  9 routes, 1 OpenAPI spec         │
+   │                      │    ↓                              │
+   │                      │  services/*.py                    │
+   │                      │    │                              │
+   │                      │    ├──► Base RPC (anchor txs)     │
+   │                      │    ├──► Solana RPC (Memo txs)     │
+   │                      │    ├──► CoinGecko (price)         │
+   │                      │    ├──► openchain.xyz (calldata)  │
+   │                      │    └──► CDP facilitator (settle)  │
+   │                      └───────────────────────────────────┘
+   │                                │
+   ◄────────  signed JSON  ─────────┘
 ```
 
-Stateless. No DynamoDB, no S3, no auth (yet). Pure function of (hash, treasury keys) → tx URLs.
+Stateless. No DynamoDB, no S3. Treasury keys live in AWS Secrets Manager (`anchor-x402/runtime`); fetched at cold-start and cached in process memory.
+
+## Repo layout
+
+```
+anchor-x402/
+├── app.py                              # FastAPI + x402 + 9 routes
+├── models.py                           # Pydantic request/response schemas
+├── services/
+│   ├── anchor.py                       # dual-chain hash anchoring
+│   ├── attest.py                       # sig verification + anchor wrapper
+│   ├── calldata_decode.py              # 4byte + ABI decode
+│   ├── cdp_auth.py                     # CDP facilitator JWT auth
+│   ├── datetime_parse.py               # dateparser + dateutil
+│   ├── intel_wallet.py                 # parallel wallet intel bundle
+│   ├── name_resolve.py                 # ENS + Bonfida SNS
+│   ├── screen.py                       # OFAC SDN screening
+│   ├── secrets.py                      # AWS Secrets Manager helper
+│   ├── token_price.py                  # CoinGecko proxy + cache
+│   └── tx_decode.py                    # tx receipt decoder
+├── pay-skills/
+│   └── anchor-x402/                    # mirrors solana-foundation/pay-skills tree
+│       ├── dual-chain/PAY.md           # one PAY.md per service for the catalog PR
+│       ├── wallet-screen/PAY.md
+│       ├── decision-attest/PAY.md
+│       ├── tx-decode/PAY.md
+│       ├── name-resolve/PAY.md
+│       ├── token-price/PAY.md
+│       ├── calldata-decode/PAY.md
+│       ├── datetime-parse/PAY.md
+│       └── intel-wallet/PAY.md
+├── scripts/
+│   └── test_e2e.py                     # paid e2e for all 9 services
+├── template.yaml                       # SAM (Lambda + APIGW + Secrets Manager + CloudWatch)
+├── Makefile                            # install / lock / build / deploy / local
+├── requirements.in / .txt              # pinned dependency lockfile
+└── .env.example                        # treasury + CDP + RPC config
+```
+
+## Operations
+
+**Treasury keys.** Stored in AWS Secrets Manager (`anchor-x402/runtime` — `treasury_evm_key`, `treasury_solana_key`, `cdp_api_key_secret`). The Lambda IAM role can `GetSecretValue` on this ARN only. Rotate without a redeploy:
+
+```bash
+aws secretsmanager update-secret \
+  --secret-id anchor-x402/runtime \
+  --secret-string '{"treasury_evm_key":"...","treasury_solana_key":"...","cdp_api_key_secret":"..."}'
+# Force a fresh cold start to pick it up:
+aws lambda update-function-configuration \
+  --function-name $(aws lambda list-functions --query 'Functions[?starts_with(FunctionName,`anchor-x402`)].FunctionName' --output text) \
+  --description "rotate $(date +%s)"
+```
+
+**Monitoring.** CloudWatch alarms publish to the `AlarmTopic` SNS topic:
+- `LambdaErrorsElevated` — Errors > 5 / 5min
+- `LambdaDurationP95High` — Duration p95 > 25s / 5min
+- `ApiGateway5xxElevated` — 5xx > 3 / 5min
+- `SolanaAnchorFailureRateHigh` — log metric filter on `"solana anchor failed"` > 5 / 5min
+
+Subscribe an email or phone post-deploy:
+```bash
+aws sns subscribe \
+  --topic-arn $(aws cloudformation describe-stack-resource --stack-name anchor-x402 --logical-resource-id AlarmTopic --query 'StackResourceDetail.PhysicalResourceId' --output text) \
+  --protocol email --notification-endpoint you@example.com
+```
+
+**Treasury balance.** Anchor + attest + intel-wallet pay native gas (Base ETH + Solana SOL). Fund the treasury with ~0.001 ETH and ~0.05 SOL to cover several hundred anchors.
+
+## Listings
+
+| Catalog | Status | Discovery mechanism |
+|---|---|---|
+| **CDP Bazaar** | auto-indexed via `extensions.bazaar` in 402 response | discovery on settled payments through CDP facilitator |
+| **pay.sh** | PR open: [`solana-foundation/pay-skills` PR](https://github.com/solana-foundation/pay-skills/pulls?q=anchor-x402) | Per-service `PAY.md` in `providers/anchor-x402/<service>/` |
 
 ## Roadmap
 
-- `screen/wallet` — sanctions + AML screening for any wallet address ($0.001/call)
-- `attest/decision` — generic decision-receipt service with input/output hash + signer ($0.01/call)
-- KMS-backed treasury keys
-- Multi-sig treasury
+- **Master / hot-wallet split.** Receive USDC into a cold master wallet; pay anchor gas from a small hot wallet in Secrets Manager. If hot key leaks, only pennies of gas float at risk.
+- **Multi-sig treasury** (Safe on Base + Squads on Solana) for production-grade key custody.
+- **Auto top-up** from master to hot wallet when a CloudWatch low-balance alarm fires.
+- **More services** based on real agent demand: web search aggregator, PDF extraction, transactional email send.
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
+
+## Author
+
+Christopher Ferjo — solo build, post-[Counsel](https://github.com/hypeprinter007-stack/gavel) (EasyA Consensus 2026 hackathon project).
