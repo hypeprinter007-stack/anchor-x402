@@ -18,7 +18,7 @@
 |---|---|
 | Legal name | Christopher Ferjo (sole proprietor, dba `anchor-x402`) |
 | Country | United States |
-| Primary / disclosure contact | cferjo@gmail.com (dedicated `security@` mailbox on roadmap) |
+| Primary / disclosure contact | security@anchor-x402.com (general inquiries: hello@anchor-x402.com) |
 | Years in operation | < 1 (launched 2026 Q2) |
 | Employee / contractor count | 1 (solo; no employees, no subcontractors) |
 | Customer count | 0 paying customers under contract. Public mainnet usage is paid per-call in USDC via x402; no signed-contract customer book to disclose. |
@@ -257,7 +257,7 @@ We treat IR as a single-person playbook with crisp obligations rather than a mul
 
 | Step | Owner | SLA |
 |---|---|---|
-| Disclosure intake | cferjo@gmail.com (interim; `security@anchor-x402.dev` on roadmap) | Acknowledge within 1 business day |
+| Disclosure intake | security@anchor-x402.com | Acknowledge within 1 business day |
 | Triage + severity classification | Operator | Within 1 business day of acknowledgment |
 | Mitigation | Operator | Best-effort; high-severity mitigated or worked-around within 72 hours |
 | Customer notification (confirmed breach affecting customer data) | Operator | **Within 72 hours** of confirmation, written email-of-record to all then-active contracted customers |
@@ -268,7 +268,7 @@ We treat IR as a single-person playbook with crisp obligations rather than a mul
 
 **Q31. Cyber-liability insurance?** **No.** Known gap. Customers requiring insurer-backed indemnification should treat this as a hard gap.
 
-**Q32. Bug bounty?** Not formal. Will pay reasonable bounties (out-of-pocket) for valid reports of (a) auth bypass on the x402 payment check, (b) treasury-key extraction, (c) cross-tenant data leakage. Email cferjo@gmail.com.
+**Q32. Bug bounty?** Not formal. Will pay reasonable bounties (out-of-pocket) for valid reports of (a) auth bypass on the x402 payment check, (b) treasury-key extraction, (c) cross-tenant data leakage. Email security@anchor-x402.com.
 
 **Q33. Incident history?** GitHub Security advisories on the source repo. No separate page yet.
 
@@ -315,7 +315,8 @@ Mandatory section: tells the customer what they must do on their side so the joi
 ## Contact
 
 - **Operator:** Christopher Ferjo
-- **Email (general + security):** cferjo@gmail.com
+- **Email (general):** hello@anchor-x402.com
+- **Email (security disclosure):** security@anchor-x402.com
 - **Source:** https://github.com/hypeprinter007-stack/anchor-x402
 - **Live API:** https://1c09pdnrx1.execute-api.us-east-1.amazonaws.com
 - **License:** MIT

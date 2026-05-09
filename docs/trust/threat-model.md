@@ -375,7 +375,7 @@ The two products **share the same on-chain anchor primitive.** A Counsel custome
 
 If you discover a vulnerability:
 
-- **Email:** `cferjo@gmail.com` (subject: `[anchor-x402 security] <one-line summary>`).
+- **Email:** `security@anchor-x402.com` (subject: `[anchor-x402 security] <one-line summary>`).
 - **PGP:** key on request.
 - **Response SLA:** acknowledgement within 72 hours; status update within 7 days; coordinated disclosure on resolution.
 - **Scope:** the deployed Lambda, the services in this repository, and the published OpenAPI spec. Out of scope: third-party services we depend on (CoinGecko, openchain.xyz, public RPCs, the CDP facilitator, AWS infrastructure) — please report those upstream.

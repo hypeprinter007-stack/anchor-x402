@@ -48,8 +48,8 @@ These are concrete deficiencies relative to what a Fortune 500 vendor would offe
 
 - **Source code:** https://github.com/hypeprinter007-stack/anchor-x402
 - **Live API:** https://1c09pdnrx1.execute-api.us-east-1.amazonaws.com
-- **Security disclosure / questions:** cferjo@gmail.com
-- **General inquiries:** cferjo@gmail.com
+- **Security disclosure / questions:** security@anchor-x402.com
+- **General inquiries:** hello@anchor-x402.com
 
 We respond to security disclosures within 5 business days and aim to acknowledge institutional review requests within 2 business days.
 

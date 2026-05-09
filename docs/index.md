@@ -41,4 +41,4 @@ The full security posture lives at [/trust/](trust/) — threat model, pre-fille
 
 ## Contact
 
-Christopher Ferjo · [cferjo@gmail.com](mailto:cferjo@gmail.com)
+Christopher Ferjo · [hello@anchor-x402.com](mailto:hello@anchor-x402.com) · security disclosures: [security@anchor-x402.com](mailto:security@anchor-x402.com)
