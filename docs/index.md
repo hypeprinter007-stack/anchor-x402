@@ -9,10 +9,10 @@ title: anchor-x402
 
 ## Live API
 
-- **Base URL:** `https://1c09pdnrx1.execute-api.us-east-1.amazonaws.com`
-- **Swagger UI:** [/docs](https://1c09pdnrx1.execute-api.us-east-1.amazonaws.com/docs)
-- **OpenAPI spec:** [/openapi.json](https://1c09pdnrx1.execute-api.us-east-1.amazonaws.com/openapi.json)
-- **Health:** [/health](https://1c09pdnrx1.execute-api.us-east-1.amazonaws.com/health)
+- **Base URL:** `https://api.anchor-x402.com`
+- **Swagger UI:** [/docs](https://api.anchor-x402.com/docs)
+- **OpenAPI spec:** [/openapi.json](https://api.anchor-x402.com/openapi.json)
+- **Health:** [/health](https://api.anchor-x402.com/health)
 
 ## Services
 

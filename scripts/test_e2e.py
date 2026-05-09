@@ -28,7 +28,7 @@ from x402.http.clients.requests import x402_requests
 from x402.mechanisms.evm.exact import ExactEvmClientScheme
 from x402.mechanisms.evm.signers import EthAccountSigner
 
-API = os.getenv("ANCHOR_API_URL", "https://1c09pdnrx1.execute-api.us-east-1.amazonaws.com")
+API = os.getenv("ANCHOR_API_URL", "https://api.anchor-x402.com")
 CLIENT_KEY = os.environ["CLIENT_PRIVATE_KEY"]
 
 

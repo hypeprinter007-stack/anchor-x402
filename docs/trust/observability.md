@@ -39,7 +39,7 @@ Two free options. Pick one and follow the matching path.
 ### Option A — BetterStack (Better Uptime) free tier
 
 - Sign up at https://betterstack.com — free tier: 10 monitors, public status page, email/Slack notifications.
-- Add a monitor on `https://1c09pdnrx1.execute-api.us-east-1.amazonaws.com/health` (HTTP, expect 200, JSON body contains `"status":"ok"`).
+- Add a monitor on `https://api.anchor-x402.com/health` (HTTP, expect 200, JSON body contains `"status":"ok"`).
 - Configure 1-minute check interval, alert on 2 consecutive failures.
 - Create a public status page: `status.anchor-x402.com` (CNAME from your DNS provider) or a `<subdomain>.betteruptime.com` URL.
 - Optional: add monitors on key paid endpoints — they'll show 402 Payment Required, which BetterStack treats as "failure" by default. Configure expected status code = 402 to make it green.

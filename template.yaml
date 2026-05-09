@@ -37,9 +37,18 @@ Parameters:
     Type: String
     Default: ""
     Description: Optional email address subscribed to AlarmTopic. Leave empty to skip auto-subscription.
+  ApiCustomDomain:
+    Type: String
+    Default: ""
+    Description: Optional custom domain (e.g. api.anchor-x402.com). Leave empty to skip; a CNAME at the registrar must point at the regional output.
+  ApiCustomDomainCertArn:
+    Type: String
+    Default: ""
+    Description: ACM certificate ARN for ApiCustomDomain (must be in this region). Required when ApiCustomDomain is set.
 
 Conditions:
   HasAlarmEmail: !Not [!Equals [!Ref AlarmEmail, ""]]
+  HasCustomDomain: !Not [!Equals [!Ref ApiCustomDomain, ""]]
 
 Resources:
   AnchorFunction:
@@ -199,7 +208,29 @@ Resources:
       OKActions:
         - !Ref AlarmTopic
 
+  ApiCustomDomainName:
+    Type: AWS::ApiGatewayV2::DomainName
+    Condition: HasCustomDomain
+    Properties:
+      DomainName: !Ref ApiCustomDomain
+      DomainNameConfigurations:
+        - CertificateArn: !Ref ApiCustomDomainCertArn
+          EndpointType: REGIONAL
+          SecurityPolicy: TLS_1_2
+
+  ApiCustomDomainMapping:
+    Type: AWS::ApiGatewayV2::ApiMapping
+    Condition: HasCustomDomain
+    Properties:
+      DomainName: !Ref ApiCustomDomainName
+      ApiId: !Ref ServerlessHttpApi
+      Stage: $default
+
 Outputs:
   ApiUrl:
     Value: !Sub 'https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com'
-    Description: anchor-x402 public URL
+    Description: anchor-x402 public URL (AWS direct)
+  ApiCustomDomainTarget:
+    Condition: HasCustomDomain
+    Value: !GetAtt ApiCustomDomainName.RegionalDomainName
+    Description: Set this as the CNAME target for ApiCustomDomain at your DNS registrar

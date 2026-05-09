@@ -47,7 +47,7 @@ These are concrete deficiencies relative to what a Fortune 500 vendor would offe
 ## Getting in touch
 
 - **Source code:** https://github.com/hypeprinter007-stack/anchor-x402
-- **Live API:** https://1c09pdnrx1.execute-api.us-east-1.amazonaws.com
+- **Live API:** https://api.anchor-x402.com
 - **Security disclosure / questions:** security@anchor-x402.com
 - **General inquiries:** hello@anchor-x402.com
 

@@ -5,7 +5,7 @@
 > **Honesty policy.** Where a control is not in place we say so and link to the roadmap. Procurement teams should treat the gaps as the most important content — they are the boundary of the current trust model.
 >
 > **Vendor.** Christopher Ferjo (sole proprietor, USA) — operator of `anchor-x402`, an open-source x402-paid commodity API.
-> **Live URL.** https://1c09pdnrx1.execute-api.us-east-1.amazonaws.com
+> **Live URL.** https://api.anchor-x402.com
 > **Source.** https://github.com/hypeprinter007-stack/anchor-x402 (MIT)
 > **Last reviewed.** 2026-05-09
 > **Document owner.** Christopher Ferjo
@@ -318,5 +318,5 @@ Mandatory section: tells the customer what they must do on their side so the joi
 - **Email (general):** hello@anchor-x402.com
 - **Email (security disclosure):** security@anchor-x402.com
 - **Source:** https://github.com/hypeprinter007-stack/anchor-x402
-- **Live API:** https://1c09pdnrx1.execute-api.us-east-1.amazonaws.com
+- **Live API:** https://api.anchor-x402.com
 - **License:** MIT

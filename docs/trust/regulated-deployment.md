@@ -18,7 +18,7 @@ This document is **not** intended for:
 - Hobbyist developers. The `README.md` at the repository root is sufficient for general use.
 - Workflows that have no regulatory hook at all. If your workflow is fully unregulated, you do not need this document — read the README instead.
 
-The scope of this document is the public `anchor-x402` Lambda deployment in AWS `us-east-1` at `https://1c09pdnrx1.execute-api.us-east-1.amazonaws.com`. Any private deployment, any forked deployment, any deployment in a different region, and any future "institutional tier" is **outside the scope** of this document. If you are running a forked deployment in your own AWS account, you inherit the source code's behavior but you own the operational posture entirely.
+The scope of this document is the public `anchor-x402` Lambda deployment in AWS `us-east-1` at `https://api.anchor-x402.com`. Any private deployment, any forked deployment, any deployment in a different region, and any future "institutional tier" is **outside the scope** of this document. If you are running a forked deployment in your own AWS account, you inherit the source code's behavior but you own the operational posture entirely.
 
 ---
 
@@ -289,7 +289,7 @@ These are the concrete properties the institution should expect from the public 
 - **Rate limits.** No application-layer rate limit is enforced today. API Gateway has account-level throttling defaults (~10,000 RPS account-wide). The institution must self-throttle. A sensible production cap is 5 RPS per integration.
 - **Cost ceilings.** The only spending control is the institution's own wallet balance. Configure a low USDC balance (e.g. $50 of working capital) and refill from a treasury wallet on a manual schedule. Do not connect a master wallet directly. Watch for runaway loops in client code.
 - **Treasury balance and gas.** `anchor` and `attest` and `intel-wallet` cost real native gas (Base ETH, Solana SOL) on the `anchor-x402` side. The operator funds this wallet, but expect occasional Solana RPC failures (Solana is more flaky than Base under load). When Solana fails, `/v1/anchor` and `/v1/attest` still complete with a Base anchor and a `null` Solana anchor — the response shape is stable. The institution's verification logic should treat `solana == null` as a degradation, not a failure.
-- **Endpoint stability.** The base URL `https://1c09pdnrx1.execute-api.us-east-1.amazonaws.com` is the stable handle. Future deployments may add a custom domain; the API Gateway URL will continue to redirect / serve.
+- **Endpoint stability.** The base URL `https://api.anchor-x402.com` is the stable handle. Future deployments may add a custom domain; the API Gateway URL will continue to redirect / serve.
 - **Versioning.** The path prefix `/v1/...` is the stable contract. Breaking changes will land under `/v2/...`. Field additions are non-breaking. The institution should pin to `/v1/`.
 - **Authentication.** None at the IAM / API key layer. The only authentication is the x402 USDC payment itself, validated by the CDP facilitator. The institution's wallet **is** its identity for billing purposes; treat the wallet's private key with operational-key sensitivity.
 - **Logs.** CloudWatch logs are kept for operational debugging. Log retention is not contractually defined and should not be relied on for the institution's audit. Re-emphasizing: the institution's own log is the legal record.
@@ -324,7 +324,7 @@ If the institution's workflow today is exploratory, sandboxed, or layered on top
 | Vendor name | `anchor-x402` |
 | Service type | Public, stateless, x402-paid AI-agent commodity API |
 | Deployment | AWS Lambda + API Gateway, region `us-east-1` |
-| Base URL | `https://1c09pdnrx1.execute-api.us-east-1.amazonaws.com` |
+| Base URL | `https://api.anchor-x402.com` |
 | Endpoints | 9 (anchor, screen, attest, decode/tx, resolve/name, price/token, decode/calldata, parse/datetime, intel/wallet) |
 | Pricing | $0.001 - $0.010 USDC per call, paid on Base or Solana |
 | Authentication | x402 payment authorization only (no API keys) |
