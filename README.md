@@ -1,6 +1,6 @@
 # anchor-x402
 
-> Nine x402-paid commodity services for AI agents. One AWS Lambda, one OpenAPI spec, dual-listed for [CDP Bazaar](https://docs.cdp.coinbase.com/x402/bazaar) + [pay.sh](https://pay.sh). Pay per call in USDC on Base or Solana mainnet — no API keys, no accounts, no subscriptions.
+> Nine x402-paid commodity services for AI agents. One AWS Lambda, one OpenAPI spec, indexed across 8 agent-discovery surfaces ([CDP Bazaar](https://docs.cdp.coinbase.com/x402/bazaar), [agentic.market](https://agentic.market), [Agent Arena](https://agentarena.site), [Virtuals ACP](https://app.virtuals.io), [MCP Registry](https://registry.modelcontextprotocol.io), [Glama](https://glama.ai), [mcp.so](https://mcp.so), [npm](https://www.npmjs.com/package/anchor-x402-mcp) — see [Listings](#listings)). Pay per call in USDC on Base or Solana mainnet — no API keys, no accounts, no subscriptions.
 
 **Site:** https://anchor-x402.com
 **Trust portal:** https://anchor-x402.com/trust/
@@ -265,10 +265,16 @@ anchor-x402 is the public-utility commodity tier. An **institutional tier** with
 
 ## Listings
 
-| Catalog | Status | Discovery mechanism |
-|---|---|---|
-| **CDP Bazaar** | auto-indexed via `extensions.bazaar` in 402 response | discovery on settled payments through CDP facilitator |
-| **pay.sh** | PR open: [`solana-foundation/pay-skills` PR](https://github.com/solana-foundation/pay-skills/pulls?q=anchor-x402) | Per-service `PAY.md` in `providers/anchor-x402/<service>/` |
+| Catalog | Type | Discovery URL | Status |
+|---|---|---|---|
+| **CDP Bazaar** | x402 service registry | auto-indexed via `extensions.bazaar` in 402 response | 9 services live |
+| **agentic.market** | x402 service search API | [api.agentic.market/v1/services/search?q=api.anchor-x402.com](https://api.agentic.market/v1/services/search?q=api.anchor-x402.com) | 9 services live |
+| **Agent Arena** | ERC-8004 on-chain agent registry (Base) | [agentarena.site/api/agent/8453/47261](https://agentarena.site/api/agent/8453/47261) | live (agentId 47261, full bundle) |
+| **Virtuals ACP** | Agent Commerce Protocol | smart wallet `0x68847…75a51` on Base; 9 GET resource offerings | registered (search indexing in progress) |
+| **Official MCP Registry** | Anthropic-maintained MCP server registry | [registry.modelcontextprotocol.io/v0/servers?search=anchor-x402](https://registry.modelcontextprotocol.io/v0/servers?search=anchor-x402) | published as `io.github.hypeprinter007-stack/anchor-x402` |
+| **Glama** | MCP server marketplace | [glama.ai/mcp/servers/hypeprinter007-stack/anchor-x402-mcp](https://glama.ai/mcp/servers/hypeprinter007-stack/anchor-x402-mcp) | License A / Quality A |
+| **mcp.so** | MCP server directory | [mcp.so/server/anchor-x402-mcp](https://mcp.so/server/anchor-x402-mcp) | live |
+| **npm** | Node package registry | [npmjs.com/package/anchor-x402-mcp](https://www.npmjs.com/package/anchor-x402-mcp) | `anchor-x402-mcp@0.1.2` |
 
 ## Roadmap
 
