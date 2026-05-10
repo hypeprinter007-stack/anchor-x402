@@ -342,6 +342,28 @@ x402_routes = {
         description="Unified wallet intelligence bundle (balances + activity + identity + sanctions) — $0.005 USDC",
         extensions={**_intel_wallet_bazaar_ext},
     ),
+    # GET wrappers for function-like callers (Virtuals ACP, etc.) — same price, no
+    # bazaar extensions to avoid duplicate listings (POST is the canonical entry).
+    "GET /v1/anchor": RouteConfig(
+        accepts=_accepts_at("$0.005"),
+        description="Anchor a 32-byte hash to Base + Solana mainnet (GET wrapper) — $0.005 USDC",
+    ),
+    "GET /v1/attest": RouteConfig(
+        accepts=_accepts_at("$0.01"),
+        description="Verify a signature and dual-chain anchor the result (GET wrapper) — $0.01 USDC",
+    ),
+    "GET /v1/decode/tx": RouteConfig(
+        accepts=_accepts_at("$0.001"),
+        description="Structured decode of any mainnet tx (GET wrapper) — $0.001 USDC",
+    ),
+    "GET /v1/decode/calldata": RouteConfig(
+        accepts=_accepts_at("$0.001"),
+        description="Decode raw EVM calldata into function + typed params (GET wrapper) — $0.001 USDC",
+    ),
+    "GET /v1/parse/datetime": RouteConfig(
+        accepts=_accepts_at("$0.001"),
+        description="Parse any freeform datetime string into a structured form (GET wrapper) — $0.001 USDC",
+    ),
 }
 
 
@@ -497,6 +519,57 @@ def parse_datetime(req: DatetimeParseRequest) -> DatetimeParseResponse:
 @app.get("/v1/intel/wallet", response_model=IntelWalletResponse)
 def intel_wallet(wallet: str) -> IntelWalletResponse:
     return IntelWalletResponse(**intel_wallet_svc.fetch(wallet))
+
+
+# GET wrappers for the 5 POST endpoints — for function-like callers (Virtuals ACP
+# Resource offerings, MCP-via-URL, agents that compose URLs from query params).
+# Same x402 pricing, same response shape; just accepts inputs via query string.
+
+@app.get("/v1/anchor", response_model=AnchorResponse)
+def anchor_get(hash: str, note: str | None = None) -> AnchorResponse:
+    return anchor(AnchorRequest(hash=hash, note=note))
+
+
+@app.get("/v1/attest", response_model=AttestResponse)
+def attest_get(
+    input_hash: str,
+    output_hash: str,
+    decision: str,
+    scheme: str,
+    signature: str,
+    signer_pubkey: str | None = None,
+) -> AttestResponse:
+    return attest(AttestRequest(
+        input_hash=input_hash,
+        output_hash=output_hash,
+        decision=decision,
+        scheme=scheme,
+        signature=signature,
+        signer_pubkey=signer_pubkey,
+    ))
+
+
+@app.get("/v1/decode/tx", response_model=TxDecodeResponse)
+def decode_tx_get(chain: str, tx_hash: str) -> TxDecodeResponse:
+    return decode_tx(TxDecodeRequest(chain=chain, tx_hash=tx_hash))
+
+
+@app.get("/v1/decode/calldata", response_model=CalldataDecodeResponse)
+def decode_calldata_get(chain: str, calldata_hex: str) -> CalldataDecodeResponse:
+    return decode_calldata(CalldataDecodeRequest(chain=chain, calldata_hex=calldata_hex))
+
+
+@app.get("/v1/parse/datetime", response_model=DatetimeParseResponse)
+def parse_datetime_get(
+    input: str,
+    timezone: str = "UTC",
+    base_time: str | None = None,
+) -> DatetimeParseResponse:
+    return parse_datetime(DatetimeParseRequest(
+        input=input,
+        timezone=timezone,
+        base_time=base_time,
+    ))
 
 
 handler = Mangum(app)
