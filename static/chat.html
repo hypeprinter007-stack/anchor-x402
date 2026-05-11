@@ -598,11 +598,16 @@
 <script type="module">
 window.__moduleLoaded = true;
 
-// Self-bundled via esbuild — single same-origin file. CDN-based ESM imports
-// (esm.sh, jsdelivr +esm) were chaining hundreds of cross-origin requests and
-// mobile Safari was aborting on a transitive @walletconnect/time bundle bug.
+// Self-bundled via esbuild — single same-origin file.
+// Includes Reown AppKit so mobile signature flow auto-deeplinks back into the
+// user's wallet app for each signature (direct EthereumProvider was failing
+// the round-trip when the wallet app got backgrounded).
 // Source: static/chat.entry.js · build: `npm run build`
-import { createWalletClient, custom, base, EthereumProvider, wrapFetchWithPayment } from "/chat.bundle.js?v=1";
+import {
+  createWalletClient, custom, base,
+  createAppKit, WagmiAdapter, getWalletClient,
+  wrapFetchWithPayment,
+} from "/chat.bundle.js?v=2";
 
 if (window.__diag) window.__diag("[boot] module imports OK");
 
@@ -612,14 +617,14 @@ const INVESTIGATE_POLL_MS = 30_000;
 const INVESTIGATE_MAX_POLLS = 30;
 
 const state = {
-  provider: null,
+  modal: null,           // AppKit modal instance
+  wagmiConfig: null,     // Wagmi config from WagmiAdapter
   account: null,
   paidFetch: null,
   projectId: "",
-  conversation: [],     // Anthropic-shape
+  conversation: [],
   sessionSpend: 0,
   sessionCap: 5.00,
-  pendingTool: null,    // tool_use that's waiting for wallet connect
 };
 
 // ====================== service catalog ======================
@@ -1024,13 +1029,12 @@ function justRanGuess(toolName) {
 function resetWalletState(reason) {
   state.account = null;
   state.paidFetch = null;
-  state.provider = null;
   renderPill();
   if (reason) appendMsg("system", reason);
 }
 
 async function executeTool(name, route, input) {
-  if (!state.paidFetch || !state.provider || typeof state.provider.request !== "function") {
+  if (!state.paidFetch) {
     resetWalletState("Wallet connection was lost — please reconnect and try again.");
     throw new Error("Wallet connection lost — reconnect and retry.");
   }
@@ -1044,11 +1048,18 @@ async function executeTool(name, route, input) {
     if (route.async && data.job_id && data.status_url) return await pollInvestigate(data.status_url, data.job_id);
     return data;
   } catch (e) {
-    // Common case: wallet session ended mid-call. Surface a clear hint, not the raw stack.
     const msg = String(e?.message || e);
-    if (msg.includes("'request'") || msg.includes("undefined")) {
-      resetWalletState("Your wallet disconnected during the payment. Tap Connect to retry.");
-      throw new Error("Wallet disconnected mid-payment — reconnect and try again.");
+    if (msg.includes("'request'") || msg.includes("session topic") || msg.includes("undefined")) {
+      // Refresh the wallet client from the live Wagmi config — handles wallet
+      // app re-suspension where the underlying transport got torn down.
+      try {
+        const fresh = await getWalletClient(state.wagmiConfig);
+        if (fresh) {
+          state.paidFetch = wrapFetchWithPayment(fetch, fresh);
+          if (window.__diag) window.__diag("[wallet] refreshed wallet client after transport drop");
+        }
+      } catch {}
+      throw new Error("Wallet connection dropped mid-payment. Open your wallet app to ensure it's running, then try again.");
     }
     throw e;
   }
@@ -1077,54 +1088,71 @@ async function pollInvestigate(statusUrl, jobId) {
   return { job_id: jobId, status: "TIMEOUT", note: "client polling stopped — check status_url later" };
 }
 
-// ====================== wallet ======================
+// ====================== wallet (AppKit) ======================
 function clearWcStorage() {
-  // WalletConnect persists session state in localStorage. Stale entries cause
-  // "session topic doesn't exist" rejections during init, which leave the
-  // provider with no working .request transport — every paid call then fails
-  // with "Cannot read properties of undefined (reading 'request')".
   try {
     const keys = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
       if (!k) continue;
-      if (k.startsWith("wc@") || k.startsWith("walletconnect") || k.startsWith("WCM_") || k.toLowerCase().includes("@walletconnect")) {
+      if (k.startsWith("wc@") || k.startsWith("walletconnect") || k.startsWith("WCM_") || k.toLowerCase().includes("@walletconnect") || k.startsWith("@appkit") || k.startsWith("appkit") || k.toLowerCase().includes("reown")) {
         keys.push(k);
       }
     }
     keys.forEach((k) => localStorage.removeItem(k));
-    if (window.__diag) window.__diag(`[wallet] cleared ${keys.length} stale wc storage keys`);
+    if (window.__diag) window.__diag(`[wallet] cleared ${keys.length} stale wc/appkit storage keys`);
   } catch {}
+}
+
+function initAppKit() {
+  if (state.modal || !state.projectId) return state.modal;
+  const wagmiAdapter = new WagmiAdapter({ networks: [base], projectId: state.projectId });
+  state.wagmiConfig = wagmiAdapter.wagmiConfig;
+  state.modal = createAppKit({
+    adapters: [wagmiAdapter],
+    networks: [base],
+    projectId: state.projectId,
+    metadata: {
+      name: "anchor-x402 agent",
+      description: "Pay-per-call AI services from your own wallet.",
+      url: location.origin,
+      icons: [],
+    },
+    features: { analytics: false, email: false, socials: false },
+  });
+
+  // React to account changes — fired when wallet connects/disconnects via the modal.
+  state.modal.subscribeAccount((acct) => {
+    if (acct?.isConnected && acct.address && acct.address.toLowerCase() !== (state.account || "").toLowerCase()) {
+      state.account = acct.address;
+      onAccountConnected().catch((e) => { if (window.__diag) window.__diag("[wallet] onAccountConnected: " + (e?.message || e), "err"); });
+    } else if (!acct?.isConnected && state.account) {
+      state.account = null;
+      state.paidFetch = null;
+      renderPill();
+      appendMsg("system", "Wallet disconnected.");
+    }
+  });
+
+  if (window.__diag) window.__diag("[wallet] AppKit ready");
+  return state.modal;
+}
+
+async function onAccountConnected() {
+  const wallet = await getWalletClient(state.wagmiConfig);
+  if (!wallet) throw new Error("getWalletClient returned null");
+  state.paidFetch = wrapFetchWithPayment(fetch, wallet);
+  renderPill();
+  appendMsg("system", `Wallet connected. Your spend cap is $${state.sessionCap.toFixed(2)} per session.`);
 }
 
 async function connectWallet() {
   if (state.account) return;
   if (!state.projectId) throw new Error("Wallet connect not configured by operator yet.");
-  clearWcStorage();
-  if (window.__diag) window.__diag("[wallet] initializing WC EthereumProvider…");
-  state.provider = await EthereumProvider.init({
-    projectId: state.projectId,
-    chains: [8453],
-    optionalChains: [8453],
-    showQrModal: true,
-    metadata: { name: "anchor-x402 agent", description: "Pay-per-call AI services from your wallet.", url: location.origin, icons: [] },
-  });
-  if (window.__diag) window.__diag("[wallet] connecting…");
-  await state.provider.connect();
-  const accounts = (state.provider.accounts && state.provider.accounts.length)
-    ? state.provider.accounts
-    : await state.provider.request({ method: "eth_accounts" });
-  state.account = accounts[0];
-  if (!state.account) throw new Error("No account returned from wallet.");
-  const wallet = createWalletClient({ account: state.account, chain: base, transport: custom(state.provider) });
-  state.paidFetch = wrapFetchWithPayment(fetch, wallet);
-  renderPill();
-  state.provider.on("disconnect", () => {
-    state.account = null;
-    state.paidFetch = null;
-    renderPill();
-    appendMsg("system", "Wallet disconnected.");
-  });
+  // Don't clear storage every time with AppKit — it manages session resumption
+  // properly via Wagmi reconnect. Only clear on explicit disconnect.
+  initAppKit();
+  state.modal.open();
 }
 
 // ====================== bootstrap ======================
@@ -1148,17 +1176,13 @@ async function connectWallet() {
   // Connect pill: tap to connect (or disconnect if connected)
   $("connect-pill").addEventListener("click", async () => {
     if (state.account) {
-      // Disconnect
-      try { await state.provider?.disconnect?.(); } catch {}
-      clearWcStorage();
-      state.account = null;
-      state.paidFetch = null;
-      state.provider = null;
-      renderPill();
-      appendMsg("system", "Wallet disconnected.");
+      // Open the AppKit account modal — user can disconnect / switch network from there.
+      if (state.modal) state.modal.open({ view: "Account" });
     } else {
-      try { await connectWallet(); appendMsg("system", "Wallet connected. Your spend cap is $" + state.sessionCap.toFixed(2) + " per session."); }
-      catch (e) { toast(e.message || String(e), "err"); }
+      try {
+        await connectWallet();
+        // appendMsg happens inside onAccountConnected when subscribeAccount fires.
+      } catch (e) { toast(e.message || String(e), "err"); }
     }
   });
 
