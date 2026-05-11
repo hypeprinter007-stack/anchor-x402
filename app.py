@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse, HTMLResponse
 from mangum import Mangum
 
 logging.basicConfig(
@@ -40,25 +41,43 @@ from models import (
     AnchorResponse,
     AttestRequest,
     AttestResponse,
+    AuraRequest,
+    AuraResponse,
     CalldataDecodeRequest,
     CalldataDecodeResponse,
     ChainAnchor,
+    ChatRequest,
+    ChatResponse,
     DatetimeParseRequest,
     DatetimeParseResponse,
+    GradeRequest,
+    GradeResponse,
     IntelWalletResponse,
     NameResolveResponse,
+    OracleRequest,
+    OracleResponse,
+    RoastRequest,
+    RoastResponse,
     ScreenResponse,
+    TldrRequest,
+    TldrResponse,
     TokenPriceResponse,
     TxDecodeRequest,
     TxDecodeResponse,
 )
 from services import anchor as anchor_svc
 from services import attest as attest_svc
+from services import aura as aura_svc
 from services import calldata_decode as calldata_decode_svc
+from services import chat as chat_svc
 from services import datetime_parse as datetime_parse_svc
+from services import grade as grade_svc
 from services import intel_wallet as intel_wallet_svc
 from services import name_resolve as name_resolve_svc
+from services import oracle as oracle_svc
+from services import roast as roast_svc
 from services import screen as screen_svc
+from services import tldr as tldr_svc
 from services import token_price as token_price_svc
 from services import tx_decode as tx_decode_svc
 from services.cdp_auth import build_cdp_auth_provider
@@ -315,6 +334,96 @@ _datetime_parse_bazaar_ext = declare_discovery_extension(
     }),
 )
 
+_roast_bazaar_ext = declare_discovery_extension(
+    input={"target": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"},
+    input_schema={
+        "properties": {
+            "target": {"type": "string", "description": "Anything to roast: wallet, tweet, idea, code, etc.", "maxLength": 8000},
+        },
+        "required": ["target"],
+    },
+    body_type="json",
+    output=OutputConfig(example={
+        "roast": "A wallet so old it remembers when gas was a vibe, not a tax...",
+        "target_summary": "Vitalik Buterin's well-known Ethereum address.",
+    }),
+)
+
+_oracle_bazaar_ext = declare_discovery_extension(
+    input={"question": "Will I finish my todo list this week?"},
+    input_schema={
+        "properties": {
+            "question": {"type": "string", "description": "A yes/no question for the oracle.", "maxLength": 1000},
+        },
+        "required": ["question"],
+    },
+    body_type="json",
+    output=OutputConfig(example={
+        "answer": "MAYBE",
+        "explanation": "Possible if you cut the bottom three items and stop opening Twitter.",
+        "merkle_root": "ab0898397c86fbf97c99c6f8b29e55ab697315705777ee1d106e2dcb9bd686b3",
+        "base_tx": "0x7fb4d107d8c1b65b33851434c6fd178b682a143904a2bfa89ff2c1fa70974e96",
+        "solana_tx": "u8rqU4oSQkkHQw93nCCtQym5crh4UjuoNvYhspLcUTEny59asrNNffpmxpgzRuZ4MXQnN5UEoCKQuDS16ZMPKW2",
+        "asked_at": 1746820000,
+    }),
+)
+
+_aura_bazaar_ext = declare_discovery_extension(
+    input={"target": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"},
+    input_schema={
+        "properties": {
+            "target": {"type": "string", "description": "Anything to read the aura of.", "maxLength": 4000},
+        },
+        "required": ["target"],
+    },
+    body_type="json",
+    output=OutputConfig(example={
+        "color": "molten gold with copper veins",
+        "tier": "S",
+        "score": 8845,
+        "description": "Old-money aura. Doesn't need to prove anything to anyone. Has seen things.",
+    }),
+)
+
+_grade_bazaar_ext = declare_discovery_extension(
+    input={"target": "def add(a, b): return a - b  # surely this is correct"},
+    input_schema={
+        "properties": {
+            "target": {"type": "string", "description": "Anything to grade.", "maxLength": 6000},
+        },
+        "required": ["target"],
+    },
+    body_type="json",
+    output=OutputConfig(example={
+        "letter_grade": "D",
+        "marginalia": [
+            "Function name says 'add' but operator says 'subtract' — pick a side.",
+            "The comment is the funniest thing in this codebase.",
+            "Add a test and your subconscious will thank you.",
+        ],
+        "summary": "Strong vibes, weak math. See me after class.",
+    }),
+)
+
+_tldr_bazaar_ext = declare_discovery_extension(
+    input={"url": "https://example.com/some-article"},
+    input_schema={
+        "properties": {
+            "text": {"type": "string", "description": "Pasted text to summarize. Provide either `text` or `url`."},
+            "url": {"type": "string", "description": "URL to fetch and summarize. Provide either `text` or `url`."},
+        },
+    },
+    body_type="json",
+    output=OutputConfig(example={
+        "summary_bullets": [
+            "Example domain is reserved by IANA for documentation use.",
+            "It is safe to use in literature without coordination or permission.",
+            "More info available at iana.org.",
+        ],
+        "source_chars": 1170,
+    }),
+)
+
 x402_routes = {
     "POST /v1/anchor": RouteConfig(
         accepts=_accepts_at("$0.005"),
@@ -365,6 +474,31 @@ x402_routes = {
         accepts=_accepts_at("$7.77"),
         description="Agent-driven wallet due diligence — multi-step investigation, signed markdown report + JSON sidecar, dual-chain anchored. Async — returns job_id; poll /v1/investigate/status/{job_id} for the deliverable. ETA 5-10 min. $7.77 USDC.",
         extensions={**_investigate_bazaar_ext},
+    ),
+    "POST /v1/roast": RouteConfig(
+        accepts=_accepts_at("$0.05"),
+        description="Witty roast of any target — wallet, tweet, idea, code, anything. $0.05 USDC.",
+        extensions={**_roast_bazaar_ext},
+    ),
+    "POST /v1/oracle": RouteConfig(
+        accepts=_accepts_at("$0.05"),
+        description="Yes/no oracle with dual-chain anchored verdict (Base + Solana). $0.05 USDC.",
+        extensions={**_oracle_bazaar_ext},
+    ),
+    "POST /v1/tldr": RouteConfig(
+        accepts=_accepts_at("$0.01"),
+        description="Summarize a URL or pasted text into 3-5 concise bullets. $0.01 USDC.",
+        extensions={**_tldr_bazaar_ext},
+    ),
+    "POST /v1/aura": RouteConfig(
+        accepts=_accepts_at("$0.01"),
+        description="Read the aura of anything — color, tier (S/A/B/C/D/F), score 0-9999, description. $0.01 USDC.",
+        extensions={**_aura_bazaar_ext},
+    ),
+    "POST /v1/grade": RouteConfig(
+        accepts=_accepts_at("$0.01"),
+        description="Academic letter grade with red-pen marginalia for anything. $0.01 USDC.",
+        extensions={**_grade_bazaar_ext},
     ),
     # GET wrappers for function-like callers (Virtuals ACP, etc.) — same price, no
     # bazaar extensions to avoid duplicate listings (POST is the canonical entry).
@@ -698,6 +832,93 @@ def investigate_status(job_id: str) -> InvestigateStatusResponse:
         eta_seconds=None if status in ("DELIVERED", "FAILED") else 600,
         error=item.get("error_msg") or item.get("error"),
     )
+
+
+# --- /v1/roast | /v1/oracle | /v1/tldr (universal LLM-paid endpoints) -------
+
+
+@app.post("/v1/roast", response_model=RoastResponse)
+def roast(req: RoastRequest) -> RoastResponse:
+    try:
+        result = roast_svc.roast(req.target)
+    except Exception as e:
+        logging.getLogger("roast").exception("roast failed")
+        raise HTTPException(status_code=502, detail=f"roast failed: {type(e).__name__}: {e}")
+    return RoastResponse(**result)
+
+
+@app.post("/v1/oracle", response_model=OracleResponse)
+def oracle(req: OracleRequest) -> OracleResponse:
+    try:
+        result = oracle_svc.oracle(req.question)
+    except Exception as e:
+        logging.getLogger("oracle").exception("oracle failed")
+        raise HTTPException(status_code=502, detail=f"oracle failed: {type(e).__name__}: {e}")
+    return OracleResponse(**result)
+
+
+@app.post("/v1/tldr", response_model=TldrResponse)
+def tldr(req: TldrRequest) -> TldrResponse:
+    try:
+        result = tldr_svc.tldr(text=req.text, url=req.url)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logging.getLogger("tldr").exception("tldr failed")
+        raise HTTPException(status_code=502, detail=f"tldr failed: {type(e).__name__}: {e}")
+    return TldrResponse(**result)
+
+
+@app.post("/v1/aura", response_model=AuraResponse)
+def aura(req: AuraRequest) -> AuraResponse:
+    try:
+        result = aura_svc.aura(req.target)
+    except Exception as e:
+        logging.getLogger("aura").exception("aura failed")
+        raise HTTPException(status_code=502, detail=f"aura failed: {type(e).__name__}: {e}")
+    return AuraResponse(**result)
+
+
+@app.post("/v1/grade", response_model=GradeResponse)
+def grade(req: GradeRequest) -> GradeResponse:
+    try:
+        result = grade_svc.grade(req.target)
+    except Exception as e:
+        logging.getLogger("grade").exception("grade failed")
+        raise HTTPException(status_code=502, detail=f"grade failed: {type(e).__name__}: {e}")
+    return GradeResponse(**result)
+
+
+# --- /v1/chat (FREE, not in x402_routes) ------------------------------------
+
+
+@app.post("/v1/chat", response_model=ChatResponse)
+def chat(req: ChatRequest) -> ChatResponse:
+    try:
+        turn = chat_svc.chat_turn(req.messages)
+    except Exception as e:
+        logging.getLogger("chat").exception("chat turn failed")
+        raise HTTPException(status_code=502, detail=f"chat failed: {type(e).__name__}: {e}")
+    return ChatResponse(**turn)
+
+
+# --- /chat UI + /v1/config (free, static) -----------------------------------
+
+_STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
+
+
+@app.get("/chat")
+def chat_ui():
+    path = os.path.join(_STATIC_DIR, "chat.html")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="chat UI not deployed")
+    return FileResponse(path, media_type="text/html")
+
+
+@app.get("/v1/config")
+def public_config():
+    """Public, non-sensitive runtime config for the static chat UI."""
+    return {"wcProjectId": os.getenv("WC_PROJECT_ID", "")}
 
 
 handler = Mangum(app)

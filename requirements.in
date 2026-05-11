@@ -13,3 +13,5 @@ requests
 eth-abi
 dateparser
 python-dateutil
+anthropic
+beautifulsoup4

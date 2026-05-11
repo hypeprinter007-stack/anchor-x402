@@ -302,3 +302,97 @@ class InvestigateStatusResponse(BaseModel):
     deliverable: InvestigateDeliverable | None = None
     eta_seconds: int | None = None
     error: str | None = None
+
+
+# --- /v1/roast ---
+
+
+class RoastRequest(BaseModel):
+    target: str = Field(min_length=1, max_length=8000, description="Anything to roast: wallet, tweet, idea, code, etc.")
+
+
+class RoastResponse(BaseModel):
+    roast: str
+    target_summary: str
+
+
+# --- /v1/oracle ---
+
+
+class OracleRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=1000, description="A yes/no question for the oracle.")
+
+
+class OracleResponse(BaseModel):
+    answer: Literal["YES", "NO", "MAYBE"]
+    explanation: str
+    merkle_root: str = Field(description="sha256(question|answer|asked_at), 64 hex chars no 0x.")
+    base_tx: str
+    solana_tx: str | None = None
+    asked_at: int
+
+
+# --- /v1/tldr ---
+
+
+class TldrRequest(BaseModel):
+    text: str | None = Field(default=None, max_length=200_000)
+    url: str | None = Field(default=None, max_length=2048)
+
+    @model_validator(mode="after")
+    def _check_exclusive(self):
+        if (self.text is None) == (self.url is None):
+            raise ValueError("supply exactly one of `text` or `url`")
+        return self
+
+
+class TldrResponse(BaseModel):
+    summary_bullets: list[str]
+    source_chars: int
+
+
+# --- /v1/aura ---
+
+
+class AuraRequest(BaseModel):
+    target: str = Field(min_length=1, max_length=4000, description="Anything to read the aura of.")
+
+
+class AuraResponse(BaseModel):
+    color: str
+    tier: Literal["S", "A", "B", "C", "D", "F"]
+    score: int = Field(ge=0, le=9999)
+    description: str
+
+
+# --- /v1/grade ---
+
+
+class GradeRequest(BaseModel):
+    target: str = Field(min_length=1, max_length=6000, description="Anything to grade.")
+
+
+class GradeResponse(BaseModel):
+    letter_grade: Literal["A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "F"]
+    marginalia: list[str]
+    summary: str
+
+
+# --- /v1/chat (free) ---
+
+
+class ChatRequest(BaseModel):
+    messages: list[dict] = Field(default_factory=list, description="Anthropic-shape conversation history.")
+
+
+class ChatToolUse(BaseModel):
+    id: str
+    name: str
+    input: dict
+    price_usd: float
+
+
+class ChatResponse(BaseModel):
+    assistant_text: str | None = None
+    tool_uses: list[ChatToolUse] | None = None
+    stop_reason: str | None = None
