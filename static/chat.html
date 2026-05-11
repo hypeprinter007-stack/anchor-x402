@@ -970,9 +970,29 @@ async function pollInvestigate(statusUrl, jobId) {
 }
 
 // ====================== wallet ======================
+function clearWcStorage() {
+  // WalletConnect persists session state in localStorage. Stale entries cause
+  // "session topic doesn't exist" rejections during init, which leave the
+  // provider with no working .request transport — every paid call then fails
+  // with "Cannot read properties of undefined (reading 'request')".
+  try {
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k) continue;
+      if (k.startsWith("wc@") || k.startsWith("walletconnect") || k.startsWith("WCM_") || k.toLowerCase().includes("@walletconnect")) {
+        keys.push(k);
+      }
+    }
+    keys.forEach((k) => localStorage.removeItem(k));
+    if (window.__diag) window.__diag(`[wallet] cleared ${keys.length} stale wc storage keys`);
+  } catch {}
+}
+
 async function connectWallet() {
   if (state.account) return;
   if (!state.projectId) throw new Error("Wallet connect not configured by operator yet.");
+  clearWcStorage();
   if (window.__diag) window.__diag("[wallet] initializing WC EthereumProvider…");
   state.provider = await EthereumProvider.init({
     projectId: state.projectId,
@@ -1022,8 +1042,10 @@ async function connectWallet() {
     if (state.account) {
       // Disconnect
       try { await state.provider?.disconnect?.(); } catch {}
+      clearWcStorage();
       state.account = null;
       state.paidFetch = null;
+      state.provider = null;
       renderPill();
       appendMsg("system", "Wallet disconnected.");
     } else {
