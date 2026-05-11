@@ -146,6 +146,25 @@
     margin: 18px 0 4px;
     font-weight: 600;
   }
+  .signin-row {
+    margin: 22px auto 0;
+    max-width: 480px;
+    text-align: center;
+  }
+  .signin-btn {
+    width: 100%;
+    padding: 16px;
+    font-size: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    min-height: 64px;
+  }
+  .signin-emoji { font-size: 18px; }
+  .signin-sub { font-size: 12px; font-weight: 500; opacity: 0.7; }
+  .signin-or { color: var(--muted); font-size: 13px; margin: 10px 0 0; line-height: 1.45; }
+
   details.first-time {
     margin: 20px auto 0;
     max-width: 540px;
@@ -499,6 +518,14 @@
       <div class="section-label">See a free demo</div>
       <div class="chip-grid" id="demo-chips"></div>
 
+      <div class="signin-row">
+        <button class="btn primary signin-btn" id="passkey-btn" type="button">
+          <span class="signin-emoji">✨</span> Sign in with passkey
+          <span class="signin-sub">no wallet app needed</span>
+        </button>
+        <p class="signin-or">or tap <strong>Connect</strong> above if you have MetaMask, Rainbow, Coinbase Wallet, Trust, etc.</p>
+      </div>
+
       <div style="text-align:center; margin-top: 22px;">
         <button class="btn ghost small" id="more-services-btn" type="button">View all 15 services →</button>
         <details class="first-time">
@@ -606,8 +633,9 @@ window.__moduleLoaded = true;
 import {
   createWalletClient, custom, base,
   createAppKit, WagmiAdapter, getWalletClient,
+  CoinbaseWalletSDK,
   wrapFetchWithPayment,
-} from "/chat.bundle.js?v=2";
+} from "/chat.bundle.js?v=3";
 
 if (window.__diag) window.__diag("[boot] module imports OK");
 
@@ -617,8 +645,10 @@ const INVESTIGATE_POLL_MS = 30_000;
 const INVESTIGATE_MAX_POLLS = 30;
 
 const state = {
-  modal: null,           // AppKit modal instance
-  wagmiConfig: null,     // Wagmi config from WagmiAdapter
+  modal: null,            // AppKit modal instance (existing-wallet path)
+  wagmiConfig: null,      // Wagmi config from WagmiAdapter
+  cbProvider: null,       // Coinbase Smart Wallet provider (no-app path)
+  connectMethod: null,    // "appkit" | "coinbase"
   account: null,
   paidFetch: null,
   projectId: "",
@@ -971,6 +1001,26 @@ function renderApprovalAndRun(tu) {
     actions.appendChild(skipBtn);
 
     if (!state.account) {
+      // Add a secondary "passkey" path so noobs can avoid the wallet-app flow entirely.
+      const passkeyBtn = document.createElement("button");
+      passkeyBtn.className = "btn small ghost passkey-alt";
+      passkeyBtn.textContent = "Or sign in with passkey (no app needed)";
+      passkeyBtn.addEventListener("click", async () => {
+        if (passkeyBtn.disabled) return;
+        passkeyBtn.disabled = true;
+        passkeyBtn.textContent = "Signing in…";
+        try {
+          await connectCoinbase();
+          // Once signed in, kick off the tool run automatically.
+          runBtn.click();
+        } catch (e) {
+          toast(e.message || String(e), "err");
+          passkeyBtn.disabled = false;
+          passkeyBtn.textContent = "Or sign in with passkey (no app needed)";
+        }
+      });
+      actions.appendChild(passkeyBtn);
+
       const topup = document.createElement("div");
       topup.className = "topup";
       topup.innerHTML = `Need USDC on Base? <a href="https://pay.coinbase.com" target="_blank" rel="noopener">Coinbase</a> · <a href="https://www.moonpay.com/buy/usdc" target="_blank" rel="noopener">MoonPay</a>`;
@@ -1147,12 +1197,42 @@ async function onAccountConnected() {
 }
 
 async function connectWallet() {
+  // Existing-wallet path — AppKit modal shows MetaMask, Rainbow, Coinbase
+  // Wallet, Trust, WalletConnect, etc.
   if (state.account) return;
   if (!state.projectId) throw new Error("Wallet connect not configured by operator yet.");
-  // Don't clear storage every time with AppKit — it manages session resumption
-  // properly via Wagmi reconnect. Only clear on explicit disconnect.
   initAppKit();
+  state.connectMethod = "appkit";
   state.modal.open();
+}
+
+async function connectCoinbase() {
+  // No-app path — Coinbase Smart Wallet runs entirely in the browser via
+  // passkeys. No WC relay, no deep-linking, no backgrounding issues. Best for
+  // users with no existing wallet.
+  if (state.account) return;
+  if (window.__diag) window.__diag("[wallet] initializing Coinbase Smart Wallet…");
+  const sdk = new CoinbaseWalletSDK({
+    appName: "anchor-x402 agent",
+    appChainIds: [8453],
+  });
+  state.cbProvider = sdk.makeWeb3Provider({ options: "smartWalletOnly" });
+  state.connectMethod = "coinbase";
+
+  const accounts = await state.cbProvider.request({ method: "eth_requestAccounts" });
+  state.account = accounts && accounts[0];
+  if (!state.account) throw new Error("Coinbase Smart Wallet didn't return an account.");
+
+  const wallet = createWalletClient({ account: state.account, chain: base, transport: custom(state.cbProvider) });
+  state.paidFetch = wrapFetchWithPayment(fetch, wallet);
+  renderPill();
+  appendMsg("system", `Signed in with passkey. Your spend cap is $${state.sessionCap.toFixed(2)} per session.`);
+
+  // Provider lifecycle: handle external disconnect / chain changes
+  state.cbProvider.on?.("disconnect", () => resetWalletState("Coinbase Smart Wallet disconnected."));
+  state.cbProvider.on?.("accountsChanged", (accts) => {
+    if (!accts || !accts.length) resetWalletState("Coinbase Smart Wallet disconnected.");
+  });
 }
 
 // ====================== bootstrap ======================
@@ -1176,14 +1256,27 @@ async function connectWallet() {
   // Connect pill: tap to connect (or disconnect if connected)
   $("connect-pill").addEventListener("click", async () => {
     if (state.account) {
-      // Open the AppKit account modal — user can disconnect / switch network from there.
-      if (state.modal) state.modal.open({ view: "Account" });
+      // Currently connected — show appropriate management UI per path.
+      if (state.connectMethod === "appkit" && state.modal) {
+        state.modal.open({ view: "Account" });
+      } else if (state.connectMethod === "coinbase") {
+        if (confirm("Sign out of Coinbase Smart Wallet?")) {
+          try { await state.cbProvider?.disconnect?.(); } catch {}
+          resetWalletState("Signed out of Coinbase Smart Wallet.");
+        }
+      }
     } else {
+      // Default behavior: open AppKit modal (existing-wallet path).
       try {
         await connectWallet();
-        // appendMsg happens inside onAccountConnected when subscribeAccount fires.
       } catch (e) { toast(e.message || String(e), "err"); }
     }
+  });
+
+  // Welcome-card passkey button + approval-card passkey fallback both call this.
+  $("passkey-btn")?.addEventListener("click", async () => {
+    try { await connectCoinbase(); }
+    catch (e) { toast(e.message || String(e), "err"); }
   });
 
   // Load config
