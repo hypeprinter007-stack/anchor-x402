@@ -146,6 +146,30 @@
     margin: 18px 0 4px;
     font-weight: 600;
   }
+  details.first-time {
+    margin: 20px auto 0;
+    max-width: 540px;
+    text-align: left;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0 16px;
+  }
+  details.first-time summary {
+    cursor: pointer;
+    padding: 12px 0;
+    color: var(--link);
+    font-size: 14px;
+    list-style: none;
+  }
+  details.first-time summary::-webkit-details-marker { display: none; }
+  details.first-time summary::after { content: " ▾"; font-size: 11px; color: var(--muted); }
+  details.first-time[open] summary::after { content: " ▴"; }
+  details.first-time .first-time-body { padding: 0 0 14px; color: var(--text); font-size: 14px; line-height: 1.55; }
+  details.first-time .first-time-body ol { padding-left: 20px; margin: 6px 0 12px; }
+  details.first-time .first-time-body li { margin-bottom: 4px; }
+  details.first-time .first-time-body p { margin: 8px 0; }
+  details.first-time .first-time-body em { color: var(--muted); font-style: normal; }
 
   /* Messages */
   .msg { margin: 14px 0; max-width: 88%; }
@@ -438,6 +462,24 @@
 
       <div style="text-align:center; margin-top: 22px;">
         <button class="btn ghost small" id="more-services-btn" type="button">View all 15 services →</button>
+        <details class="first-time">
+          <summary>First time? How to connect on mobile</summary>
+          <div class="first-time-body">
+            <p><strong>If you have a wallet app on this phone</strong> (Rainbow, MetaMask Mobile, Coinbase Wallet, Trust):</p>
+            <ol>
+              <li>Tap <strong>Connect</strong> above.</li>
+              <li>In the modal, tap your wallet's name from the list — <em>don't</em> tap "Scan QR".</li>
+              <li>Your wallet app opens. Approve the connection. You're back here, connected.</li>
+            </ol>
+            <p><strong>If the modal shows only a QR code</strong> (no wallet list):</p>
+            <ol>
+              <li><strong>Don't</strong> scan it with your phone's Camera app — iOS shows raw text. The Camera app doesn't know what to do with WalletConnect URIs.</li>
+              <li>Instead, open your wallet app and find its built-in QR scanner (often a small QR icon in the wallet's header). Scan from there.</li>
+              <li>Or use a desktop browser with a desktop wallet (MetaMask extension, Rainbow extension).</li>
+            </ol>
+            <p>No wallet at all? Install <a href="https://rainbow.me/download" target="_blank" rel="noopener">Rainbow</a> or <a href="https://www.coinbase.com/wallet/downloads" target="_blank" rel="noopener">Coinbase Wallet</a> — both are free, take 1 min to set up.</p>
+          </div>
+        </details>
       </div>
     </section>
   </main>
@@ -788,6 +830,13 @@ const TOOL_ROUTES = {
   grade:              { method: "POST", path: "/v1/grade",           price: 0.01 },
 };
 
+function prettyInput(input) {
+  if (!input || typeof input !== "object") return String(input ?? "");
+  const keys = Object.keys(input);
+  if (keys.length === 1) return String(input[keys[0]]);
+  return keys.map((k) => `${k}: ${input[k]}`).join("\n");
+}
+
 function renderApprovalAndRun(tu) {
   return new Promise((resolve) => {
     const route = TOOL_ROUTES[tu.name];
@@ -797,11 +846,11 @@ function renderApprovalAndRun(tu) {
     card.className = "approval";
     card.innerHTML = `
       <h3>Run <strong>${tu.name}</strong> for <span class="price">$${price.toFixed(3)} USDC</span>?</h3>
-      <div class="why">${route ? `${route.method} ${route.path}` : "unknown tool"}</div>
+      <div class="why">Input:</div>
       <pre></pre>
       <div class="actions"></div>
     `;
-    card.querySelector("pre").textContent = JSON.stringify(tu.input, null, 2);
+    card.querySelector("pre").textContent = prettyInput(tu.input);
     const actions = card.querySelector(".actions");
 
     const finish = (resObj) => {
@@ -864,16 +913,37 @@ function renderResult(name, obj, isErr, label) {
   appendNode(div);
 }
 
+function resetWalletState(reason) {
+  state.account = null;
+  state.paidFetch = null;
+  state.provider = null;
+  renderPill();
+  if (reason) appendMsg("system", reason);
+}
+
 async function executeTool(name, route, input) {
-  if (!state.paidFetch) throw new Error("Wallet not connected");
+  if (!state.paidFetch || !state.provider || typeof state.provider.request !== "function") {
+    resetWalletState("Wallet connection was lost — please reconnect and try again.");
+    throw new Error("Wallet connection lost — reconnect and retry.");
+  }
   const url = buildUrl(route, input);
   const init = { method: route.method, headers: { "Content-Type": "application/json" } };
   if (route.method !== "GET") init.body = JSON.stringify(input);
-  const r = await state.paidFetch(url, init);
-  if (!r.ok) throw new Error(`paid call failed: HTTP ${r.status}`);
-  const data = await r.json();
-  if (route.async && data.job_id && data.status_url) return await pollInvestigate(data.status_url, data.job_id);
-  return data;
+  try {
+    const r = await state.paidFetch(url, init);
+    if (!r.ok) throw new Error(`paid call failed: HTTP ${r.status}`);
+    const data = await r.json();
+    if (route.async && data.job_id && data.status_url) return await pollInvestigate(data.status_url, data.job_id);
+    return data;
+  } catch (e) {
+    // Common case: wallet session ended mid-call. Surface a clear hint, not the raw stack.
+    const msg = String(e?.message || e);
+    if (msg.includes("'request'") || msg.includes("undefined")) {
+      resetWalletState("Your wallet disconnected during the payment. Tap Connect to retry.");
+      throw new Error("Wallet disconnected mid-payment — reconnect and try again.");
+    }
+    throw e;
+  }
 }
 
 function buildUrl(route, input) {
