@@ -190,7 +190,7 @@
 
   <header class="topbar">
     <div class="brand">anchor-x402 <span class="dim">/ agent</span></div>
-    <button id="connect-pill" class="pill" type="button">sign in</button>
+    <button id="connect-pill" class="pill" type="button">connect</button>
   </header>
 
   <main class="chat" id="chat"></main>
@@ -334,7 +334,7 @@ function renderPill() {
     pill.innerHTML = shortenAddr(state.account) + ` <span class="spend">$${state.sessionSpend.toFixed(3)} / ${state.sessionCap.toFixed(2)}</span>`;
   } else {
     pill.classList.remove("connected");
-    pill.textContent = "sign in";
+    pill.textContent = "connect";
   }
 }
 
@@ -456,8 +456,8 @@ function showHelp() {
     "  3. I run the tool and show you the result.",
     "  4. Nothing is custodial. Nothing is auto-charged. Each call signs separately.",
     "",
-    "Sign in:",
-    "  Tap 'sign in' (top right). Choose passkey (no app) or your browser-extension wallet.",
+    "Connect a wallet:",
+    "  Tap 'connect' (top right). Choose passkey (no app) or your browser-extension wallet.",
     "  Treasury (where payments go): 0x127462e296fAc1A7F5cF33bA57bB2f0FFf5cD0B6",
   ].join("\n");
   appendMsg("agent", lines);
@@ -583,11 +583,11 @@ function renderApprovalAndRun(tu) {
 
     const runBtn = document.createElement("button");
     runBtn.className = "btn primary";
-    runBtn.textContent = state.account ? `approve $${price.toFixed(3)}` : `sign in & approve $${price.toFixed(3)}`;
+    runBtn.textContent = state.account ? `approve $${price.toFixed(3)}` : `connect & approve $${price.toFixed(3)}`;
     runBtn.addEventListener("click", async () => {
       try {
         if (!state.account) {
-          runBtn.disabled = true; runBtn.textContent = "signing in…";
+          runBtn.disabled = true; runBtn.textContent = "connecting…";
           await connectCoinbase();
           runBtn.textContent = `approving $${price.toFixed(3)}…`;
         }
@@ -653,7 +653,7 @@ function renderResult(name, obj, isErr, label) {
 }
 
 async function executeTool(name, route, input) {
-  if (!state.paidFetch) throw new Error("Wallet not connected — sign in first.");
+  if (!state.paidFetch) throw new Error("Wallet not connected — tap connect first.");
   const url = buildUrl(route, input);
   const init = { method: route.method, headers: { "Content-Type": "application/json" } };
   if (route.method !== "GET") init.body = JSON.stringify(input);
@@ -761,7 +761,7 @@ async function connectCoinbase() {
 
   state.paidFetch = buildPaidFetch(state.cbProvider, state.account);
   renderPill();
-  appendMsg("sys", `Signed in with passkey. Cap: $${state.sessionCap.toFixed(2)}/session.`);
+  appendMsg("sys", `Connected with passkey. Cap: $${state.sessionCap.toFixed(2)}/session.`);
   wireProviderLifecycle(state.cbProvider, "Coinbase Smart Wallet");
 }
 
@@ -787,7 +787,7 @@ async function connectChoice() {
   // Default to passkey. If user wants injected, they can use the inline button
   // on approval cards, or this UI gives them a single-shot fallback via confirm.
   const injName = detectInjectedName();
-  if (injName && confirm(`Sign in with passkey (recommended)?\n\nClick OK for passkey, Cancel to use ${injName} instead.`)) {
+  if (injName && confirm(`Connect with passkey (recommended)?\n\nClick OK for passkey, Cancel to use ${injName} instead.`)) {
     await connectCoinbase();
   } else if (injName) {
     await connectInjected();
@@ -808,10 +808,10 @@ async function connectChoice() {
     inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + "px";
   });
 
-  // Sign in pill
+  // Connect pill
   $("connect-pill").addEventListener("click", async () => {
     if (state.account) {
-      if (confirm("Sign out?")) {
+      if (confirm("Disconnect?")) {
         try { await state.cbProvider?.disconnect?.(); } catch {}
         state.cbProvider = null; state.injectedProvider = null;
         resetWalletState("Signed out.");
