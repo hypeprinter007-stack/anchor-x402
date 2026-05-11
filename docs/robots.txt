@@ -58,5 +58,4 @@ Allow: /
 User-agent: Applebot-Extended
 Allow: /
 
-# Sitemap (when published)
-# Sitemap: https://anchor-x402.com/sitemap.xml
+Sitemap: https://anchor-x402.com/sitemap.xml

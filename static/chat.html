@@ -3,9 +3,65 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>anchor-x402 / agent</title>
-<meta name="description" content="A terminal for paid AI tools. Pay per call from your own wallet. No accounts." />
+<title>anchor-x402 agent — free AI chat that runs paid wallet tools from your USDC</title>
+<meta name="description" content="A hosted AI agent that runs 15 paid x402 services for you — sanctions screen any wallet, full due diligence, hash anchoring, signed attestations, roast/grade/aura, oracle with on-chain receipt. Connect with passkey or any browser wallet. Chat free, pay per call in USDC on Base. No app install, no accounts, no API keys." />
+<meta name="keywords" content="x402, x402 agent, AI agent wallet, pay per call API, USDC micropayments, Base wallet sanctions check, OFAC wallet screen, EIP-3009, Coinbase Smart Wallet, free AI agent, agent commerce protocol" />
 <meta name="theme-color" content="#0c0d10" />
+<meta name="robots" content="index, follow" />
+<link rel="canonical" href="https://chat.anchor-x402.com/" />
+
+<!-- Open Graph -->
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="anchor-x402" />
+<meta property="og:title" content="anchor-x402 agent — free AI chat that runs 15 paid wallet tools" />
+<meta property="og:description" content="Chat with our hosted agent — it runs sanctions screens, wallet due diligence, hash anchoring, roast/grade/aura, on-chain anchored oracles, and 10 other x402 services. Pay only when you approve a tool. Connect with passkey or any browser wallet." />
+<meta property="og:url" content="https://chat.anchor-x402.com/" />
+<meta property="og:image" content="https://anchor-x402.com/og.png" />
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="anchor-x402 agent — free AI chat, pay-per-call wallet tools" />
+<meta name="twitter:description" content="Hosted Claude agent that runs 15 x402 services on Base + Solana — sanctions, intel, due diligence, LLM toys. Chat free, pay in USDC, no accounts." />
+<meta name="twitter:image" content="https://anchor-x402.com/og.png" />
+
+<!-- Discovery links for AI crawlers + x402 -->
+<link rel="alternate" type="application/json" title="x402 service catalog" href="https://anchor-x402.com/.well-known/x402.json" />
+<link rel="alternate" type="application/json" title="OpenAPI spec" href="https://api.anchor-x402.com/openapi.json" />
+<link rel="alternate" type="text/plain" title="LLM-readable index" href="https://anchor-x402.com/llms.txt" />
+
+<!-- JSON-LD: Schema.org WebApplication -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "anchor-x402 agent",
+  "alternateName": ["anchor-x402 chat", "Run-it-for-me-via-agent"],
+  "url": "https://chat.anchor-x402.com/",
+  "description": "Hosted Claude agent that runs 15 paid x402 services on behalf of users without their own agent. Connect a Coinbase Smart Wallet via passkey (no app required) or any browser-extension wallet (MetaMask, Rabby, Frame, Brave, Trust). Chat itself is free; each paid tool call requires user approval and signs a single EIP-3009 USDC authorization on Base mainnet. Tools include sanctions screening, wallet due diligence, dual-chain hash anchoring, signed attestations, transaction + calldata decoding, ENS/SNS resolution, token prices, datetime parsing, plus universal LLM endpoints: roast, oracle (with anchored verdict), TL;DR, aura, grade.",
+  "applicationCategory": ["BusinessApplication", "FinanceApplication"],
+  "applicationSubCategory": "AI agent / x402 micropayments",
+  "operatingSystem": "Modern browser (Chrome, Safari, Firefox, Edge)",
+  "browserRequirements": "JavaScript enabled, EIP-1193 wallet OR passkey support",
+  "creator": {
+    "@type": "Person",
+    "name": "Christopher Ferjo",
+    "url": "https://github.com/hypeprinter007-stack"
+  },
+  "sameAs": [
+    "https://anchor-x402.com",
+    "https://api.anchor-x402.com",
+    "https://github.com/hypeprinter007-stack/anchor-x402"
+  ],
+  "offers": [
+    { "@type": "Offer", "price": "0",     "priceCurrency": "USD", "name": "Free chat (no tool execution)" },
+    { "@type": "Offer", "price": "0.001", "priceCurrency": "USD", "name": "Sanctions screen, decode tx, decode calldata, resolve name, token price, parse datetime" },
+    { "@type": "Offer", "price": "0.005", "priceCurrency": "USD", "name": "Wallet intelligence bundle, dual-chain hash anchor" },
+    { "@type": "Offer", "price": "0.01",  "priceCurrency": "USD", "name": "Aura, grade, TL;DR, signed attestation" },
+    { "@type": "Offer", "price": "0.05",  "priceCurrency": "USD", "name": "Roast, yes/no oracle (with dual-chain anchored verdict)" },
+    { "@type": "Offer", "price": "7.77",  "priceCurrency": "USD", "name": "Agent-driven wallet due-diligence investigation, async 5-10 min" }
+  ]
+}
+</script>
 <style>
   :root {
     --bg: #0c0d10;

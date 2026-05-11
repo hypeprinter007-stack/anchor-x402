@@ -1,15 +1,15 @@
 <!-- Open Graph -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="anchor-x402">
-<meta property="og:title" content="anchor-x402 — 9 x402-paid services for AI agents">
-<meta property="og:description" content="Pay-per-call USDC on Base or Solana mainnet. Anchor hashes, screen wallets, attest decisions, decode txs, resolve names, get prices, decode calldata, parse dates, fetch wallet intel — all from one MCP server.">
+<meta property="og:title" content="anchor-x402 — 15 x402-paid services for AI agents + hosted chatbot">
+<meta property="og:description" content="Pay-per-call USDC on Base or Solana mainnet. 9 commodity primitives (anchor, screen, attest, decode, resolve, price, parse, intel), one due-diligence investigator, and 5 universal LLM endpoints (roast, oracle, tldr, aura, grade). Plus a hosted chatbot at chat.anchor-x402.com — connect a wallet, chat free, pay only when you approve a tool.">
 <meta property="og:url" content="https://anchor-x402.com">
 <meta property="og:image" content="https://anchor-x402.com/og.png">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="anchor-x402 — 9 x402-paid services for AI agents">
-<meta name="twitter:description" content="Pay-per-call USDC on Base or Solana mainnet. 9 commodity services for AI agents — no API keys, no accounts.">
+<meta name="twitter:title" content="anchor-x402 — 15 x402-paid AI agent services">
+<meta name="twitter:description" content="Pay-per-call USDC on Base + Solana. Sanctions screen, wallet intel, due diligence, anchoring, plus a hosted chatbot at chat.anchor-x402.com that lets anyone use any of the services with a passkey.">
 <meta name="twitter:image" content="https://anchor-x402.com/og.png">
 
 <!-- AI / agent discovery hints -->
@@ -17,44 +17,76 @@
 <link rel="alternate" type="application/json" title="A2A AgentCard" href="/.well-known/agent-card.json">
 <link rel="alternate" type="application/json" title="OpenAPI spec" href="https://api.anchor-x402.com/openapi.json">
 <link rel="alternate" type="text/plain" title="LLM-readable index" href="/llms.txt">
+<link rel="alternate" type="text/plain" title="AI usage policy" href="/ai.txt">
 <link rel="canonical" href="https://anchor-x402.com">
+<link rel="sitemap" type="application/xml" href="/sitemap.xml">
 
-<!-- JSON-LD: Schema.org SoftwareApplication + WebAPI -->
+<!-- JSON-LD: Schema.org SoftwareApplication + WebAPI + WebSite + Person -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@graph": [
     {
+      "@type": "WebSite",
+      "@id": "https://anchor-x402.com/#website",
+      "url": "https://anchor-x402.com",
+      "name": "anchor-x402",
+      "publisher": { "@id": "https://anchor-x402.com/#author" }
+    },
+    {
       "@type": "SoftwareApplication",
       "@id": "https://anchor-x402.com/#software",
       "name": "anchor-x402",
-      "applicationCategory": "DeveloperApplication",
+      "alternateName": ["anchor-x402 agent", "anchor x402"],
+      "applicationCategory": ["DeveloperApplication", "BusinessApplication"],
+      "applicationSubCategory": "AI agent tools / x402 micropayments",
       "operatingSystem": "any",
-      "description": "Nine x402-paid commodity services for AI agents on Base + Solana mainnet: dual-chain hash anchoring, OFAC sanctions screening, signed decision attestation, mainnet tx decode, ENS/SNS resolution, USD spot price, EVM calldata decode, freeform datetime parsing, and bundled wallet intelligence.",
+      "description": "Fifteen x402-paid services for AI agents on Base + Solana mainnet. Nine commodity primitives: dual-chain hash anchoring, OFAC sanctions screening, signed decision attestation, mainnet tx decode, ENS/SNS resolution, USD spot price, EVM calldata decode, freeform datetime parsing, and bundled wallet intelligence. One async due-diligence investigator. Five universal LLM endpoints: roast, oracle (with on-chain anchored verdict), TL;DR, aura, grade. Plus a hosted chatbot at chat.anchor-x402.com for users without their own agent.",
       "url": "https://anchor-x402.com",
+      "sameAs": [
+        "https://chat.anchor-x402.com",
+        "https://api.anchor-x402.com",
+        "https://github.com/hypeprinter007-stack/anchor-x402",
+        "https://www.npmjs.com/package/anchor-x402-mcp"
+      ],
       "downloadUrl": "https://www.npmjs.com/package/anchor-x402-mcp",
-      "softwareVersion": "0.1.2",
+      "softwareVersion": "0.2.0",
       "license": "https://opensource.org/licenses/MIT",
-      "creator": {
-        "@type": "Person",
-        "name": "Christopher Ferjo",
-        "url": "https://github.com/hypeprinter007-stack",
-        "email": "hello@anchor-x402.com"
-      },
-      "offers": {
-        "@type": "Offer",
-        "price": "0.001",
-        "priceCurrency": "USD",
-        "description": "Pay-per-call USDC on Base or Solana mainnet, $0.001–$0.010 per service call. No API keys, no accounts, no subscriptions."
-      }
+      "creator": { "@id": "https://anchor-x402.com/#author" },
+      "offers": [
+        { "@type": "Offer", "price": "0.001", "priceCurrency": "USD", "description": "Cheap commodity primitives — sanctions screen, decoding, name resolution, price, datetime parsing" },
+        { "@type": "Offer", "price": "0.005", "priceCurrency": "USD", "description": "Bundled wallet intelligence and dual-chain hash anchoring" },
+        { "@type": "Offer", "price": "0.01",  "priceCurrency": "USD", "description": "Universal LLM endpoints (aura, grade, tldr) and signed attestation" },
+        { "@type": "Offer", "price": "0.05",  "priceCurrency": "USD", "description": "Roast and oracle (oracle includes a dual-chain anchored verdict receipt)" },
+        { "@type": "Offer", "price": "7.77",  "priceCurrency": "USD", "description": "Agent-driven wallet due-diligence investigator, async 5-10 min" }
+      ]
     },
     {
       "@type": "WebAPI",
       "@id": "https://anchor-x402.com/#api",
       "name": "anchor-x402 API",
+      "description": "x402 protocol v2 API. 15 paid endpoints + chat surface. EIP-3009 USDC settlement on Base + Solana mainnet via CDP facilitator.",
       "url": "https://api.anchor-x402.com",
       "documentation": "https://api.anchor-x402.com/openapi.json",
       "provider": { "@id": "https://anchor-x402.com/#software" }
+    },
+    {
+      "@type": "WebApplication",
+      "@id": "https://chat.anchor-x402.com/#chat",
+      "name": "anchor-x402 agent chat",
+      "alternateName": "Run-it-for-me-via-agent",
+      "url": "https://chat.anchor-x402.com",
+      "description": "Hosted chatbot for users who don't have an agent of their own. Connect a Coinbase Smart Wallet via passkey (or any browser-extension wallet), chat free, pay only when you approve a tool. Each paid call is a single EIP-3009 USDC authorization you sign.",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Modern browser (Chrome, Safari, Firefox, Edge)",
+      "provider": { "@id": "https://anchor-x402.com/#software" }
+    },
+    {
+      "@type": "Person",
+      "@id": "https://anchor-x402.com/#author",
+      "name": "Christopher Ferjo",
+      "url": "https://github.com/hypeprinter007-stack",
+      "email": "hello@anchor-x402.com"
     }
   ]
 }
