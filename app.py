@@ -937,6 +937,28 @@ def chat_ui():
     return _serve_chat_html()
 
 
+@app.get("/.well-known/farcaster.json")
+def farcaster_manifest():
+    path = os.path.join(_STATIC_DIR, "farcaster.json")
+    return FileResponse(
+        path,
+        media_type="application/json",
+        headers={"Cache-Control": "public, max-age=300"},
+    )
+
+
+@app.get("/icon.png")
+def chat_icon():
+    return FileResponse(os.path.join(_STATIC_DIR, "icon.png"), media_type="image/png",
+                        headers={"Cache-Control": "public, max-age=86400, immutable"})
+
+
+@app.get("/splash.png")
+def chat_splash():
+    return FileResponse(os.path.join(_STATIC_DIR, "splash.png"), media_type="image/png",
+                        headers={"Cache-Control": "public, max-age=86400, immutable"})
+
+
 @app.get("/chat.bundle.js")
 def chat_bundle():
     # Serve the gzipped bundle (1.8 MB) with Content-Encoding: gzip — the
