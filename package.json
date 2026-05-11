@@ -9,8 +9,8 @@
     "esbuild": "^0.24.0"
   },
   "dependencies": {
-    "viem": "^2.21.0",
     "@coinbase/wallet-sdk": "^4.3.7",
-    "x402-fetch": "^1.2.0"
+    "@x402/fetch": "^2.11.0",
+    "viem": "^2.21.0"
   }
 }

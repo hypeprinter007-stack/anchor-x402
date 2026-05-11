@@ -15,4 +15,8 @@
 export { createWalletClient, custom } from "viem";
 export { base } from "viem/chains";
 export { CoinbaseWalletSDK } from "@coinbase/wallet-sdk";
-export { wrapFetchWithPayment } from "x402-fetch";
+// @x402/fetch is the v2-protocol client. x402-fetch (v1.x) reads payment
+// requirements from the response body, but x402 v2 puts them in the
+// x-payment-required HEADER and the body is intentionally empty {} — which
+// caused "Cannot read properties of undefined (reading 'map')" on accepts.
+export { wrapFetchWithPayment } from "@x402/fetch";
