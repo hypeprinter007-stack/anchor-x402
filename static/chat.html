@@ -182,6 +182,7 @@
       <p class="small muted" style="margin-top:10px">USDC on Base mainnet. MetaMask, Rainbow, Coinbase Wallet, mobile wallets — all via Reown AppKit's modal.</p>
       <p class="small" id="config-error" style="color: var(--error); display:none">⚠️ Operator hasn't configured WalletConnect yet. Refresh once they redeploy with a project ID.</p>
       <p class="small muted" style="margin-top:8px">Nothing happens when you click? It usually means the operator hasn't added this domain to their Reown dashboard allowed list — drop them a line.</p>
+      <div id="status" class="mono small" style="margin-top:10px; padding:8px; background:#0e1a0e; border:1px solid #2a3a2a; border-radius:4px; color:#9ec99e; white-space:pre-wrap; word-break:break-word; min-height:18px"></div>
       <div id="diag" class="mono small" style="display:none; margin-top:10px; padding:8px; background:#180a0a; border:1px solid var(--error); border-radius:4px; color:var(--error); white-space:pre-wrap; word-break:break-word"></div>
     </div>
   </section>
@@ -235,6 +236,13 @@ function showDiag(kind, msg) {
   const line = document.createElement("div");
   line.textContent = `[${kind}] ${msg}`;
   d.appendChild(line);
+}
+function showStatus(msg) {
+  const s = document.getElementById("status");
+  if (!s) return;
+  const line = document.createElement("div");
+  line.textContent = `[${new Date().toISOString().slice(11, 19)}] ${msg}`;
+  s.appendChild(line);
 }
 
 // ---------------- config ----------------
@@ -304,21 +312,26 @@ function appendNode(node) {
   $("reset-btn").addEventListener("click", resetSession);
   updateSpendUI();
 
+  showStatus("loading config...");
   let projectId = "";
   try {
     const r = await fetch(API_BASE + "/v1/config");
     if (r.ok) projectId = (await r.json()).wcProjectId || "";
-  } catch {}
+  } catch (e) { showDiag("config-fetch", String(e?.message || e)); }
 
   if (!projectId) {
     $("connect-btn").disabled = true;
     $("config-error").style.display = "";
+    showStatus("no projectId — cannot init AppKit");
     return;
   }
+  showStatus(`projectId ${projectId.slice(0, 6)}…${projectId.slice(-4)} loaded; origin ${location.origin}`);
 
   try {
+    showStatus("creating WagmiAdapter…");
     const wagmiAdapter = new WagmiAdapter({ networks: [base], projectId });
     state.wagmiConfig = wagmiAdapter.wagmiConfig;
+    showStatus("creating AppKit…");
     state.modal = createAppKit({
       adapters: [wagmiAdapter],
       networks: [base],
@@ -331,6 +344,7 @@ function appendNode(node) {
       },
       features: { analytics: false },
     });
+    showStatus(`AppKit ready (modal: ${typeof state.modal})`);
   } catch (e) {
     showDiag("appkit-init", String(e?.stack || e?.message || e));
     $("connect-btn").disabled = true;
@@ -351,8 +365,18 @@ function appendNode(node) {
   });
 
   $("connect-btn").addEventListener("click", () => {
+    showStatus("connect tapped");
     if (!state.modal) { showDiag("connect", "AppKit modal not ready — refresh, and if it persists check Reown dashboard allowed domains."); return; }
-    try { state.modal.open(); } catch (e) { showDiag("modal-open", String(e?.message || e)); }
+    try {
+      const ret = state.modal.open();
+      showStatus(`modal.open() returned: ${typeof ret} (Promise: ${ret instanceof Promise})`);
+      if (ret instanceof Promise) ret.then(() => showStatus("modal opened OK")).catch((e) => showDiag("modal-promise", String(e?.message || e)));
+      // Detect whether a w3m-modal element actually got inserted into the DOM
+      setTimeout(() => {
+        const modalEls = document.querySelectorAll("w3m-modal, [data-rk], appkit-modal");
+        showStatus(`DOM modal elements present: ${modalEls.length}`);
+      }, 600);
+    } catch (e) { showDiag("modal-open", String(e?.message || e)); }
   });
   $("addr-pill").addEventListener("click", () => state.modal && state.modal.open({ view: "Account" }));
   $("addr-pill").style.cursor = "pointer";
