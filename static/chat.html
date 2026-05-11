@@ -643,8 +643,9 @@ window.__moduleLoaded = true;
 import {
   createWalletClient, custom, base,
   CoinbaseWalletSDK,
-  wrapFetchWithPayment,
-} from "/chat.bundle.js?v=6";
+  wrapFetchWithPaymentFromConfig,
+  ExactEvmScheme,
+} from "/chat.bundle.js?v=7";
 
 if (window.__diag) window.__diag("[boot] module imports OK");
 
@@ -1236,6 +1237,23 @@ function wireProviderLifecycle(provider, methodName) {
   provider.on?.("disconnect", () => resetWalletState(`${methodName} disconnected.`));
 }
 
+function buildPaidFetch(provider, address) {
+  // viem WalletClient with the provider as transport. ExactEvmScheme needs
+  // a signer shaped like { address, signTypedData(msg) } where signTypedData
+  // takes the typed-data message directly (Account-style, not the
+  // walletClient.signTypedData({account, ...}) shape).
+  const walletClient = createWalletClient({ account: address, chain: base, transport: custom(provider) });
+  const signer = {
+    address,
+    signTypedData: (msg) => walletClient.signTypedData(msg),
+  };
+  return wrapFetchWithPaymentFromConfig(fetch, {
+    schemes: [
+      { network: "eip155:8453", client: new ExactEvmScheme(signer) },
+    ],
+  });
+}
+
 async function connectCoinbase() {
   if (state.account) return;
   if (window.__diag) window.__diag("[wallet] initializing Coinbase Smart Wallet…");
@@ -1247,8 +1265,7 @@ async function connectCoinbase() {
   state.account = accounts && accounts[0];
   if (!state.account) throw new Error("Coinbase Smart Wallet didn't return an account.");
 
-  const wallet = createWalletClient({ account: state.account, chain: base, transport: custom(state.cbProvider) });
-  state.paidFetch = wrapFetchWithPayment(fetch, wallet);
+  state.paidFetch = buildPaidFetch(state.cbProvider, state.account);
   renderPill();
   appendMsg("system", `Signed in with passkey. Your spend cap is $${state.sessionCap.toFixed(2)} per session.`);
   wireProviderLifecycle(state.cbProvider, "Coinbase Smart Wallet");
@@ -1267,8 +1284,7 @@ async function connectInjected() {
 
   await ensureBaseChain(provider);
 
-  const wallet = createWalletClient({ account: state.account, chain: base, transport: custom(provider) });
-  state.paidFetch = wrapFetchWithPayment(fetch, wallet);
+  state.paidFetch = buildPaidFetch(provider, state.account);
   renderPill();
   appendMsg("system", `Connected ${detectInjectedName()}. Your spend cap is $${state.sessionCap.toFixed(2)} per session.`);
   wireProviderLifecycle(provider, detectInjectedName() || "Wallet");

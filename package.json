@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@coinbase/wallet-sdk": "^4.3.7",
+    "@x402/evm": "^2.11.0",
     "@x402/fetch": "^2.11.0",
     "viem": "^2.21.0"
   }
