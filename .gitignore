@@ -18,3 +18,4 @@ samconfig.toml
 dist/
 build/
 *.egg-info/
+packaged.yaml

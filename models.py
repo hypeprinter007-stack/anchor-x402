@@ -265,3 +265,40 @@ class IntelWalletResponse(BaseModel):
     errors: list[IntelWalletError] = Field(default_factory=list)
     fetched_at: int
     cache_age_seconds: int
+
+
+# --- /v1/investigate (async risk-investigator shim) ---
+
+
+class InvestigateRequest(BaseModel):
+    address: str = Field(
+        description="EVM 0x... or Solana base58 address to investigate.",
+    )
+
+
+class InvestigateAcceptedResponse(BaseModel):
+    job_id: str = Field(description="Unique job id; poll /v1/investigate/status/{job_id}.")
+    status: Literal["accepted"] = "accepted"
+    status_url: str = Field(description="Absolute URL to poll for completion.")
+    eta_seconds: int = Field(default=600, description="Approximate wait until DELIVERED.")
+
+
+class InvestigateDeliverable(BaseModel):
+    reportUrl: str | None = None
+    reportJsonUrl: str | None = None
+    verdict: str | None = None
+    score: float | None = None
+    signedBy: str | None = None
+    signature: str | None = None
+    merkleRoot: str | None = None
+    baseAnchorTx: str | None = None
+    solanaAnchorTx: str | None = None
+    disclaimer: str | None = None
+
+
+class InvestigateStatusResponse(BaseModel):
+    job_id: str
+    status: Literal["DISPATCHING", "IN_PROGRESS", "DELIVERED", "FAILED", "UNKNOWN"]
+    deliverable: InvestigateDeliverable | None = None
+    eta_seconds: int | None = None
+    error: str | None = None

@@ -8,6 +8,7 @@ Pay-per-call: $0.005 USDC, settle on Base or Solana.
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 import time
@@ -273,6 +274,24 @@ _intel_wallet_bazaar_ext = declare_discovery_extension(
     }),
 )
 
+_investigate_bazaar_ext = declare_discovery_extension(
+    input={"address": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"},
+    input_schema={
+        "properties": {
+            "address": {"type": "string", "description": "EVM 0x… (40 hex) or Solana base58 pubkey to investigate."},
+        },
+        "required": ["address"],
+    },
+    body_type="json",
+    output=OutputConfig(example={
+        "job_id": "1be3bd50-51df-4e47-8624-ae5bd1df5953",
+        "status": "accepted",
+        "status_url": "https://api.anchor-x402.com/v1/investigate/status/1be3bd50-51df-4e47-8624-ae5bd1df5953",
+        "eta_seconds": 600,
+    }),
+)
+
+
 _datetime_parse_bazaar_ext = declare_discovery_extension(
     input={"input": "next Tuesday at 3pm", "timezone": "America/New_York"},
     input_schema={
@@ -341,6 +360,11 @@ x402_routes = {
         accepts=_accepts_at("$0.005"),
         description="Unified wallet intelligence bundle (balances + activity + identity + sanctions) — $0.005 USDC",
         extensions={**_intel_wallet_bazaar_ext},
+    ),
+    "POST /v1/investigate": RouteConfig(
+        accepts=_accepts_at("$7.77"),
+        description="Agent-driven wallet due diligence — multi-step investigation, signed markdown report + JSON sidecar, dual-chain anchored. Async — returns job_id; poll /v1/investigate/status/{job_id} for the deliverable. ETA 5-10 min. $7.77 USDC.",
+        extensions={**_investigate_bazaar_ext},
     ),
     # GET wrappers for function-like callers (Virtuals ACP, etc.) — same price, no
     # bazaar extensions to avoid duplicate listings (POST is the canonical entry).
@@ -570,6 +594,110 @@ def parse_datetime_get(
         timezone=timezone,
         base_time=base_time,
     ))
+
+
+# --- /v1/investigate (async shim → risk-investigator) -----------------------
+#
+# The orchestrator lives in a private repo (github.com/hypeprinter007-stack/
+# risk-investigator) and runs on AWS Bedrock AgentCore Runtime. This shim
+# accepts $7.77 USDC, writes job_id to DynamoDB, async-invokes the worker
+# Lambda, and returns the job_id immediately. Buyer polls /status until ready.
+
+from uuid import uuid4
+
+import boto3
+
+from models import (
+    InvestigateAcceptedResponse,
+    InvestigateDeliverable,
+    InvestigateRequest,
+    InvestigateStatusResponse,
+)
+
+_WORKER_FN = os.environ.get("INVESTIGATOR_WORKER_FUNCTION_NAME", "risk-investigator-worker")
+_JOBS_TABLE = os.environ.get("INVESTIGATOR_JOBS_TABLE", "risk-investigator-jobs")
+_PUBLIC_BASE = os.environ.get("PUBLIC_BASE_URL", "https://api.anchor-x402.com")
+
+_lambda = boto3.client("lambda")
+_ddb = boto3.resource("dynamodb").Table(_JOBS_TABLE)
+
+
+@app.post("/v1/investigate", response_model=InvestigateAcceptedResponse)
+def investigate_dispatch(req: InvestigateRequest) -> InvestigateAcceptedResponse:
+    """Accept payment, record job, async-dispatch to private worker."""
+    job_id = str(uuid4())
+    now = int(time.time())
+    try:
+        _ddb.put_item(
+            Item={
+                "job_id": job_id,
+                "address": req.address,
+                "status": "DISPATCHING",
+                "source": "x402",
+                "created_at": now,
+                "updated_at": now,
+            },
+            ConditionExpression="attribute_not_exists(job_id)",
+        )
+    except Exception as e:  # noqa: BLE001
+        logging.getLogger("investigate").exception("DDB write failed")
+        raise HTTPException(status_code=502, detail=f"job init failed: {type(e).__name__}")
+
+    payload = {
+        "job_id": job_id,
+        "address": req.address,
+        "requester": "x402",
+        "source": "x402",
+    }
+    try:
+        _lambda.invoke(
+            FunctionName=_WORKER_FN,
+            InvocationType="Event",
+            Payload=json.dumps(payload).encode(),
+        )
+    except Exception as e:  # noqa: BLE001
+        logging.getLogger("investigate").exception("worker dispatch failed")
+        # Mark for buyer visibility so /status returns FAILED rather than hanging
+        try:
+            _ddb.update_item(
+                Key={"job_id": job_id},
+                UpdateExpression="SET #s = :s, error_msg = :e",
+                ExpressionAttributeNames={"#s": "status"},
+                ExpressionAttributeValues={":s": "FAILED", ":e": f"dispatch failed: {type(e).__name__}"},
+            )
+        except Exception:
+            pass
+        raise HTTPException(status_code=502, detail=f"dispatch failed: {type(e).__name__}")
+
+    return InvestigateAcceptedResponse(
+        job_id=job_id,
+        status="accepted",
+        status_url=f"{_PUBLIC_BASE}/v1/investigate/status/{job_id}",
+        eta_seconds=600,
+    )
+
+
+@app.get("/v1/investigate/status/{job_id}", response_model=InvestigateStatusResponse)
+def investigate_status(job_id: str) -> InvestigateStatusResponse:
+    """Poll endpoint — free, no x402 (deliberately omitted from x402_routes)."""
+    try:
+        resp = _ddb.get_item(Key={"job_id": job_id})
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"lookup failed: {type(e).__name__}: {e}")
+
+    item = resp.get("Item")
+    if not item:
+        return InvestigateStatusResponse(job_id=job_id, status="UNKNOWN")
+
+    status = item.get("status", "UNKNOWN")
+    deliverable = item.get("deliverable")
+    return InvestigateStatusResponse(
+        job_id=job_id,
+        status=status,
+        deliverable=InvestigateDeliverable(**deliverable) if deliverable else None,
+        eta_seconds=None if status in ("DELIVERED", "FAILED") else 600,
+        error=item.get("error_msg") or item.get("error"),
+    )
 
 
 handler = Mangum(app)
