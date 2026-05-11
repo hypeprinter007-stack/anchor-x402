@@ -1142,42 +1142,31 @@ async function executeTool(name, route, input) {
   const init = { method: route.method, headers: { "Content-Type": "application/json" } };
   if (route.method !== "GET") init.body = JSON.stringify(input);
 
-  const tryOnce = async () => {
+  try {
     const r = await state.paidFetch(url, init);
-    if (!r.ok) throw new Error(`paid call failed: HTTP ${r.status}`);
+    if (!r.ok) {
+      let body = "";
+      try { body = await r.text(); } catch {}
+      const truncated = body.length > 400 ? body.slice(0, 400) + "…" : body;
+      throw new Error(`HTTP ${r.status}: ${truncated || r.statusText}`);
+    }
     const data = await r.json();
     if (route.async && data.job_id && data.status_url) return await pollInvestigate(data.status_url, data.job_id);
     return data;
-  };
-
-  // Step 2: try once. Two distinct failure modes to handle:
-  //  - "session topic doesn't exist" / "No matching key" → WC session is
-  //    truly dead on the relay. State.account looks connected but signature
-  //    requests can never succeed. Force full reset so user reconnects fresh.
-  //  - Other transient transport errors → refresh wallet client + retry once.
-  try {
-    return await tryOnce();
   } catch (e) {
+    // Surface the FULL error to diag so the user can paste it back and we can act.
     const msg = String(e?.message || e);
-    const sessionDead = msg.includes("session topic") || msg.includes("No matching key");
-    const transportDrop = msg.includes("'request'") || msg.includes("undefined") || msg.includes("disconnected");
+    const stack = e?.stack ? String(e.stack).slice(0, 500) : "";
+    if (window.__diag) window.__diag(`[paid-call] ${e?.name || "Error"}: ${msg}\n${stack}`, "err");
 
-    if (sessionDead || !transportDrop && msg.includes("rejected")) {
-      // User rejected OR session-dead error — surface, don't auto-retry.
-      throw e;
+    // User explicitly rejected in their wallet — not a bug, just surface.
+    if (msg.includes("rejected") || msg.includes("denied") || msg.includes("User denied")) {
+      throw new Error("You declined the signature in your wallet.");
     }
 
-    if (!transportDrop) throw e;
-
-    if (window.__diag) window.__diag("[wallet] transient transport error — waiting + retry");
-    await new Promise((res) => setTimeout(res, 1500));
-
-    try {
-      return await tryOnce();
-    } catch (e2) {
-      await forceFullDisconnect();
-      throw new Error("Wallet didn't respond after retry. Sign in again to continue.");
-    }
+    // Re-throw the actual error so the approval card shows it verbatim. No
+    // more wrapping or auto-retry — we want to see what's really failing.
+    throw e;
   }
 }
 
