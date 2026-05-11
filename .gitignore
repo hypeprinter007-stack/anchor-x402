@@ -19,3 +19,6 @@ dist/
 build/
 *.egg-info/
 packaged.yaml
+# dev-only agent skills (install via `npx skills add https://github.com/reown-com/skills --skill appkit --agent '*'`)
+.agents/
+skills-lock.json
