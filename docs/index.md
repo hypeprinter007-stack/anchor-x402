@@ -13,6 +13,12 @@ title: anchor-x402
 
 Watch a [30-second walkthrough →](/demo/)
 
+## Have an x402 endpoint?
+
+If you run a paid x402 service and want it exposed through this agent — listed in the chat surface, included in the `anchor-x402-mcp` npm package, cross-linked from this site, and discoverable through our existing listings — reach out at **[hello@anchor-x402.com](mailto:hello@anchor-x402.com?subject=x402%20endpoint%20listing)**. Include the endpoint URL, one-line description, and price. First listing is free if it covers something we don't already do well.
+
+White-label / custom-bot tier — your branding, your system prompt, your tool subset, your tenant-scoped subdomain, revenue share on tool calls — same address.
+
 ## Live API
 
 - **Base URL:** `https://api.anchor-x402.com`
