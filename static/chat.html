@@ -137,6 +137,38 @@
   .msg .body p { margin: 0 0 8px; }
   .msg .body p:last-child { margin-bottom: 0; }
 
+  /* /services slash-command output — three columns */
+  .services-list { list-style: none; margin: 6px 0 0; padding: 0; }
+  .services-list li {
+    display: grid;
+    grid-template-columns: minmax(110px, max-content) auto 1fr;
+    column-gap: 14px;
+    align-items: baseline;
+    padding: 8px 0;
+    border-bottom: 1px dashed var(--line);
+  }
+  .services-list li:last-child { border-bottom: none; }
+  .services-list .svc-name { color: var(--text); font-weight: 500; }
+  .services-list .svc-price { color: var(--accent); white-space: nowrap; font-size: 13px; }
+  .services-list .svc-desc {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.4;
+    text-align: right;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  @media (max-width: 560px) {
+    .services-list li {
+      grid-template-columns: 1fr auto;
+      column-gap: 12px;
+      row-gap: 2px;
+    }
+    .services-list .svc-desc { grid-column: 1 / -1; text-align: left; color: var(--muted); }
+  }
+
   /* Tappable prompts in the agent's first message — text-link style, no chips */
   .promptlist { list-style: none; margin: 8px 0 4px; padding: 0; }
   .promptlist li { padding: 3px 0; }
@@ -520,14 +552,20 @@ function showHelp() {
 }
 
 function showServices() {
-  const lines = ALL_SERVICES.map((s) =>
-    `  ${s.name.padEnd(18, " ")}  $${s.price.toFixed(3).padStart(6, " ")}   ${s.what}`
-  ).join("\n");
-  const node = document.createElement("pre");
-  node.className = "mono";
-  node.style.cssText = "margin: 0; white-space: pre-wrap; font-size: 12.5px;";
-  node.textContent = lines;
-  appendMsg("agent", node);
+  const ul = document.createElement("ul");
+  ul.className = "services-list";
+  ALL_SERVICES.forEach((s) => {
+    const li = document.createElement("li");
+    li.innerHTML = `
+      <span class="svc-name"></span>
+      <span class="svc-price mono"></span>
+      <span class="svc-desc"></span>`;
+    li.querySelector(".svc-name").textContent = s.name;
+    li.querySelector(".svc-price").textContent = `$${s.price.toFixed(3)}`;
+    li.querySelector(".svc-desc").textContent = s.what;
+    ul.appendChild(li);
+  });
+  appendMsg("agent", ul);
 }
 
 function playDemo(key) {
@@ -832,7 +870,11 @@ function resetWalletState(reason) {
 
 async function connectCoinbase() {
   if (state.account) return;
-  const sdk = new CoinbaseWalletSDK({ appName: "anchor-x402 agent", appChainIds: [8453] });
+  const sdk = new CoinbaseWalletSDK({
+    appName: "anchor-x402 agent",
+    appLogoUrl: "https://anchor-x402.com/logo.png",
+    appChainIds: [8453],
+  });
   state.cbProvider = sdk.makeWeb3Provider({ options: "smartWalletOnly" });
   state.connectMethod = "coinbase";
 
