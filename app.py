@@ -959,6 +959,14 @@ def chat_splash():
                         headers={"Cache-Control": "public, max-age=86400, immutable"})
 
 
+@app.get("/s.png")
+def chat_splash_short():
+    # Short alias for splash.png — Farcaster manifest spec caps splashImageUrl
+    # at 32 characters, so we need a URL ≤ 32 chars.
+    return FileResponse(os.path.join(_STATIC_DIR, "s.png"), media_type="image/png",
+                        headers={"Cache-Control": "public, max-age=86400, immutable"})
+
+
 @app.get("/chat.bundle.js")
 def chat_bundle():
     # Serve the gzipped bundle (1.8 MB) with Content-Encoding: gzip — the
