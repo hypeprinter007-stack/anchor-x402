@@ -911,7 +911,13 @@ def _serve_chat_html() -> FileResponse:
     path = os.path.join(_STATIC_DIR, "chat.html")
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="chat UI not deployed")
-    return FileResponse(path, media_type="text/html")
+    # Disable caching so fixes propagate immediately. The HTML is tiny (~25 KB);
+    # only the (CDN-served) JS imports benefit from caching, and those are versioned.
+    return FileResponse(
+        path,
+        media_type="text/html",
+        headers={"Cache-Control": "no-store, max-age=0"},
+    )
 
 
 @app.get("/")

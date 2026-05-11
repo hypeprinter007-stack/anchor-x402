@@ -251,13 +251,12 @@
 </script>
 
 <script type="module">
-// Direct WalletConnect + viem path. AppKit's bundle was too heavy for esm.sh
-// to ship to mobile Safari reliably. WC2 EthereumProvider has its own QR modal
-// + mobile deep-link routing, which is all we need.
-import { createWalletClient, custom } from "https://esm.sh/viem@2";
-import { base } from "https://esm.sh/viem@2/chains";
-import EthereumProvider from "https://esm.sh/@walletconnect/ethereum-provider@2";
-import { wrapFetchWithPayment } from "https://esm.sh/x402-fetch@latest";
+// Using jsdelivr's pre-bundled +esm output. Mobile Safari was failing to
+// load esm.sh's chained module imports silently.
+import { createWalletClient, custom } from "https://cdn.jsdelivr.net/npm/viem@2/+esm";
+import { base } from "https://cdn.jsdelivr.net/npm/viem@2/chains/+esm";
+import EthereumProvider from "https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2/+esm";
+import { wrapFetchWithPayment } from "https://cdn.jsdelivr.net/npm/x402-fetch@latest/+esm";
 
 // Surface uncaught JS errors on the page (mobile has no devtools).
 window.addEventListener("error", (e) => showDiag("error", `${e.message} @ ${e.filename}:${e.lineno}`));
