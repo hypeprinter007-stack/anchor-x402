@@ -92,6 +92,16 @@ app = FastAPI(
     version="0.1.0",
 )
 
+
+@app.middleware("http")
+async def _access_log(request, call_next):
+    """One-line access log per request → Lambda CloudWatch.
+    Enables host-level traffic split (chat.* vs api.*) via Insights."""
+    response = await call_next(request)
+    host = request.headers.get("host", "").split(":")[0]
+    print(f"access host={host} method={request.method} path={request.url.path} status={response.status_code}")
+    return response
+
 facilitator = HTTPFacilitatorClient(
     FacilitatorConfig(
         url="https://api.cdp.coinbase.com/platform/v2/x402",
