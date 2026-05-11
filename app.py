@@ -939,13 +939,24 @@ def chat_ui():
 
 @app.get("/chat.bundle.js")
 def chat_bundle():
-    path = os.path.join(_STATIC_DIR, "chat.bundle.js")
-    if not os.path.exists(path):
+    # Serve the gzipped bundle (1.8 MB) with Content-Encoding: gzip — the
+    # browser decompresses transparently. The raw bundle (6.7 MB) exceeds
+    # Lambda's 6 MB response payload limit; only the gzipped form fits.
+    gz_path = os.path.join(_STATIC_DIR, "chat.bundle.js.gz")
+    if not os.path.exists(gz_path):
+        # Fallback: maybe a small bundle still fits raw.
+        raw = os.path.join(_STATIC_DIR, "chat.bundle.js")
+        if os.path.exists(raw):
+            return FileResponse(raw, media_type="application/javascript",
+                                headers={"Cache-Control": "public, max-age=3600, immutable"})
         raise HTTPException(status_code=404, detail="chat bundle not built — run `npm run build`")
     return FileResponse(
-        path,
+        gz_path,
         media_type="application/javascript",
-        headers={"Cache-Control": "public, max-age=3600, immutable"},
+        headers={
+            "Cache-Control": "public, max-age=3600, immutable",
+            "Content-Encoding": "gzip",
+        },
     )
 
 

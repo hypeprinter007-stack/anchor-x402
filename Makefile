@@ -33,7 +33,7 @@ build-AnchorFunction:
 	cp app.py models.py "$(ARTIFACTS_DIR)/"
 	cp -r services "$(ARTIFACTS_DIR)/"
 	mkdir -p "$(ARTIFACTS_DIR)/static"
-	cp static/chat.html static/chat.bundle.js "$(ARTIFACTS_DIR)/static/"
+	cp static/chat.html static/chat.bundle.js.gz "$(ARTIFACTS_DIR)/static/"
 	# Strip files Lambda doesn't need (size: 250 MB unzipped limit)
 	#  - boto3/botocore: provided by the Lambda Python runtime
 	#  - __pycache__, *.dist-info, tests: dev-time only
