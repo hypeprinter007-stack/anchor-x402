@@ -11,6 +11,8 @@ title: anchor-x402
 
 **→ [chat.anchor-x402.com](https://chat.anchor-x402.com)** — connect a wallet, chat with our hosted Claude agent, pay per call from your own USDC on Base. The agent quotes the price aloud before every call and never spends beyond a cap you set.
 
+Watch a [30-second walkthrough →](/demo/)
+
 ## Live API
 
 - **Base URL:** `https://api.anchor-x402.com`
