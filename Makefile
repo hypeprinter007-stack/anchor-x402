@@ -20,7 +20,16 @@ build: bundle
 # excluding node_modules, .venv, docs, tests, etc. keeps the unzipped artifact
 # under Lambda's 250 MB limit.
 build-AnchorFunction:
-	python3 -m pip install --quiet -r requirements.txt -t "$(ARTIFACTS_DIR)"
+	# Cross-compile from macOS arm64 to Lambda's Linux x86_64. Native modules
+	# (pydantic_core, cryptography, solders, ...) need the right wheel.
+	python3 -m pip install \
+		--platform manylinux2014_x86_64 \
+		--only-binary=:all: \
+		--python-version 3.12 \
+		--implementation cp \
+		--quiet \
+		-r requirements.txt \
+		-t "$(ARTIFACTS_DIR)"
 	cp app.py models.py "$(ARTIFACTS_DIR)/"
 	cp -r services "$(ARTIFACTS_DIR)/"
 	mkdir -p "$(ARTIFACTS_DIR)/static"
@@ -30,9 +39,9 @@ build-AnchorFunction:
 	#  - __pycache__, *.dist-info, tests: dev-time only
 	rm -rf "$(ARTIFACTS_DIR)/boto3" "$(ARTIFACTS_DIR)/botocore" "$(ARTIFACTS_DIR)/s3transfer" "$(ARTIFACTS_DIR)/jmespath"
 	find "$(ARTIFACTS_DIR)" -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null || true
-	find "$(ARTIFACTS_DIR)" -name "*.dist-info" -type d -exec rm -rf {} + 2>/dev/null || true
-	find "$(ARTIFACTS_DIR)" -name tests -type d -exec rm -rf {} + 2>/dev/null || true
 	find "$(ARTIFACTS_DIR)" -name "*.pyc" -delete 2>/dev/null || true
+	# Note: *.dist-info dirs are kept — some packages query their own metadata
+	# (e.g. email-validator) and importlib.metadata.entry_points needs them.
 
 deploy:
 	sam deploy --stack-name anchor-x402 --capabilities CAPABILITY_IAM --resolve-s3 --no-confirm-changeset --no-fail-on-empty-changeset --region us-east-1
