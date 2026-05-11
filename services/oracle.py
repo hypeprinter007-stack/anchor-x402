@@ -4,9 +4,9 @@ the (question, answer, timestamp) tuple as cryptographic receipt.
 from __future__ import annotations
 
 import hashlib
-import json
 import time
 
+from services._json_extract import extract_json
 from services.anchor import anchor_dual_chain
 from services.llm import MODEL_FAST, get_client
 
@@ -31,8 +31,7 @@ def oracle(question: str) -> dict:
         system=_SYSTEM,
         messages=[{"role": "user", "content": f"Question: {clipped}"}],
     )
-    raw = resp.content[0].text.strip()
-    parsed = json.loads(raw)
+    parsed = extract_json(resp.content[0].text)
     answer = str(parsed["answer"]).upper().strip()
     if answer not in _VALID_ANSWERS:
         raise ValueError(f"oracle returned invalid answer: {answer!r}")

@@ -4,12 +4,12 @@ Fetches at most 500KB on the URL path. Strips HTML with BeautifulSoup.
 """
 from __future__ import annotations
 
-import json
 from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup
 
+from services._json_extract import extract_json
 from services.llm import MODEL_FAST, get_client
 
 _MAX_FETCH_BYTES = 500_000
@@ -70,7 +70,7 @@ def tldr(text: str | None = None, url: str | None = None) -> dict:
         system=_SYSTEM,
         messages=[{"role": "user", "content": body}],
     )
-    parsed = json.loads(resp.content[0].text.strip())
+    parsed = extract_json(resp.content[0].text)
     bullets = parsed.get("bullets") or []
     if not bullets or not isinstance(bullets, list):
         raise ValueError("tldr returned no bullets")

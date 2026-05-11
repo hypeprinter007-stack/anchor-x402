@@ -4,8 +4,7 @@ LLM-only. Returns a structured grade for max screenshot value.
 """
 from __future__ import annotations
 
-import json
-
+from services._json_extract import extract_json
 from services.llm import MODEL_FAST, get_client
 
 _MAX_TARGET_CHARS = 6000
@@ -31,7 +30,7 @@ def grade(target: str) -> dict:
         system=_SYSTEM,
         messages=[{"role": "user", "content": f"Grade this:\n\n{clipped}"}],
     )
-    parsed = json.loads(resp.content[0].text.strip())
+    parsed = extract_json(resp.content[0].text)
 
     letter = str(parsed.get("letter_grade", "")).strip()
     if letter not in _VALID_GRADES:

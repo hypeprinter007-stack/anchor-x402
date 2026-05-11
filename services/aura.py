@@ -5,8 +5,7 @@ model's reply.
 """
 from __future__ import annotations
 
-import json
-
+from services._json_extract import extract_json
 from services.llm import MODEL_FAST, get_client
 
 _MAX_TARGET_CHARS = 4000
@@ -33,7 +32,7 @@ def aura(target: str) -> dict:
         system=_SYSTEM,
         messages=[{"role": "user", "content": f"Read the aura of: {clipped}"}],
     )
-    parsed = json.loads(resp.content[0].text.strip())
+    parsed = extract_json(resp.content[0].text)
 
     tier = str(parsed.get("tier", "")).upper().strip()
     if tier not in _VALID_TIERS:
