@@ -161,6 +161,12 @@
     gap: 2px;
     min-height: 64px;
   }
+  .signin-btn-alt {
+    width: 100%;
+    margin-top: 8px;
+    padding: 12px;
+    font-size: 14px;
+  }
   .signin-emoji { font-size: 18px; }
   .signin-sub { font-size: 12px; font-weight: 500; opacity: 0.7; }
   .signin-or { color: var(--muted); font-size: 13px; margin: 10px 0 0; line-height: 1.45; }
@@ -521,29 +527,32 @@
       <div class="signin-row">
         <button class="btn primary signin-btn" id="passkey-btn" type="button">
           <span class="signin-emoji">✨</span> Sign in with passkey
-          <span class="signin-sub">no wallet app needed</span>
+          <span class="signin-sub">no app needed · recommended</span>
         </button>
-        <p class="signin-or">or tap <strong>Connect</strong> above if you have MetaMask, Rainbow, Coinbase Wallet, Trust, etc.</p>
+        <button class="btn signin-btn-alt" id="injected-btn" type="button" style="display:none">
+          Use my browser wallet
+        </button>
+        <p class="signin-or">Passkey signs in with Face ID / Touch ID — no app install, works on every modern browser. Mobile users without a wallet: this is the simplest path.</p>
       </div>
 
       <div style="text-align:center; margin-top: 22px;">
         <button class="btn ghost small" id="more-services-btn" type="button">View all 15 services →</button>
         <details class="first-time">
-          <summary>First time? How to connect on mobile</summary>
+          <summary>First time? Which sign-in option to use</summary>
           <div class="first-time-body">
-            <p><strong>If you have a wallet app on this phone</strong> (Rainbow, MetaMask Mobile, Coinbase Wallet, Trust):</p>
+            <p><strong>Sign in with passkey</strong> (recommended for almost everyone):</p>
             <ol>
-              <li>Tap <strong>Connect</strong> above.</li>
-              <li>In the modal, tap your wallet's name from the list — <em>don't</em> tap "Scan QR".</li>
-              <li>Your wallet app opens. Approve the connection. You're back here, connected.</li>
+              <li>Tap the green <strong>Sign in with passkey</strong> button.</li>
+              <li>Your browser/device prompts for Face ID / Touch ID / device PIN.</li>
+              <li>That creates a self-custodial Coinbase Smart Wallet bound to your device. No app to install.</li>
+              <li>Fund it with USDC on Base (the trust footer below has links).</li>
             </ol>
-            <p><strong>If the modal shows only a QR code</strong> (no wallet list):</p>
+            <p><strong>Use my browser wallet</strong> (desktop power users):</p>
             <ol>
-              <li><strong>Don't</strong> scan it with your phone's Camera app — iOS shows raw text. The Camera app doesn't know what to do with WalletConnect URIs.</li>
-              <li>Instead, open your wallet app and find its built-in QR scanner (often a small QR icon in the wallet's header). Scan from there.</li>
-              <li>Or use a desktop browser with a desktop wallet (MetaMask extension, Rainbow extension).</li>
+              <li>If you have MetaMask / Rabby / Frame / etc. as a browser extension, the button appears below "Sign in with passkey".</li>
+              <li>One click — your extension prompts; you approve.</li>
             </ol>
-            <p>No wallet at all? Install <a href="https://rainbow.me/download" target="_blank" rel="noopener">Rainbow</a> or <a href="https://www.coinbase.com/wallet/downloads" target="_blank" rel="noopener">Coinbase Wallet</a> — both are free, take 1 min to set up.</p>
+            <p class="muted">We dropped WalletConnect mobile flow. It's fundamentally unreliable for x402 payments — mobile wallet apps lose their relay subscription when backgrounded, and the WC spec provides no soft-recovery path. Coinbase's own x402 reference architecture uses embedded / smart wallets, not WC.</p>
           </div>
         </details>
       </div>
@@ -626,16 +635,16 @@
 window.__moduleLoaded = true;
 
 // Self-bundled via esbuild — single same-origin file.
-// Includes Reown AppKit so mobile signature flow auto-deeplinks back into the
-// user's wallet app for each signature (direct EthereumProvider was failing
-// the round-trip when the wallet app got backgrounded).
+// Two wallet paths, no WalletConnect anywhere:
+//   - Coinbase Smart Wallet (passkey) — primary, recommended by Coinbase's
+//     own x402 docs. No relay, no deep-links, works everywhere.
+//   - window.ethereum (injected EIP-1193) — desktop browser extensions.
 // Source: static/chat.entry.js · build: `npm run build`
 import {
   createWalletClient, custom, base,
-  createAppKit, WagmiAdapter, getWalletClient, wagmiDisconnect,
   CoinbaseWalletSDK,
   wrapFetchWithPayment,
-} from "/chat.bundle.js?v=4";
+} from "/chat.bundle.js?v=5";
 
 if (window.__diag) window.__diag("[boot] module imports OK");
 
@@ -645,17 +654,30 @@ const INVESTIGATE_POLL_MS = 30_000;
 const INVESTIGATE_MAX_POLLS = 30;
 
 const state = {
-  modal: null,            // AppKit modal instance (existing-wallet path)
-  wagmiConfig: null,      // Wagmi config from WagmiAdapter
-  cbProvider: null,       // Coinbase Smart Wallet provider (no-app path)
-  connectMethod: null,    // "appkit" | "coinbase"
+  cbProvider: null,        // Coinbase Smart Wallet provider (passkey path)
+  injectedProvider: null,  // window.ethereum (browser extension path)
+  connectMethod: null,     // "coinbase" | "injected"
   account: null,
   paidFetch: null,
-  projectId: "",
   conversation: [],
   sessionSpend: 0,
   sessionCap: 5.00,
 };
+
+// What browser-extension wallet (if any) is in this page? Used to label the
+// "Use my <wallet>" button. Best-effort detection — most wallets set isXxx
+// on window.ethereum.
+function detectInjectedName() {
+  const e = window.ethereum;
+  if (!e) return null;
+  if (e.isMetaMask) return "MetaMask";
+  if (e.isRabby) return "Rabby";
+  if (e.isCoinbaseWallet) return "Coinbase Wallet";
+  if (e.isBraveWallet) return "Brave Wallet";
+  if (e.isFrame) return "Frame";
+  if (e.isTrust) return "Trust";
+  return "Browser wallet";
+}
 
 // ====================== service catalog ======================
 // Prompt chips prefill the input, place the cursor at the end, and toast a
@@ -966,12 +988,12 @@ function renderApprovalAndRun(tu) {
 
     const runBtn = document.createElement("button");
     runBtn.className = "btn primary";
-    runBtn.textContent = state.account ? `Approve $${price.toFixed(3)}` : `Connect wallet & approve $${price.toFixed(3)}`;
+    runBtn.textContent = state.account ? `Approve $${price.toFixed(3)}` : `Sign in with passkey & approve $${price.toFixed(3)}`;
     runBtn.addEventListener("click", async () => {
       try {
         if (!state.account) {
-          runBtn.disabled = true; runBtn.textContent = "Connecting…";
-          await connectWallet();
+          runBtn.disabled = true; runBtn.textContent = "Signing in…";
+          await connectCoinbase();
           runBtn.textContent = `Approving $${price.toFixed(3)}…`;
         }
         if (!route) throw new Error("unknown tool: " + tu.name);
@@ -1001,25 +1023,27 @@ function renderApprovalAndRun(tu) {
     actions.appendChild(skipBtn);
 
     if (!state.account) {
-      // Add a secondary "passkey" path so noobs can avoid the wallet-app flow entirely.
-      const passkeyBtn = document.createElement("button");
-      passkeyBtn.className = "btn small ghost passkey-alt";
-      passkeyBtn.textContent = "Or sign in with passkey (no app needed)";
-      passkeyBtn.addEventListener("click", async () => {
-        if (passkeyBtn.disabled) return;
-        passkeyBtn.disabled = true;
-        passkeyBtn.textContent = "Signing in…";
-        try {
-          await connectCoinbase();
-          // Once signed in, kick off the tool run automatically.
-          runBtn.click();
-        } catch (e) {
-          toast(e.message || String(e), "err");
-          passkeyBtn.disabled = false;
-          passkeyBtn.textContent = "Or sign in with passkey (no app needed)";
-        }
-      });
-      actions.appendChild(passkeyBtn);
+      // Optional secondary: if browser-extension wallet is detected, offer it.
+      const injectedName = detectInjectedName();
+      if (injectedName) {
+        const injBtn = document.createElement("button");
+        injBtn.className = "btn small ghost";
+        injBtn.textContent = `Or use my ${injectedName}`;
+        injBtn.addEventListener("click", async () => {
+          if (injBtn.disabled) return;
+          injBtn.disabled = true;
+          injBtn.textContent = "Connecting…";
+          try {
+            await connectInjected();
+            runBtn.click();
+          } catch (e) {
+            toast(e.message || String(e), "err");
+            injBtn.disabled = false;
+            injBtn.textContent = `Or use my ${injectedName}`;
+          }
+        });
+        actions.appendChild(injBtn);
+      }
 
       const topup = document.createElement("div");
       topup.className = "topup";
@@ -1084,28 +1108,19 @@ function resetWalletState(reason) {
 }
 
 async function warmupWallet() {
-  // Verify the transport is alive before requesting a signature. If the
-  // wallet app got backgrounded, this surfaces the failure fast with a
-  // clear message instead of getting stuck in x402-fetch's signing path.
+  // Cheap liveness probe before requesting a signature. Both EIP-1193 paths
+  // expose eth_chainId — if it throws, the transport is dead.
+  const provider = state.connectMethod === "coinbase" ? state.cbProvider
+                  : state.connectMethod === "injected" ? state.injectedProvider
+                  : null;
+  if (!provider) return false;
   try {
-    if (state.connectMethod === "coinbase" && state.cbProvider) {
-      await state.cbProvider.request({ method: "eth_chainId" });
-      return true;
-    }
-    if (state.connectMethod === "appkit" && state.wagmiConfig) {
-      const w = await getWalletClient(state.wagmiConfig);
-      if (!w) return false;
-      // Refresh paidFetch in case the client got rotated mid-session
-      state.paidFetch = wrapFetchWithPayment(fetch, w);
-      // Probe with a chain id call
-      await w.transport.request({ method: "eth_chainId" });
-      return true;
-    }
+    await provider.request({ method: "eth_chainId" });
+    return true;
   } catch (e) {
     if (window.__diag) window.__diag("[wallet] warmup failed: " + (e?.message || e), "err");
     return false;
   }
-  return false;
 }
 
 async function executeTool(name, route, input) {
@@ -1147,46 +1162,31 @@ async function executeTool(name, route, input) {
     const sessionDead = msg.includes("session topic") || msg.includes("No matching key");
     const transportDrop = msg.includes("'request'") || msg.includes("undefined") || msg.includes("disconnected");
 
-    if (sessionDead) {
-      if (window.__diag) window.__diag("[wallet] session dead on relay — forcing full disconnect", "err");
-      await forceFullDisconnect();
-      throw new Error("Your wallet session expired on the WalletConnect relay (common when the wallet app gets backgrounded). Tap Connect to pair fresh.");
+    if (sessionDead || !transportDrop && msg.includes("rejected")) {
+      // User rejected OR session-dead error — surface, don't auto-retry.
+      throw e;
     }
 
     if (!transportDrop) throw e;
 
-    if (window.__diag) window.__diag("[wallet] transient error — refresh + retry");
-    try {
-      const fresh = state.connectMethod === "appkit"
-        ? await getWalletClient(state.wagmiConfig)
-        : null;
-      if (fresh) state.paidFetch = wrapFetchWithPayment(fetch, fresh);
-    } catch {}
-    await new Promise((res) => setTimeout(res, 1800));
+    if (window.__diag) window.__diag("[wallet] transient transport error — waiting + retry");
+    await new Promise((res) => setTimeout(res, 1500));
 
     try {
       return await tryOnce();
     } catch (e2) {
-      // Second failure — still treat as a stale session: full reset.
       await forceFullDisconnect();
-      throw new Error("Wallet didn't respond after retry. Tap Connect to pair fresh.");
+      throw new Error("Wallet didn't respond after retry. Sign in again to continue.");
     }
   }
 }
 
 async function forceFullDisconnect() {
-  // Tear down everything we can: Wagmi disconnect, AppKit modal disconnect,
-  // CB Smart Wallet disconnect, then nuke localStorage. Next Connect tap is
-  // a clean slate.
-  try {
-    if (state.connectMethod === "appkit" && state.wagmiConfig) {
-      await wagmiDisconnect(state.wagmiConfig);
-    }
-  } catch {}
-  try { await state.modal?.disconnect?.(); } catch {}
   try { await state.cbProvider?.disconnect?.(); } catch {}
-  clearWcStorage();
-  resetWalletState("Wallet disconnected. Tap Connect to start fresh.");
+  // window.ethereum has no disconnect — just clear our refs.
+  state.cbProvider = null;
+  state.injectedProvider = null;
+  resetWalletState("Wallet disconnected. Sign in again to continue.");
 }
 
 function buildUrl(route, input) {
@@ -1212,84 +1212,45 @@ async function pollInvestigate(statusUrl, jobId) {
   return { job_id: jobId, status: "TIMEOUT", note: "client polling stopped — check status_url later" };
 }
 
-// ====================== wallet (AppKit) ======================
-function clearWcStorage() {
+// ====================== wallet ======================
+// Two paths, both with EIP-1193 providers: no WalletConnect relay anywhere.
+//   - Coinbase Smart Wallet (passkey-based, browser-native)
+//   - Injected window.ethereum (browser extensions)
+
+const BASE_CHAIN_ID_HEX = "0x2105"; // 8453
+
+async function ensureBaseChain(provider) {
   try {
-    const keys = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (!k) continue;
-      if (k.startsWith("wc@") || k.startsWith("walletconnect") || k.startsWith("WCM_") || k.toLowerCase().includes("@walletconnect") || k.startsWith("@appkit") || k.startsWith("appkit") || k.toLowerCase().includes("reown")) {
-        keys.push(k);
-      }
+    await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: BASE_CHAIN_ID_HEX }] });
+  } catch (e) {
+    if (e?.code === 4902) {
+      await provider.request({
+        method: "wallet_addEthereumChain",
+        params: [{
+          chainId: BASE_CHAIN_ID_HEX,
+          chainName: "Base",
+          rpcUrls: ["https://mainnet.base.org"],
+          nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+          blockExplorerUrls: ["https://basescan.org"],
+        }],
+      });
+    } else {
+      throw e;
     }
-    keys.forEach((k) => localStorage.removeItem(k));
-    if (window.__diag) window.__diag(`[wallet] cleared ${keys.length} stale wc/appkit storage keys`);
-  } catch {}
+  }
 }
 
-function initAppKit() {
-  if (state.modal || !state.projectId) return state.modal;
-  const wagmiAdapter = new WagmiAdapter({ networks: [base], projectId: state.projectId });
-  state.wagmiConfig = wagmiAdapter.wagmiConfig;
-  state.modal = createAppKit({
-    adapters: [wagmiAdapter],
-    networks: [base],
-    projectId: state.projectId,
-    metadata: {
-      name: "anchor-x402 agent",
-      description: "Pay-per-call AI services from your own wallet.",
-      url: location.origin,
-      icons: [],
-    },
-    features: { analytics: false, email: false, socials: false },
+function wireProviderLifecycle(provider, methodName) {
+  provider.on?.("accountsChanged", (accts) => {
+    if (!accts || !accts.length) resetWalletState(`${methodName} disconnected.`);
   });
-
-  // React to account changes — fired when wallet connects/disconnects via the modal.
-  state.modal.subscribeAccount((acct) => {
-    if (acct?.isConnected && acct.address && acct.address.toLowerCase() !== (state.account || "").toLowerCase()) {
-      state.account = acct.address;
-      onAccountConnected().catch((e) => { if (window.__diag) window.__diag("[wallet] onAccountConnected: " + (e?.message || e), "err"); });
-    } else if (!acct?.isConnected && state.account) {
-      state.account = null;
-      state.paidFetch = null;
-      renderPill();
-      appendMsg("system", "Wallet disconnected.");
-    }
-  });
-
-  if (window.__diag) window.__diag("[wallet] AppKit ready");
-  return state.modal;
-}
-
-async function onAccountConnected() {
-  const wallet = await getWalletClient(state.wagmiConfig);
-  if (!wallet) throw new Error("getWalletClient returned null");
-  state.paidFetch = wrapFetchWithPayment(fetch, wallet);
-  renderPill();
-  appendMsg("system", `Wallet connected. Your spend cap is $${state.sessionCap.toFixed(2)} per session.`);
-}
-
-async function connectWallet() {
-  // Existing-wallet path — AppKit modal shows MetaMask, Rainbow, Coinbase
-  // Wallet, Trust, WalletConnect, etc.
-  if (state.account) return;
-  if (!state.projectId) throw new Error("Wallet connect not configured by operator yet.");
-  initAppKit();
-  state.connectMethod = "appkit";
-  state.modal.open();
+  provider.on?.("disconnect", () => resetWalletState(`${methodName} disconnected.`));
 }
 
 async function connectCoinbase() {
-  // No-app path — Coinbase Smart Wallet runs entirely in the browser via
-  // passkeys. No WC relay, no deep-linking, no backgrounding issues. Best for
-  // users with no existing wallet.
   if (state.account) return;
   if (window.__diag) window.__diag("[wallet] initializing Coinbase Smart Wallet…");
-  const sdk = new CoinbaseWalletSDK({
-    appName: "anchor-x402 agent",
-    appChainIds: [8453],
-  });
+  const sdk = new CoinbaseWalletSDK({ appName: "anchor-x402 agent", appChainIds: [8453] });
   state.cbProvider = sdk.makeWeb3Provider({ options: "smartWalletOnly" });
   state.connectMethod = "coinbase";
 
@@ -1301,12 +1262,27 @@ async function connectCoinbase() {
   state.paidFetch = wrapFetchWithPayment(fetch, wallet);
   renderPill();
   appendMsg("system", `Signed in with passkey. Your spend cap is $${state.sessionCap.toFixed(2)} per session.`);
+  wireProviderLifecycle(state.cbProvider, "Coinbase Smart Wallet");
+}
 
-  // Provider lifecycle: handle external disconnect / chain changes
-  state.cbProvider.on?.("disconnect", () => resetWalletState("Coinbase Smart Wallet disconnected."));
-  state.cbProvider.on?.("accountsChanged", (accts) => {
-    if (!accts || !accts.length) resetWalletState("Coinbase Smart Wallet disconnected.");
-  });
+async function connectInjected() {
+  if (state.account) return;
+  if (!window.ethereum) throw new Error("No browser-extension wallet detected. Use Sign in with passkey instead, or install MetaMask / Rabby / Frame.");
+  const provider = window.ethereum;
+  state.injectedProvider = provider;
+  state.connectMethod = "injected";
+
+  const accounts = await provider.request({ method: "eth_requestAccounts" });
+  state.account = accounts && accounts[0];
+  if (!state.account) throw new Error("No account returned from your wallet.");
+
+  await ensureBaseChain(provider);
+
+  const wallet = createWalletClient({ account: state.account, chain: base, transport: custom(provider) });
+  state.paidFetch = wrapFetchWithPayment(fetch, wallet);
+  renderPill();
+  appendMsg("system", `Connected ${detectInjectedName()}. Your spend cap is $${state.sessionCap.toFixed(2)} per session.`);
+  wireProviderLifecycle(provider, detectInjectedName() || "Wallet");
 }
 
 // ====================== bootstrap ======================
@@ -1330,34 +1306,30 @@ async function connectCoinbase() {
   // Connect pill: tap to connect (or disconnect if connected)
   $("connect-pill").addEventListener("click", async () => {
     if (state.account) {
-      // Currently connected — show appropriate management UI per path.
-      if (state.connectMethod === "appkit" && state.modal) {
-        state.modal.open({ view: "Account" });
-      } else if (state.connectMethod === "coinbase") {
-        if (confirm("Sign out of Coinbase Smart Wallet?")) {
-          try { await state.cbProvider?.disconnect?.(); } catch {}
-          resetWalletState("Signed out of Coinbase Smart Wallet.");
-        }
-      }
+      if (confirm("Sign out?")) await forceFullDisconnect();
     } else {
-      // Default behavior: open AppKit modal (existing-wallet path).
-      try {
-        await connectWallet();
-      } catch (e) { toast(e.message || String(e), "err"); }
+      // Default to passkey path — recommended by Coinbase's own x402 docs.
+      try { await connectCoinbase(); }
+      catch (e) { toast(e.message || String(e), "err"); }
     }
   });
 
-  // Welcome-card passkey button + approval-card passkey fallback both call this.
   $("passkey-btn")?.addEventListener("click", async () => {
     try { await connectCoinbase(); }
     catch (e) { toast(e.message || String(e), "err"); }
   });
 
-  // Load config
-  try {
-    const r = await fetch("/v1/config");
-    if (r.ok) state.projectId = (await r.json()).wcProjectId || "";
-  } catch (e) { if (window.__diag) window.__diag("[boot] /v1/config failed: " + e.message, "err"); }
+  // Wire the optional injected-wallet button if window.ethereum exists.
+  const injectedBtn = $("injected-btn");
+  const injectedName = detectInjectedName();
+  if (injectedBtn && injectedName) {
+    injectedBtn.textContent = `Use my ${injectedName}`;
+    injectedBtn.style.display = "";
+    injectedBtn.addEventListener("click", async () => {
+      try { await connectInjected(); }
+      catch (e) { toast(e.message || String(e), "err"); }
+    });
+  }
 
   renderPill();
   if (window.__diag) window.__diag("[boot] ready");

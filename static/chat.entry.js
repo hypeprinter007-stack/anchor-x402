@@ -1,15 +1,18 @@
-// Entry for esbuild bundling. Re-exports the deps the chat UI needs so the
-// browser fetches a single same-origin file instead of hundreds of cross-origin
-// modules (which mobile Safari was choking on).
+// Entry for esbuild bundling. Single same-origin file — mobile Safari was
+// choking on chained cross-origin CDN imports.
 //
-// AppKit handles the mobile signature flow correctly (auto-deeplinks back into
-// the wallet app on every signature request) — direct EthereumProvider was
-// failing to round-trip signatures from a backgrounded wallet app.
+// Two wallet paths, no WalletConnect:
+//   - Coinbase Smart Wallet (passkey) — primary, works everywhere.
+//   - Injected EIP-1193 provider (window.ethereum) — desktop browser
+//     extensions (MetaMask, Rabby, Frame, etc.).
+//
+// AppKit / WalletConnect was removed: per WalletConnect Sign v2 spec
+// (error 7001 noSessionForTopic) and Coinbase's own x402 reference
+// architecture, WC mobile is fundamentally unreliable for x402 payments
+// because mobile wallet apps lose their relay subscription when
+// backgrounded and the spec provides no soft recovery.
 
 export { createWalletClient, custom } from "viem";
 export { base } from "viem/chains";
-export { createAppKit } from "@reown/appkit";
-export { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
-export { getWalletClient, disconnect as wagmiDisconnect } from "@wagmi/core";
 export { CoinbaseWalletSDK } from "@coinbase/wallet-sdk";
 export { wrapFetchWithPayment } from "x402-fetch";
