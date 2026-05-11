@@ -16,8 +16,8 @@ import time
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from mangum import Mangum
 
 logging.basicConfig(
@@ -907,12 +907,25 @@ def chat(req: ChatRequest) -> ChatResponse:
 _STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 
 
-@app.get("/chat")
-def chat_ui():
+def _serve_chat_html() -> FileResponse:
     path = os.path.join(_STATIC_DIR, "chat.html")
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="chat UI not deployed")
     return FileResponse(path, media_type="text/html")
+
+
+@app.get("/")
+def root(request: Request):
+    """Root: chat UI on the chat.* subdomain, docs redirect on the api.* one."""
+    host = request.headers.get("host", "")
+    if host.startswith("chat."):
+        return _serve_chat_html()
+    return RedirectResponse(url="/docs")
+
+
+@app.get("/chat")
+def chat_ui():
+    return _serve_chat_html()
 
 
 @app.get("/v1/config")

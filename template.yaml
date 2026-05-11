@@ -45,6 +45,14 @@ Parameters:
     Type: String
     Default: ""
     Description: ACM certificate ARN for ApiCustomDomain (must be in this region). Required when ApiCustomDomain is set.
+  ChatCustomDomain:
+    Type: String
+    Default: ""
+    Description: Optional custom domain for the chatbot UI (e.g. chat.anchor-x402.com). Leave empty to skip. Maps to the same Lambda — root path serves the chat UI.
+  ChatCustomDomainCertArn:
+    Type: String
+    Default: ""
+    Description: ACM certificate ARN for ChatCustomDomain (this region). Can be the same wildcard cert used for ApiCustomDomain if it covers both subdomains.
   InvestigatorWorkerFunctionName:
     Type: String
     Default: risk-investigator-worker
@@ -69,6 +77,7 @@ Parameters:
 Conditions:
   HasAlarmEmail: !Not [!Equals [!Ref AlarmEmail, ""]]
   HasCustomDomain: !Not [!Equals [!Ref ApiCustomDomain, ""]]
+  HasChatCustomDomain: !Not [!Equals [!Ref ChatCustomDomain, ""]]
 
 Resources:
   AnchorFunction:
@@ -274,6 +283,24 @@ Resources:
       ApiId: !Ref ServerlessHttpApi
       Stage: $default
 
+  ChatCustomDomainName:
+    Type: AWS::ApiGatewayV2::DomainName
+    Condition: HasChatCustomDomain
+    Properties:
+      DomainName: !Ref ChatCustomDomain
+      DomainNameConfigurations:
+        - CertificateArn: !Ref ChatCustomDomainCertArn
+          EndpointType: REGIONAL
+          SecurityPolicy: TLS_1_2
+
+  ChatCustomDomainMapping:
+    Type: AWS::ApiGatewayV2::ApiMapping
+    Condition: HasChatCustomDomain
+    Properties:
+      DomainName: !Ref ChatCustomDomainName
+      ApiId: !Ref ServerlessHttpApi
+      Stage: $default
+
 Outputs:
   ApiUrl:
     Value: !Sub 'https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com'
@@ -282,3 +309,7 @@ Outputs:
     Condition: HasCustomDomain
     Value: !GetAtt ApiCustomDomainName.RegionalDomainName
     Description: Set this as the CNAME target for ApiCustomDomain at your DNS registrar
+  ChatCustomDomainTarget:
+    Condition: HasChatCustomDomain
+    Value: !GetAtt ChatCustomDomainName.RegionalDomainName
+    Description: Set this as the CNAME target for ChatCustomDomain at your DNS registrar
