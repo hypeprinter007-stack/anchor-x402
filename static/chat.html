@@ -639,14 +639,25 @@ function renderApprovalAndRun(tu) {
 
     const runBtn = document.createElement("button");
     runBtn.className = "btn primary";
-    runBtn.textContent = state.account ? `approve $${price.toFixed(3)}` : `connect & approve $${price.toFixed(3)}`;
-    runBtn.addEventListener("click", async () => {
+    runBtn.textContent = state.account ? `approve $${price.toFixed(3)}` : `connect`;
+
+    // Single click does ONE action: either connect (when not connected) or
+    // execute the tool. Coinbase Smart Wallet rejects back-to-back passkey
+    // prompts (connect + immediate sign collide), so we split them.
+    async function handleClick() {
       try {
+        // Step 1: if not connected yet, connect and relabel — second tap signs.
         if (!state.account) {
           runBtn.disabled = true; runBtn.textContent = "connecting…";
           await connectCoinbase();
-          runBtn.textContent = `approving $${price.toFixed(3)}…`;
+          runBtn.disabled = false;
+          runBtn.textContent = `approve $${price.toFixed(3)}`;
+          appendMsg("sys", `Connected. Tap "approve" above to sign the payment.`);
+          // Hide the injected fallback now that we're connected
+          actions.querySelectorAll(".btn.alt-connect").forEach((b) => b.remove());
+          return;
         }
+        // Step 2: actually run.
         if (!route) throw new Error("unknown tool: " + tu.name);
         if (state.sessionSpend + price > state.sessionCap + 1e-9) {
           const ok = window.confirm(`This call would exceed your session cap ($${state.sessionCap.toFixed(2)}). Raise it?`);
@@ -659,11 +670,14 @@ function renderApprovalAndRun(tu) {
         renderResult(tu.name, out, false);
         finish(out);
       } catch (e) {
+        runBtn.disabled = false;
+        runBtn.textContent = state.account ? `approve $${price.toFixed(3)}` : `connect`;
         const err = { error: String(e?.message || e) };
         renderResult(tu.name, err, true);
         finish(err);
       }
-    });
+    }
+    runBtn.addEventListener("click", handleClick);
 
     const skipBtn = document.createElement("button");
     skipBtn.className = "btn ghost sm";
@@ -678,13 +692,24 @@ function renderApprovalAndRun(tu) {
       const injectedName = detectInjectedName();
       if (injectedName) {
         const injBtn = document.createElement("button");
-        injBtn.className = "btn sm ghost";
+        injBtn.className = "btn sm ghost alt-connect";
         injBtn.textContent = `use ${injectedName} instead`;
         injBtn.addEventListener("click", async () => {
           if (injBtn.disabled) return;
           injBtn.disabled = true; injBtn.textContent = "connecting…";
-          try { await connectInjected(); runBtn.click(); }
-          catch (e) { toast(e.message || String(e), "err"); injBtn.disabled = false; injBtn.textContent = `use ${injectedName} instead`; }
+          try {
+            await connectInjected();
+            // Relabel runBtn; do NOT auto-fire the signature — wallet apps
+            // reject when connect + sign land back-to-back.
+            runBtn.disabled = false;
+            runBtn.textContent = `approve $${price.toFixed(3)}`;
+            actions.querySelectorAll(".btn.alt-connect").forEach((b) => b.remove());
+            appendMsg("sys", `Connected. Tap "approve" above to sign the payment.`);
+          } catch (e) {
+            toast(e.message || String(e), "err");
+            injBtn.disabled = false;
+            injBtn.textContent = `use ${injectedName} instead`;
+          }
         });
         const row2 = document.createElement("div"); row2.className = "row";
         row2.appendChild(injBtn);
