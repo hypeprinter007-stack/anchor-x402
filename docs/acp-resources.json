@@ -1,0 +1,175 @@
+{
+  "resources": [
+    {
+      "name": "getHashAnchor",
+      "description": "Anchor any 32-byte hash to Base mainnet (EIP-1559 calldata) and Solana mainnet (Memo program) in a single $0.005 USDC call. Returns both tx hashes plus block-explorer URLs as cryptographic proof a specific value existed at a known time.",
+      "url": "https://api.anchor-x402.com/v1/anchor?hash={{hash}}&note={{note}}",
+      "params": {
+        "type": "object",
+        "properties": {
+          "hash": {
+            "type": "string",
+            "description": "64-char hex SHA-256 (no 0x prefix)."
+          },
+          "note": {
+            "type": "string",
+            "description": "Optional 200-char label echoed in the response (NOT written on-chain)."
+          }
+        },
+        "required": ["hash"]
+      }
+    },
+    {
+      "name": "getSanctionsScreen",
+      "description": "Sanctions + AML screening for any EVM or Solana wallet. Returns sanctions match boolean, specific OFAC SDN programs flagged (Tornado Cash, Lazarus, Hydra, Garantex, Blender.io etc.), inferred chain, and a low/medium/high risk verdict.",
+      "url": "https://api.anchor-x402.com/v1/screen?wallet={{wallet}}",
+      "params": {
+        "type": "object",
+        "properties": {
+          "wallet": {
+            "type": "string",
+            "description": "EVM (0x...) or Solana base58 address to screen against OFAC SDN sanctions lists."
+          }
+        },
+        "required": ["wallet"]
+      }
+    },
+    {
+      "name": "getDecisionAttest",
+      "description": "Verify a wallet signature over (input_hash, output_hash, decision) with domain separation, then dual-chain anchor the Merkle root on Base + Solana mainnet. Returns verified signer plus on-chain proof URLs. Schemes: EVM personal_sign or Solana Ed25519.",
+      "url": "https://api.anchor-x402.com/v1/attest?input_hash={{input_hash}}&output_hash={{output_hash}}&decision={{decision}}&scheme={{scheme}}&signature={{signature}}&signer_pubkey={{signer_pubkey}}",
+      "params": {
+        "type": "object",
+        "properties": {
+          "input_hash": {
+            "type": "string",
+            "description": "64-char hex SHA-256 of the input."
+          },
+          "output_hash": {
+            "type": "string",
+            "description": "64-char hex SHA-256 of the output."
+          },
+          "decision": {
+            "type": "string",
+            "description": "APPROVED | REJECTED | ESCALATED."
+          },
+          "scheme": {
+            "type": "string",
+            "description": "eip191 (EVM) or ed25519 (Solana)."
+          },
+          "signature": {
+            "type": "string",
+            "description": "Hex (eip191) or base58 (ed25519)."
+          },
+          "signer_pubkey": {
+            "type": "string",
+            "description": "Required for ed25519; optional for eip191 (auto-recovered)."
+          }
+        },
+        "required": ["input_hash", "output_hash", "decision", "scheme", "signature"]
+      }
+    },
+    {
+      "name": "getTxDecode",
+      "description": "Structured decode of any Base or Ethereum mainnet transaction. Returns block number, timestamp, status, gas, decoded transfers and method signatures.",
+      "url": "https://api.anchor-x402.com/v1/decode/tx?chain={{chain}}&tx_hash={{tx_hash}}",
+      "params": {
+        "type": "object",
+        "properties": {
+          "chain": {
+            "type": "string",
+            "description": "base | ethereum."
+          },
+          "tx_hash": {
+            "type": "string",
+            "description": "0x-prefixed 32-byte tx hash."
+          }
+        },
+        "required": ["chain", "tx_hash"]
+      }
+    },
+    {
+      "name": "getNameResolve",
+      "description": "Cross-chain name resolution for ENS (Ethereum) and Bonfida SNS (Solana). Returns one or more addresses with chain context - useful for resolving human-readable names to wallet addresses before payments, lookups, or intel queries.",
+      "url": "https://api.anchor-x402.com/v1/resolve/name?name={{name}}",
+      "params": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "ENS or SNS name (e.g. vitalik.eth, bonfida.sol)."
+          }
+        },
+        "required": ["name"]
+      }
+    },
+    {
+      "name": "getTokenPrice",
+      "description": "Fetch the current USD price for any major token by symbol (BTC, ETH, SOL, USDC...). Returns USD price, 24h change %, market cap, source, cache age.",
+      "url": "https://api.anchor-x402.com/v1/price/token?symbol={{symbol}}",
+      "params": {
+        "type": "object",
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "description": "Token symbol (e.g. ETH, SOL, USDC)."
+          }
+        },
+        "required": ["symbol"]
+      }
+    },
+    {
+      "name": "getCalldataDecode",
+      "description": "Decode raw EVM calldata into a function name, canonical signature, and typed parameter values. Resolves the 4-byte selector against openchain.xyz; ABI-decodes args. Returns ambiguity candidates on selector collision.",
+      "url": "https://api.anchor-x402.com/v1/decode/calldata?chain={{chain}}&calldata_hex={{calldata_hex}}",
+      "params": {
+        "type": "object",
+        "properties": {
+          "chain": {
+            "type": "string",
+            "description": "base | ethereum | polygon | arbitrum | optimism."
+          },
+          "calldata_hex": {
+            "type": "string",
+            "description": "0x-prefixed hex calldata."
+          }
+        },
+        "required": ["chain", "calldata_hex"]
+      }
+    },
+    {
+      "name": "getDatetimeParse",
+      "description": "Parse freeform datetime strings (e.g. 'tomorrow at noon', '2026-05-08T15:30Z', 'in 2 hours') into ISO 8601, unix epoch, broken-out components, signed relative-seconds delta, human relative phrase, and a confidence label.",
+      "url": "https://api.anchor-x402.com/v1/parse/datetime?input={{input}}&timezone={{timezone}}",
+      "params": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": "Freeform datetime string."
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA timezone (e.g. America/New_York). Default: UTC."
+          }
+        },
+        "required": ["input"]
+      }
+    },
+    {
+      "name": "getWalletIntel",
+      "description": "One call returns a unified intel bundle for any EVM or Solana wallet - native balances on Base + Ethereum, USDC balances, tx count, has-history flag, reverse ENS/SNS, and sanctions verdict. Fetched in parallel; replaces 8-10 separate RPC + API hits.",
+      "url": "https://api.anchor-x402.com/v1/intel/wallet?wallet={{wallet}}",
+      "params": {
+        "type": "object",
+        "properties": {
+          "wallet": {
+            "type": "string",
+            "description": "EVM (0x...) or Solana base58 address."
+          }
+        },
+        "required": ["wallet"]
+      }
+    }
+  ]
+}
