@@ -5,7 +5,11 @@ title: anchor-x402
 
 # anchor-x402
 
-> Fifteen x402-paid services for AI agents — nine commodity primitives, one agent-driven wallet investigator, and five universal LLM endpoints (roast, oracle, tldr, aura, grade). Plus a hosted-agent chatbot at [/chat](https://api.anchor-x402.com/chat) for users without their own agent. One AWS Lambda, one OpenAPI spec, indexed across 8 agent-discovery surfaces — [CDP Bazaar](https://docs.cdp.coinbase.com/x402/bazaar), [agentic.market](https://agentic.market), [Agent Arena](https://agentarena.site/api/agent/8453/47261) (ERC-8004 NFT), [Virtuals ACP](https://app.virtuals.io), the [Official MCP Registry](https://registry.modelcontextprotocol.io), [Glama](https://glama.ai/mcp/servers/hypeprinter007-stack/anchor-x402-mcp), [mcp.so](https://mcp.so/server/anchor-x402-mcp), and [npm](https://www.npmjs.com/package/anchor-x402-mcp). Pay per call in USDC on Base or Solana mainnet — no API keys, no accounts, no subscriptions.
+> Fifteen x402-paid services for AI agents — nine commodity primitives, one agent-driven wallet investigator, and five universal LLM endpoints (roast, oracle, tldr, aura, grade). Plus a hosted-agent chatbot at [chat.anchor-x402.com](https://chat.anchor-x402.com) for users without their own agent. One AWS Lambda, one OpenAPI spec, indexed across 8 agent-discovery surfaces — [CDP Bazaar](https://docs.cdp.coinbase.com/x402/bazaar), [agentic.market](https://agentic.market), [Agent Arena](https://agentarena.site/api/agent/8453/47261) (ERC-8004 NFT), [Virtuals ACP](https://app.virtuals.io), the [Official MCP Registry](https://registry.modelcontextprotocol.io), [Glama](https://glama.ai/mcp/servers/hypeprinter007-stack/anchor-x402-mcp), [mcp.so](https://mcp.so/server/anchor-x402-mcp), and [npm](https://www.npmjs.com/package/anchor-x402-mcp). Pay per call in USDC on Base or Solana mainnet — no API keys, no accounts, no subscriptions.
+
+## Try it without an agent
+
+**→ [chat.anchor-x402.com](https://chat.anchor-x402.com)** — connect a wallet, chat with our hosted Claude agent, pay per call from your own USDC on Base. The agent quotes the price aloud before every call and never spends beyond a cap you set.
 
 ## Live API
 
