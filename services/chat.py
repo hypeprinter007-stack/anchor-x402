@@ -11,6 +11,11 @@ from services.llm import MODEL_REASON, get_client
 _MODEL = MODEL_REASON
 _MAX_TOKENS = 2048
 
+# Abuse caps — free chat costs us LLM tokens. These keep a single bad actor's
+# cost bounded per request. API-Gateway-level throttling lives in template.yaml.
+_MAX_USER_CONTENT_CHARS = 4000
+_MAX_CONVERSATION_MESSAGES = 30
+
 _SYSTEM = """You are the anchor-x402 hosted agent. You help users run paid x402 endpoints from their own wallet.
 
 Rules:
@@ -201,8 +206,24 @@ _PRICES = {
 }
 
 
+def _check_caps(messages: list[dict]) -> None:
+    if len(messages) > _MAX_CONVERSATION_MESSAGES:
+        raise ValueError(f"conversation too long ({len(messages)} > {_MAX_CONVERSATION_MESSAGES})")
+    for m in messages:
+        if m.get("role") != "user":
+            continue
+        c = m.get("content")
+        if isinstance(c, str) and len(c) > _MAX_USER_CONTENT_CHARS:
+            raise ValueError(f"user message too long ({len(c)} > {_MAX_USER_CONTENT_CHARS})")
+        if isinstance(c, list):
+            for blk in c:
+                if blk.get("type") == "text" and len(blk.get("text", "")) > _MAX_USER_CONTENT_CHARS:
+                    raise ValueError(f"user text block too long")
+
+
 def chat_turn(messages: list[dict]) -> dict:
     """Run one Bedrock turn. Tools are returned (not executed) — client pays + executes."""
+    _check_caps(messages)
     resp = get_client().messages.create(
         model=_MODEL,
         max_tokens=_MAX_TOKENS,

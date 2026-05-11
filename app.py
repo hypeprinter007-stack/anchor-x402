@@ -896,6 +896,9 @@ def grade(req: GradeRequest) -> GradeResponse:
 def chat(req: ChatRequest) -> ChatResponse:
     try:
         turn = chat_svc.chat_turn(req.messages)
+    except ValueError as e:
+        # Abuse caps (message length, conversation length)
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logging.getLogger("chat").exception("chat turn failed")
         raise HTTPException(status_code=502, detail=f"chat failed: {type(e).__name__}: {e}")

@@ -2,248 +2,512 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>anchor-x402 — Run-it-for-me-via-agent</title>
-<meta name="description" content="Don't have an agent? Use ours. Pay-per-call x402 services from your own wallet." />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>anchor-x402 / agent</title>
+<meta name="description" content="Pay-per-call AI services from your own wallet. Chat free, connect only when you want to run a paid tool." />
+<meta name="theme-color" content="#0a0a0a" />
 <style>
   :root {
     --bg: #0a0a0a;
     --panel: #141414;
     --panel-2: #1a1a1a;
-    --border: #2a2a2a;
-    --text: #e5e5e5;
-    --muted: #888;
+    --border: #252525;
+    --border-2: #2f2f2f;
+    --text: #e8e8e8;
+    --muted: #8a8a8a;
     --accent: #4ade80;
+    --accent-dim: #2d8a4d;
     --warning: #f59e0b;
     --error: #f87171;
     --link: #93c5fd;
+    --user-bubble: #1f2a3a;
+    --agent-bubble: #1a1a1a;
   }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
-  body { font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); height: 100%; }
+  body { font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Helvetica, Arial, sans-serif; }
   .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
   a { color: var(--link); text-decoration: none; }
   a:hover { text-decoration: underline; }
-  .wrap { max-width: 880px; margin: 0 auto; padding: 32px 20px 80px; }
-  h1 { font-size: 22px; margin: 0 0 6px; font-weight: 600; }
-  h2 { font-size: 14px; margin: 0 0 8px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; }
-  p { margin: 0 0 8px; }
-  .sub { color: var(--muted); margin-bottom: 24px; }
 
-  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 18px; margin-bottom: 16px; }
-  .panel h2 { margin-bottom: 12px; }
-
-  .row { display: flex; gap: 12px; align-items: center; }
-  .row + .row { margin-top: 8px; }
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  .grid2 .col h3 { font-size: 12px; margin: 0 0 6px; text-transform: uppercase; letter-spacing: 0.08em; }
-  .grid2 .col.cans h3 { color: var(--accent); }
-  .grid2 .col.cants h3 { color: var(--warning); }
-  .grid2 ul { margin: 0; padding-left: 18px; color: var(--text); }
-  .grid2 li { margin-bottom: 4px; }
-
-  .links { display: flex; flex-wrap: wrap; gap: 14px; margin: 6px 0 14px; font-size: 13px; }
-  .pill { display: inline-block; padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px; font-size: 12px; color: var(--muted); }
-  .pill.green { color: var(--accent); border-color: rgba(74, 222, 128, 0.4); }
-
-  input[type=number], input[type=text], textarea {
-    width: 100%; background: var(--panel-2); color: var(--text);
-    border: 1px solid var(--border); border-radius: 6px; padding: 9px 12px;
-    font: inherit;
+  /* Layout: fixed header, scrolling chat, fixed input */
+  .app {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    min-height: 100dvh;
   }
-  input:focus, textarea:focus { outline: none; border-color: #444; }
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(8px);
+  }
+  .topbar .brand { font-weight: 600; font-size: 15px; }
+  .topbar .brand .accent { color: var(--accent); font-weight: 500; }
 
-  button {
-    background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
-    padding: 9px 16px; border-radius: 6px; font: inherit; cursor: pointer;
+  .connect-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: var(--panel);
+    border: 1px solid var(--border-2);
+    border-radius: 999px;
+    font-size: 13px;
+    color: var(--text);
+    cursor: pointer;
+    min-height: 36px;
+    font: inherit;
+    font-size: 13px;
+  }
+  .connect-pill.connected { border-color: var(--accent-dim); color: var(--accent); }
+  .connect-pill .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--muted);
+  }
+  .connect-pill.connected .dot { background: var(--accent); }
+
+  .chat {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    padding-bottom: 24px;
+    max-width: 760px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  /* Welcome card */
+  .welcome {
+    text-align: center;
+    padding: 24px 8px 16px;
+  }
+  .welcome h1 {
+    font-size: 24px;
+    font-weight: 600;
+    margin: 8px 0 6px;
+  }
+  .welcome p {
+    color: var(--muted);
+    margin: 0 0 18px;
+    font-size: 15px;
+  }
+  .welcome .free-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    background: rgba(74, 222, 128, 0.1);
+    border: 1px solid var(--accent-dim);
+    border-radius: 999px;
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 10px;
+  }
+  .chip-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin: 18px 0 4px;
+  }
+  .chip {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.3;
+    min-height: 60px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
     transition: border-color 0.15s, background 0.15s;
   }
-  button:hover:not(:disabled) { border-color: #555; background: #1f1f1f; }
-  button:disabled { opacity: 0.5; cursor: not-allowed; }
-  button.primary { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
-  button.primary:hover:not(:disabled) { background: #6ee7a1; border-color: #6ee7a1; }
-  button.danger { color: var(--error); }
-  button.ghost { background: transparent; }
-  button.small { padding: 4px 10px; font-size: 12px; }
+  .chip:active, .chip:hover { background: var(--panel-2); border-color: var(--border-2); }
+  .chip .head { font-weight: 500; }
+  .chip .sub { color: var(--muted); font-size: 12px; margin-top: 3px; }
+  .section-label {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 11px;
+    color: var(--muted);
+    margin: 18px 0 4px;
+    font-weight: 600;
+  }
 
-  .cap-row { display: flex; gap: 8px; align-items: center; }
-  .cap-row input { max-width: 100px; }
-  .cap-row label { color: var(--muted); font-size: 13px; }
+  /* Messages */
+  .msg { margin: 14px 0; max-width: 88%; }
+  .msg.user { margin-left: auto; }
+  .msg.agent, .msg.tool, .msg.system { margin-right: auto; }
+  .msg .bubble {
+    padding: 11px 15px;
+    border-radius: 14px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    font-size: 15px;
+    line-height: 1.45;
+  }
+  .msg.user .bubble {
+    background: var(--user-bubble);
+    border-bottom-right-radius: 4px;
+  }
+  .msg.agent .bubble {
+    background: var(--agent-bubble);
+    border: 1px solid var(--border);
+    border-bottom-left-radius: 4px;
+  }
+  .msg.system .bubble {
+    background: transparent;
+    border: 1px dashed var(--border-2);
+    color: var(--muted);
+    font-size: 13px;
+    text-align: center;
+  }
+  .msg .who {
+    font-size: 11px;
+    color: var(--muted);
+    margin: 0 6px 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .msg.user .who { text-align: right; }
 
-  .connect-row { display: flex; gap: 12px; margin-top: 4px; }
-  .connect-row button { flex: 1; }
+  .demo-badge {
+    display: inline-block;
+    padding: 1px 7px;
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    border-radius: 4px;
+    color: var(--warning);
+    font-size: 10px;
+    font-weight: 600;
+    margin-right: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
 
-  .chat-shell { display: none; }
-  .chat-shell.active { display: block; }
-  .trust-shell.hidden { display: none; }
+  /* Approval card (inline in chat history) */
+  .approval {
+    margin: 14px auto 14px 0;
+    max-width: 88%;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--warning);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .approval h3 { margin: 0 0 6px; font-size: 14px; font-weight: 500; }
+  .approval .why { color: var(--muted); font-size: 13px; margin-bottom: 10px; line-height: 1.4; }
+  .approval pre {
+    background: var(--bg);
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    margin: 8px 0;
+    max-height: 180px;
+    overflow: auto;
+    border: 1px solid var(--border);
+  }
+  .approval .actions { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+  .approval .price {
+    font-weight: 600;
+    color: var(--warning);
+  }
+  .approval .topup {
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+    margin: 6px 0 0;
+  }
 
-  .topbar { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 14px; }
-  .topbar .meta { display: flex; gap: 14px; align-items: center; font-size: 13px; }
-  .topbar .spend { color: var(--muted); }
-  .topbar .spend strong { color: var(--text); }
+  /* Buttons */
+  .btn {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border-2);
+    border-radius: 10px;
+    padding: 12px 18px;
+    font: inherit;
+    font-size: 15px;
+    cursor: pointer;
+    min-height: 44px;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .btn:active { background: #222; }
+  .btn:hover:not(:disabled) { border-color: #3a3a3a; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn.primary {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+  .btn.primary:active { background: #6ee7a1; }
+  .btn.ghost { background: transparent; }
+  .btn.small { padding: 8px 12px; min-height: 36px; font-size: 13px; }
 
-  .log { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; min-height: 340px; max-height: 60vh; overflow-y: auto; padding: 14px; }
-  .msg { margin-bottom: 14px; }
-  .msg.user .who { color: var(--link); }
-  .msg.agent .who { color: var(--accent); }
-  .msg.tool .who { color: var(--warning); }
-  .msg .who { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
-  .msg .body { white-space: pre-wrap; }
-  .msg.tool .body { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
-
-  .approval { background: var(--panel-2); border: 1px solid var(--border); border-left: 3px solid var(--warning); border-radius: 6px; padding: 12px 14px; margin: 10px 0; }
-  .approval h4 { margin: 0 0 6px; font-size: 13px; }
-  .approval .price { color: var(--warning); font-weight: 600; }
-  .approval pre { background: var(--bg); padding: 8px 10px; border-radius: 4px; font-size: 12px; margin: 8px 0; max-height: 180px; overflow: auto; }
-  .approval .actions { display: flex; gap: 8px; margin-top: 8px; }
-
-  .result { background: var(--panel-2); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 6px; padding: 12px 14px; margin: 10px 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+  /* Tool result card */
+  .result {
+    margin: 14px auto 14px 0;
+    max-width: 88%;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 13px;
+  }
   .result.err { border-left-color: var(--error); }
-  .result pre { margin: 0; white-space: pre-wrap; word-break: break-word; max-height: 220px; overflow: auto; }
-  .result .head { font-family: inherit; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .result .head {
+    display: flex;
+    justify-content: space-between;
+    color: var(--muted);
+    font-size: 12px;
+    margin-bottom: 6px;
+  }
   .result .head .ok { color: var(--accent); }
   .result .head .bad { color: var(--error); }
+  .result pre {
+    margin: 6px 0 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    max-height: 240px;
+    overflow: auto;
+  }
 
-  .input-row { display: flex; gap: 8px; margin-top: 14px; }
-  .input-row input { flex: 1; }
+  /* Input bar (fixed bottom on mobile, inline on desktop) */
+  .input-bar {
+    position: sticky;
+    bottom: 0;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    max-width: 760px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  .input-bar textarea {
+    flex: 1;
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border-2);
+    border-radius: 12px;
+    padding: 11px 14px;
+    font: inherit;
+    font-size: 16px;
+    resize: none;
+    max-height: 120px;
+    line-height: 1.4;
+    min-height: 44px;
+  }
+  .input-bar textarea:focus { outline: none; border-color: #444; }
+  .input-bar .btn { padding: 11px 18px; }
 
-  .toast-wrap { position: fixed; bottom: 16px; right: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 10; }
-  .toast { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; font-size: 13px; max-width: 360px; }
+  /* Footer (collapsible trust info) */
+  .footer-wrap {
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .footer-wrap details {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 8px 16px;
+  }
+  .footer-wrap summary {
+    cursor: pointer;
+    padding: 12px 0;
+    color: var(--muted);
+    font-size: 14px;
+    list-style: none;
+  }
+  .footer-wrap summary::-webkit-details-marker { display: none; }
+  .footer-wrap summary::after { content: " ▾"; font-size: 11px; }
+  .footer-wrap details[open] summary::after { content: " ▴"; }
+  .footer-wrap .info-grid {
+    padding: 4px 0 18px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .footer-wrap .info-grid h4 {
+    margin: 12px 0 4px;
+    font-size: 12px;
+    color: var(--text);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+  }
+  .footer-wrap a { color: var(--link); }
+
+  /* Toast */
+  .toast-wrap {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 20;
+    pointer-events: none;
+  }
+  .toast {
+    background: var(--panel);
+    border: 1px solid var(--border-2);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 13px;
+    max-width: 320px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+    pointer-events: auto;
+  }
   .toast.err { border-color: var(--error); color: var(--error); }
   .toast.ok { border-color: var(--accent); }
 
-  .muted { color: var(--muted); }
-  .small { font-size: 12px; }
-  code { background: var(--panel-2); padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+  /* Diagnostic surface — hidden unless ?debug=1 */
+  .diag {
+    display: none;
+    max-width: 760px;
+    margin: 8px auto 0;
+    padding: 8px 14px;
+    background: var(--panel);
+    border: 1px solid var(--border-2);
+    border-radius: 8px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    color: var(--muted);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .diag.err { color: var(--error); border-color: var(--error); }
+
+  /* Smaller screens */
+  @media (max-width: 480px) {
+    .topbar { padding: 10px 12px; }
+    .topbar .brand { font-size: 14px; }
+    .chat { padding: 12px; padding-bottom: 16px; }
+    .welcome h1 { font-size: 22px; }
+    .welcome p { font-size: 14px; }
+    .chip-grid { grid-template-columns: 1fr; }
+    .msg { max-width: 92%; }
+    .input-bar { padding-left: 12px; padding-right: 12px; }
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
-
-  <header>
-    <h1>anchor-x402 / Run-it-for-me-via-agent</h1>
-    <p class="sub">Don't have an agent yet? Use ours. Connect a wallet, chat with Claude, pay per call. <span class="muted">Your funds, your custody.</span></p>
+<div class="app">
+  <!-- Sticky top bar -->
+  <header class="topbar">
+    <div class="brand"><span class="accent">anchor</span>-x402 <span style="color: var(--muted)">/ agent</span></div>
+    <button id="connect-pill" class="connect-pill" type="button" aria-label="Connect wallet to spend">
+      <span class="dot"></span>
+      <span id="pill-label">Connect</span>
+    </button>
   </header>
 
-  <!-- Trust panel (shown until connected) -->
-  <section class="trust-shell" id="trust-shell">
-    <div class="panel">
-      <h2>Operator</h2>
-      <p><strong>anchor-x402</strong> — built by Christopher Ferjo</p>
-      <div class="links">
-        <a href="https://anchor-x402.com/trust" target="_blank" rel="noopener">Trust portal</a>
-        <a href="https://github.com/hypeprinter007-stack/anchor-x402" target="_blank" rel="noopener">GitHub (this site is open source)</a>
-        <a href="https://github.com/hypeprinter007-stack/anchor-x402/blob/main/static/chat.html" target="_blank" rel="noopener">Source for this page</a>
-        <a href="https://agentarena.site/api/agent/8453/47261" target="_blank" rel="noopener">Agent Arena (ERC-8004 #47261)</a>
-        <a href="https://api.anchor-x402.com/docs" target="_blank" rel="noopener">OpenAPI spec</a>
+  <!-- Main chat area -->
+  <main class="chat" id="chat">
+    <section class="welcome" id="welcome">
+      <span class="free-badge">Free to try</span>
+      <h1>What do you want to know?</h1>
+      <p>I run paid AI services from <strong>your</strong> wallet. Chat is free. You only pay (and only after you approve) when I actually run a tool.</p>
+
+      <div class="section-label">Try one</div>
+      <div class="chip-grid" id="prompt-chips"></div>
+
+      <div class="section-label">See a free demo</div>
+      <div class="chip-grid" id="demo-chips"></div>
+
+      <div style="text-align:center; margin-top: 22px;">
+        <button class="btn ghost small" id="more-services-btn" type="button">View all 15 services →</button>
       </div>
-      <p class="small muted">Treasury (your payments go here):
-        <a class="mono" href="https://basescan.org/address/0x127462e296fAc1A7F5cF33bA57bB2f0FFf5cD0B6" target="_blank" rel="noopener">0x127462e296fAc1A7F5cF33bA57bB2f0FFf5cD0B6</a>
-      </p>
-    </div>
+    </section>
+  </main>
 
-    <div class="panel">
-      <h2>Wallet permissions</h2>
-      <div class="grid2">
-        <div class="col cans">
-          <h3>This page can</h3>
-          <ul>
-            <li>Sign EIP-3009 USDC payment authorizations</li>
-            <li>Pay to the treasury address (above) only</li>
-            <li>Total spend bounded by your session cap</li>
-          </ul>
-        </div>
-        <div class="col cants">
-          <h3>This page cannot</h3>
-          <ul>
-            <li>Touch tokens other than USDC on Base</li>
-            <li>Exceed your session cap</li>
-            <li>Custody your keys or sign arbitrary transactions</li>
-          </ul>
-        </div>
+  <!-- Input bar -->
+  <div class="input-bar">
+    <textarea id="user-input" rows="1" placeholder="Ask anything… or paste a wallet/URL/idea" autocomplete="off" enterkeyhint="send"></textarea>
+    <button class="btn primary" id="send-btn" type="button" aria-label="Send">Send</button>
+  </div>
+
+  <!-- Collapsible footer -->
+  <div class="footer-wrap">
+    <details>
+      <summary>How does this work? · Who runs this? · Where do payments go?</summary>
+      <div class="info-grid">
+        <h4>Operator</h4>
+        <p><strong>anchor-x402</strong> — built by Christopher Ferjo.
+          <a href="https://anchor-x402.com/trust" target="_blank" rel="noopener">Trust portal</a> ·
+          <a href="https://github.com/hypeprinter007-stack/anchor-x402" target="_blank" rel="noopener">GitHub</a> ·
+          <a href="https://github.com/hypeprinter007-stack/anchor-x402/blob/main/static/chat.html" target="_blank" rel="noopener">Source for this page</a> ·
+          <a href="https://agentarena.site/api/agent/8453/47261" target="_blank" rel="noopener">ERC-8004 #47261</a> ·
+          <a href="https://api.anchor-x402.com/docs" target="_blank" rel="noopener">OpenAPI</a>
+        </p>
+
+        <h4>Where your payments go</h4>
+        <p>Treasury: <a class="mono" href="https://basescan.org/address/0x127462e296fAc1A7F5cF33bA57bB2f0FFf5cD0B6" target="_blank" rel="noopener">0x12746…cD0B6</a> — verified on Basescan. Every payment is a single EIP-3009 USDC authorization you sign per tool call. No subscription, no held balance.</p>
+
+        <h4>What we can and cannot do</h4>
+        <p><strong>Can:</strong> sign USDC payments to the treasury above, scoped to a session cap you control. <strong>Cannot:</strong> touch other tokens, exceed your cap, custody keys, or sign arbitrary transactions.</p>
+
+        <h4>Need USDC?</h4>
+        <p>You can fund a wallet with USDC on Base via <a href="https://pay.coinbase.com" target="_blank" rel="noopener">Coinbase Onramp</a>, <a href="https://www.moonpay.com/buy/usdc" target="_blank" rel="noopener">MoonPay</a>, or any exchange that supports Base. In-app top-up coming soon.</p>
+
+        <h4>Anti-abuse</h4>
+        <p>Free chat is rate-limited and bounded by message length so a single user can't burn through our LLM budget. Tool calls require explicit per-call approval — there is no autonomous spend.</p>
       </div>
-    </div>
+    </details>
+  </div>
 
-    <div class="panel">
-      <h2>Session cap</h2>
-      <p class="small muted">You approve every tool call individually. The cap is a hard upper bound for this browser session — close the tab to reset.</p>
-      <div class="cap-row">
-        <label for="cap-input">Cap (USDC):</label>
-        <input id="cap-input" type="number" min="0.01" step="0.01" value="5.00" />
-        <span class="pill">resets on tab close</span>
-      </div>
-    </div>
-
-    <div class="panel">
-      <h2>Connect</h2>
-      <div class="connect-row">
-        <button id="connect-btn" class="primary">Connect wallet</button>
-      </div>
-      <p class="small muted" style="margin-top:10px">USDC on Base mainnet. On desktop you'll see a QR code; on mobile your wallet app opens directly. Works with Rainbow, MetaMask, Coinbase Wallet, Trust, and any WalletConnect-compatible wallet.</p>
-      <p class="small" id="config-error" style="color: var(--error); display:none">⚠️ Operator hasn't configured WalletConnect yet. Refresh once they redeploy with a project ID.</p>
-      <p class="small muted" style="margin-top:8px">Nothing happens when you click? It usually means the operator hasn't added this domain to their Reown dashboard allowed list — drop them a line.</p>
-      <div id="status" class="mono small" style="margin-top:10px; padding:8px; background:#0e1a0e; border:1px solid #2a3a2a; border-radius:4px; color:#9ec99e; white-space:pre-wrap; word-break:break-word; min-height:18px"></div>
-      <div id="diag" class="mono small" style="display:none; margin-top:10px; padding:8px; background:#180a0a; border:1px solid var(--error); border-radius:4px; color:var(--error); white-space:pre-wrap; word-break:break-word"></div>
-    </div>
-  </section>
-
-  <!-- Chat shell (shown after connect) -->
-  <section class="chat-shell" id="chat-shell">
-    <div class="topbar">
-      <div class="meta">
-        <span class="pill green">CONNECTED</span>
-        <span class="mono" id="addr-pill">—</span>
-      </div>
-      <div class="meta">
-        <span class="spend"><strong id="spend-now">0.000</strong> / <span id="spend-cap">5.00</span> USDC</span>
-        <button class="small ghost" id="reset-btn">Reset session</button>
-      </div>
-    </div>
-
-    <div class="log" id="log"></div>
-
-    <div class="input-row">
-      <input id="user-input" type="text" placeholder="Ask the agent…  e.g. 'roast 0xd8dA…6045' or 'is vitalik.eth sanctioned?'" />
-      <button id="send-btn" class="primary">Send</button>
-    </div>
-
-    <p class="small muted" style="margin-top:10px">
-      Examples: <code>aura 0xd8dA…6045</code> · <code>grade this pitch: …</code> ·
-      <code>roast this code: …</code> · <code>oracle: will I ship today?</code> ·
-      <code>tldr https://example.com</code>
-    </p>
-  </section>
-
+  <div id="diag" class="diag"></div>
 </div>
 
 <div class="toast-wrap" id="toasts"></div>
 
 <script>
-// Inline script — runs even if the ES module below fails to load.
-// Captures errors that would otherwise be invisible on mobile.
+// Inline pre-script — captures uncaught errors even if the ES module fails.
 (function () {
-  function append(msg) {
-    var s = document.getElementById("status");
-    if (!s) return;
-    var div = document.createElement("div");
-    div.textContent = msg;
-    s.appendChild(div);
+  function append(msg, cls) {
+    var d = document.getElementById("diag");
+    if (!d) return;
+    if (location.search.indexOf("debug=1") < 0 && cls !== "err") return;
+    d.style.display = "block";
+    if (cls) d.classList.add(cls);
+    var line = document.createElement("div");
+    line.textContent = msg;
+    d.appendChild(line);
   }
+  window.__diag = append;
   window.addEventListener("error", function (e) {
-    append("[inline-err] " + (e.message || "?") + " @ " + (e.filename || "?") + ":" + (e.lineno || "?"));
+    append("[js-err] " + (e.message || "?") + " @ " + (e.filename || "?") + ":" + (e.lineno || "?"), "err");
   });
   window.addEventListener("unhandledrejection", function (e) {
     var r = e && e.reason;
-    append("[inline-rej] " + (r && (r.message || r.toString()) || "unknown"));
+    append("[rej] " + (r && (r.message || r.toString()) || "unknown"), "err");
   });
   window.addEventListener("DOMContentLoaded", function () {
-    append("[inline] DOM ready, ua=" + navigator.userAgent.substring(0, 80));
+    append("[boot] DOM ready");
     setTimeout(function () {
-      // If the module ran, it would have called showStatus("loading config...").
-      // If still no green lines after 3s, the module never executed.
-      var s = document.getElementById("status");
-      if (s && s.children.length <= 1) {
-        append("[inline] module did NOT execute — ESM imports likely failed silently");
+      if (!window.__moduleLoaded) {
+        append("[boot] module did NOT execute — ESM imports likely failed silently", "err");
       }
     }, 3000);
   });
@@ -251,179 +515,222 @@
 </script>
 
 <script type="module">
-// Using jsdelivr's pre-bundled +esm output. Mobile Safari was failing to
-// load esm.sh's chained module imports silently.
+window.__moduleLoaded = true;
+
 import { createWalletClient, custom } from "https://cdn.jsdelivr.net/npm/viem@2/+esm";
 import { base } from "https://cdn.jsdelivr.net/npm/viem@2/chains/+esm";
 import EthereumProvider from "https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2/+esm";
 import { wrapFetchWithPayment } from "https://cdn.jsdelivr.net/npm/x402-fetch@latest/+esm";
 
-// Surface uncaught JS errors on the page (mobile has no devtools).
-window.addEventListener("error", (e) => showDiag("error", `${e.message} @ ${e.filename}:${e.lineno}`));
-window.addEventListener("unhandledrejection", (e) => showDiag("unhandled", String(e.reason?.stack || e.reason || e)));
-function showDiag(kind, msg) {
-  const d = document.getElementById("diag");
-  if (!d) return;
-  d.style.display = "block";
-  const line = document.createElement("div");
-  line.textContent = `[${kind}] ${msg}`;
-  d.appendChild(line);
-}
-function showStatus(msg) {
-  const s = document.getElementById("status");
-  if (!s) return;
-  const line = document.createElement("div");
-  line.textContent = `[${new Date().toISOString().slice(11, 19)}] ${msg}`;
-  s.appendChild(line);
-}
+if (window.__diag) window.__diag("[boot] module imports OK");
 
-// ---------------- config ----------------
-const API_BASE = ""; // same origin
-const TURN_SAFETY_CAP = 12;
+// ====================== state ======================
+const TURN_SAFETY_CAP = 10;
 const INVESTIGATE_POLL_MS = 30_000;
-const INVESTIGATE_MAX_POLLS = 30; // ~15 min
+const INVESTIGATE_MAX_POLLS = 30;
 
-// ---------------- state ----------------
 const state = {
-  provider: null,       // EthereumProvider (EIP-1193)
+  provider: null,
   account: null,
   paidFetch: null,
   projectId: "",
-  conversation: [],     // Anthropic-shape messages
-  sessionSpend: 0,      // USDC
-  sessionCap: 5.00,     // USDC, user-set
+  conversation: [],     // Anthropic-shape
+  sessionSpend: 0,
+  sessionCap: 5.00,
+  pendingTool: null,    // tool_use that's waiting for wallet connect
 };
 
-// ---------------- DOM helpers ----------------
-const $ = (id) => document.getElementById(id);
-const trustShell = $("trust-shell");
-const chatShell = $("chat-shell");
-const logEl = $("log");
-const addrPill = $("addr-pill");
-const spendNow = $("spend-now");
-const spendCap = $("spend-cap");
+// ====================== service catalog ======================
+const PROMPTS = [
+  { head: "🔥 Roast my Twitter bio", sub: "$0.05", text: 'roast my twitter bio: "professional yapper, web3 maxi, parents disappointed"' },
+  { head: "✨ Aura read a wallet", sub: "$0.01", text: "aura check 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045" },
+  { head: "🔮 Ask the oracle", sub: "$0.05 + on-chain receipt", text: "oracle: will Bitcoin hit $200K in 2026?" },
+  { head: "🚨 Sanctions check a wallet", sub: "$0.001", text: "is 0x8589427373d6d84e98730d7795d8f6f8731fda16 sanctioned?" },
+  { head: "🎓 Grade an idea", sub: "$0.01", text: 'grade this startup idea: "uber but for sourdough starters"' },
+  { head: "📝 TLDR a URL", sub: "$0.01", text: "tldr https://anchor-x402.com" },
+];
 
-function toast(msg, kind = "") {
+const ALL_SERVICES = [
+  { name: "anchor", price: 0.005, what: "Anchor any 32-byte hash to Base + Solana mainnet" },
+  { name: "screen", price: 0.001, what: "Sanctions + AML screen for any wallet" },
+  { name: "attest", price: 0.01, what: "Verify a signature + dual-chain anchor the result" },
+  { name: "decode tx", price: 0.001, what: "Decode any Base/Ethereum transaction" },
+  { name: "decode calldata", price: 0.001, what: "Decode raw EVM calldata into function + params" },
+  { name: "resolve name", price: 0.001, what: "ENS / Bonfida SNS name → address" },
+  { name: "token price", price: 0.001, what: "USD price for any major token" },
+  { name: "parse datetime", price: 0.001, what: "Freeform datetime → ISO 8601 + components" },
+  { name: "wallet intel", price: 0.005, what: "Balances + activity + identity + sanctions bundle" },
+  { name: "investigate", price: 7.77, what: "Agent-driven multi-step wallet due diligence (async)" },
+  { name: "roast", price: 0.05, what: "Witty roast of anything" },
+  { name: "oracle", price: 0.05, what: "Yes/no oracle with dual-chain anchored verdict" },
+  { name: "tldr", price: 0.01, what: "Summarize a URL or text into bullets" },
+  { name: "aura", price: 0.01, what: "Color + tier + score 0-9999 for anything" },
+  { name: "grade", price: 0.01, what: "Letter grade + red-pen marginalia" },
+];
+
+// Static demos — no LLM call, no payment. Show users what they'd get.
+const DEMOS = {
+  aura: {
+    chip: "✨ See an aura read",
+    input: "aura check vitalik.eth",
+    output: { color: "molten gold with copper veins", tier: "S", score: 8845, description: "Old-money aura. Quietly architecting things the rest of crypto twitter doesn't yet have words for. Soft-spoken; loud receipts." },
+    price: "$0.01",
+  },
+  roast: {
+    chip: "🔥 See a roast",
+    input: "roast 'crypto bro who tweets about discipline 40 times a day'",
+    output: { roast: "Discipline is what you'd call it if you couldn't say 'mental illness with a custom font'. Forty tweets a day about waking up early, said the man whose only consistent habit is checking how many people unfollowed him. His routine has a routine, his routine's routine has a podcast, and somehow the only thing he hasn't disciplined is his urge to type.\n\nKeep grinding, king. The market thanks you for paying gas.", target_summary: "A persona caricature: the over-tweeting crypto-discipline guru." },
+    price: "$0.05",
+  },
+  oracle: {
+    chip: "🔮 See an oracle answer",
+    input: "oracle: will I finish my todo list this week?",
+    output: { answer: "MAYBE", explanation: "Possible if you cut the bottom three items and stop opening Twitter every nine seconds.", merkle_root: "ab0898397c86fbf97c99c6f8b29e55ab697315705777ee1d106e2dcb9bd686b3", base_tx: "0x7fb4d107d8c1b65b33851434c6fd178b682a143904a2bfa89ff2c1fa70974e96", solana_tx: "u8rqU4oSQkkHQw93nCCtQym5crh4UjuoNvYhspLcUTEny59asrNNffpmxpgzRuZ4MXQnN5UEoCKQuDS16ZMPKW2" },
+    price: "$0.05",
+  },
+  tldr: {
+    chip: "📝 See a summary",
+    input: "tldr https://anchor-x402.com",
+    output: { summary_bullets: ["Fifteen x402-paid AI services for agents, callable via one HTTPS API.", "No accounts; pay per call in USDC on Base or Solana.", "Live across CDP Bazaar, agentic.market, Virtuals ACP, MCP registries."], source_chars: 5200 },
+    price: "$0.01",
+  },
+  screen: {
+    chip: "🚨 See a sanctions check",
+    input: "is 0x8589427373d6d84e98730d7795d8f6f8731fda16 sanctioned?",
+    output: { wallet: "0x8589427373d6d84e98730d7795d8f6f8731fda16", sanctions_match: true, sanctioned_lists: ["OFAC SDN", "Tornado Cash"], risk_level: "high", inferred_chain: "ethereum" },
+    price: "$0.001",
+  },
+  grade: {
+    chip: "🎓 See a graded pitch",
+    input: 'grade "uber but for sourdough starters"',
+    output: { letter_grade: "C-", marginalia: ["Market size: bakers who can't already mail flour to each other?", "Logistics: live-culture cargo is a regulatory mood.", "Brand assumes 'sourdough discourse' is monetizable. It isn't.", "However: vertical-niche food platforms have surprised before. Keep one eye on it."], summary: "Adventurous concept, brutal unit economics. Earnest C-." },
+    price: "$0.01",
+  },
+};
+
+// ====================== DOM ======================
+const $ = (id) => document.getElementById(id);
+const chatEl = $("chat");
+const welcomeEl = $("welcome");
+const inputEl = $("user-input");
+
+function toast(msg, kind) {
   const el = document.createElement("div");
-  el.className = "toast " + kind;
+  el.className = "toast " + (kind || "");
   el.textContent = msg;
   $("toasts").appendChild(el);
-  setTimeout(() => el.remove(), 5000);
+  setTimeout(() => el.remove(), 5500);
 }
 
-function shortenAddr(a) { return a ? a.slice(0, 6) + "…" + a.slice(-4) : ""; }
-function updateSpendUI() { spendNow.textContent = state.sessionSpend.toFixed(3); spendCap.textContent = state.sessionCap.toFixed(2); }
+function scrollToEnd() {
+  // Use rAF so layout settles after content append
+  requestAnimationFrame(() => { chatEl.scrollTop = chatEl.scrollHeight; });
+}
+
+function renderPill() {
+  const pill = $("connect-pill");
+  const lbl = $("pill-label");
+  if (state.account) {
+    pill.classList.add("connected");
+    lbl.textContent = `${state.account.slice(0, 6)}…${state.account.slice(-4)} · $${state.sessionSpend.toFixed(2)}/${state.sessionCap.toFixed(0)}`;
+  } else {
+    pill.classList.remove("connected");
+    lbl.textContent = "Connect";
+  }
+}
 
 function appendMsg(role, body) {
   const div = document.createElement("div");
   div.className = "msg " + role;
-  const who = role === "user" ? "you" : role === "agent" ? "agent" : "tool";
-  div.innerHTML = `<div class="who">${who}</div><div class="body"></div>`;
-  div.querySelector(".body").textContent = body;
-  logEl.appendChild(div);
-  logEl.scrollTop = logEl.scrollHeight;
-  return div;
+  div.innerHTML = `<div class="who"></div><div class="bubble"></div>`;
+  div.querySelector(".who").textContent = role === "user" ? "you" : role === "agent" ? "agent" : "system";
+  div.querySelector(".bubble").textContent = body;
+  chatEl.appendChild(div);
+  scrollToEnd();
 }
 
 function appendNode(node) {
-  logEl.appendChild(node);
-  logEl.scrollTop = logEl.scrollHeight;
-  return node;
+  chatEl.appendChild(node);
+  scrollToEnd();
 }
 
-// ---------------- bootstrap ----------------
-(async function init() {
-  $("cap-input").addEventListener("change", (e) => {
-    const v = parseFloat(e.target.value);
-    if (!Number.isFinite(v) || v <= 0) { e.target.value = state.sessionCap; return; }
-    state.sessionCap = v;
-    updateSpendUI();
-  });
-  $("send-btn").addEventListener("click", () => onSend().catch((e) => toast(e.message, "err")));
-  $("user-input").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("send-btn").click(); } });
-  $("reset-btn").addEventListener("click", resetSession);
-  updateSpendUI();
-
-  showStatus("loading config...");
-  try {
-    const r = await fetch(API_BASE + "/v1/config");
-    if (r.ok) state.projectId = (await r.json()).wcProjectId || "";
-  } catch (e) { showDiag("config-fetch", String(e?.message || e)); }
-
-  if (!state.projectId) {
-    $("connect-btn").disabled = true;
-    $("config-error").style.display = "";
-    showStatus("no projectId — cannot init WalletConnect");
-    return;
+function dismissWelcome() {
+  if (welcomeEl && welcomeEl.parentNode) {
+    welcomeEl.style.display = "none";
   }
-  showStatus(`projectId ${state.projectId.slice(0, 6)}…${state.projectId.slice(-4)} loaded; origin ${location.origin}`);
-  showStatus("ready — tap Connect");
+}
 
-  $("connect-btn").addEventListener("click", () => {
-    showStatus("connect tapped");
-    connect().catch((e) => showDiag("connect", String(e?.stack || e?.message || e)));
+// ====================== prompt + demo chips ======================
+function renderChips() {
+  const promptC = $("prompt-chips");
+  PROMPTS.forEach((p) => {
+    const b = document.createElement("button");
+    b.className = "chip";
+    b.type = "button";
+    b.innerHTML = `<div class="head"></div><div class="sub"></div>`;
+    b.querySelector(".head").textContent = p.head;
+    b.querySelector(".sub").textContent = p.sub;
+    b.addEventListener("click", () => {
+      dismissWelcome();
+      inputEl.value = p.text;
+      sendUserMessage();
+    });
+    promptC.appendChild(b);
   });
-})();
 
-async function connect() {
-  if (state.account) return;
-  showStatus("initializing WalletConnect…");
-  state.provider = await EthereumProvider.init({
-    projectId: state.projectId,
-    chains: [8453],
-    optionalChains: [8453],
-    showQrModal: true,
-    metadata: {
-      name: "anchor-x402",
-      description: "Run-it-for-me-via-agent — pay-per-call x402 services from your wallet.",
-      url: location.origin,
-      icons: [],
-    },
+  const demoC = $("demo-chips");
+  Object.entries(DEMOS).forEach(([key, d]) => {
+    const b = document.createElement("button");
+    b.className = "chip";
+    b.type = "button";
+    b.innerHTML = `<div class="head"></div><div class="sub"></div>`;
+    b.querySelector(".head").textContent = d.chip;
+    b.querySelector(".sub").textContent = "free preview · " + d.price;
+    b.addEventListener("click", () => playDemo(key));
+    demoC.appendChild(b);
   });
-  showStatus("opening WalletConnect modal…");
-  await state.provider.connect();
-  const accounts = state.provider.accounts && state.provider.accounts.length
-    ? state.provider.accounts
-    : await state.provider.request({ method: "eth_accounts" });
-  state.account = accounts[0];
-  if (!state.account) throw new Error("No account returned from wallet.");
-  showStatus(`connected: ${state.account.slice(0, 6)}…${state.account.slice(-4)}`);
 
-  const wallet = createWalletClient({ account: state.account, chain: base, transport: custom(state.provider) });
-  state.paidFetch = wrapFetchWithPayment(fetch, wallet);
-  state.sessionCap = parseFloat($("cap-input").value) || 5.0;
-  addrPill.textContent = shortenAddr(state.account);
-  updateSpendUI();
-  trustShell.classList.add("hidden");
-  chatShell.classList.add("active");
-  appendMsg("agent", "Connected. Ask me anything — I'll quote a price before I spend.");
-
-  // External disconnect resets the UI
-  state.provider.on("disconnect", () => {
-    state.account = null;
-    state.paidFetch = null;
-    chatShell.classList.remove("active");
-    trustShell.classList.remove("hidden");
+  $("more-services-btn").addEventListener("click", () => {
+    dismissWelcome();
+    const lines = ALL_SERVICES.map((s) => `• ${s.name.padEnd(18, " ")} $${s.price.toFixed(3)}  ${s.what}`).join("\n");
+    appendMsg("system", "All 15 services:\n\n" + lines + "\n\nAsk me anything in natural language — I'll figure out which to use.");
   });
 }
 
-function resetSession() {
-  state.conversation = [];
-  state.sessionSpend = 0;
-  logEl.innerHTML = "";
-  updateSpendUI();
-  appendMsg("agent", "Session reset. Spend zeroed.");
+function playDemo(key) {
+  dismissWelcome();
+  const d = DEMOS[key];
+  if (!d) return;
+
+  const userDiv = document.createElement("div");
+  userDiv.className = "msg user";
+  userDiv.innerHTML = `<div class="who">you · demo</div><div class="bubble"></div>`;
+  userDiv.querySelector(".bubble").textContent = d.input;
+  appendNode(userDiv);
+
+  const result = document.createElement("div");
+  result.className = "result";
+  result.innerHTML = `<div class="head"><span><span class="demo-badge">demo</span>${key} · ${d.price}</span><span class="ok">no payment</span></div><pre></pre>`;
+  result.querySelector("pre").textContent = JSON.stringify(d.output, null, 2);
+  appendNode(result);
+
+  const note = document.createElement("div");
+  note.className = "msg system";
+  note.innerHTML = `<div class="bubble">↑ that's what <strong>${key}</strong> returns. Type your own to run it for real (${d.price}).</div>`;
+  appendNode(note);
 }
 
-// ---------------- chat loop ----------------
-async function onSend() {
-  const input = $("user-input");
-  const text = input.value.trim();
+// ====================== chat with /v1/chat ======================
+function sendUserMessage() {
+  const text = inputEl.value.trim();
   if (!text) return;
-  input.value = "";
+  if (text.length > 4000) { toast("Message too long (4000 char max)", "err"); return; }
+  inputEl.value = "";
+  inputEl.style.height = "auto";
+  dismissWelcome();
   appendMsg("user", text);
   state.conversation.push({ role: "user", content: text });
-  await runTurns();
+  runTurns().catch((e) => toast(e.message || String(e), "err"));
 }
 
 async function runTurns() {
@@ -432,144 +739,144 @@ async function runTurns() {
     try {
       turn = await chatTurn(state.conversation);
     } catch (e) {
-      toast("Chat backend error: " + e.message, "err");
+      appendMsg("system", "Chat error: " + e.message);
       return;
     }
-    if (turn.assistant_text) {
-      appendMsg("agent", turn.assistant_text);
-      // Mirror the assistant content into the conversation history (text-only here;
-      // if there were tool_uses, we add them next so Anthropic sees the full reply).
-    }
-    // Reconstruct assistant message with both text + tool_use blocks (Anthropic shape)
+    if (turn.assistant_text) appendMsg("agent", turn.assistant_text);
+
     const assistantContent = [];
     if (turn.assistant_text) assistantContent.push({ type: "text", text: turn.assistant_text });
-    if (turn.tool_uses) {
-      for (const tu of turn.tool_uses) {
-        assistantContent.push({ type: "tool_use", id: tu.id, name: tu.name, input: tu.input });
-      }
-    }
+    if (turn.tool_uses) for (const tu of turn.tool_uses) assistantContent.push({ type: "tool_use", id: tu.id, name: tu.name, input: tu.input });
     if (assistantContent.length) state.conversation.push({ role: "assistant", content: assistantContent });
 
     if (!turn.tool_uses) return;
 
-    // Per-call approval flow.
-    const toolResults = [];
+    const results = [];
     for (const tu of turn.tool_uses) {
-      const result = await renderApprovalAndRun(tu);
-      toolResults.push({ type: "tool_result", tool_use_id: tu.id, content: JSON.stringify(result) });
+      const r = await renderApprovalAndRun(tu);
+      results.push({ type: "tool_result", tool_use_id: tu.id, content: JSON.stringify(r) });
     }
-    state.conversation.push({ role: "user", content: toolResults });
+    state.conversation.push({ role: "user", content: results });
   }
-  toast("Turn safety cap reached (" + TURN_SAFETY_CAP + "). Stopping.", "err");
+  appendMsg("system", `Safety cap of ${TURN_SAFETY_CAP} turns reached.`);
 }
 
 async function chatTurn(messages) {
-  const r = await fetch(API_BASE + "/v1/chat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages }),
-  });
-  if (!r.ok) throw new Error("HTTP " + r.status);
+  const r = await fetch("/v1/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages }) });
+  if (r.status === 400) { const j = await r.json().catch(() => ({})); throw new Error(j.detail || "Bad request"); }
+  if (!r.ok) throw new Error("Chat backend: HTTP " + r.status);
   return await r.json();
 }
 
-// ---------------- tool execution ----------------
+// ====================== tool approval + execution ======================
 const TOOL_ROUTES = {
-  anchor_hash: { method: "POST", path: "/v1/anchor", price: 0.005 },
-  screen_wallet: { method: "GET", path: "/v1/screen", price: 0.001, query: ["wallet"] },
-  attest_decision: { method: "POST", path: "/v1/attest", price: 0.01 },
-  decode_tx: { method: "POST", path: "/v1/decode/tx", price: 0.001 },
-  decode_calldata: { method: "POST", path: "/v1/decode/calldata", price: 0.001 },
-  resolve_name: { method: "GET", path: "/v1/resolve/name", price: 0.001, query: ["name"] },
-  token_price: { method: "GET", path: "/v1/price/token", price: 0.001, query: ["symbol"] },
-  parse_datetime: { method: "POST", path: "/v1/parse/datetime", price: 0.001 },
-  wallet_intel: { method: "GET", path: "/v1/intel/wallet", price: 0.005, query: ["wallet"] },
-  investigate_wallet: { method: "POST", path: "/v1/investigate", price: 7.77, async: true },
-  roast: { method: "POST", path: "/v1/roast", price: 0.05 },
-  oracle: { method: "POST", path: "/v1/oracle", price: 0.05 },
-  tldr: { method: "POST", path: "/v1/tldr", price: 0.01 },
-  aura: { method: "POST", path: "/v1/aura", price: 0.01 },
-  grade: { method: "POST", path: "/v1/grade", price: 0.01 },
+  anchor_hash:        { method: "POST", path: "/v1/anchor",          price: 0.005 },
+  screen_wallet:      { method: "GET",  path: "/v1/screen",          price: 0.001, query: ["wallet"] },
+  attest_decision:    { method: "POST", path: "/v1/attest",          price: 0.010 },
+  decode_tx:          { method: "POST", path: "/v1/decode/tx",       price: 0.001 },
+  decode_calldata:    { method: "POST", path: "/v1/decode/calldata", price: 0.001 },
+  resolve_name:       { method: "GET",  path: "/v1/resolve/name",    price: 0.001, query: ["name"] },
+  token_price:        { method: "GET",  path: "/v1/price/token",     price: 0.001, query: ["symbol"] },
+  parse_datetime:     { method: "POST", path: "/v1/parse/datetime",  price: 0.001 },
+  wallet_intel:       { method: "GET",  path: "/v1/intel/wallet",    price: 0.005, query: ["wallet"] },
+  investigate_wallet: { method: "POST", path: "/v1/investigate",     price: 7.77,  async: true },
+  roast:              { method: "POST", path: "/v1/roast",           price: 0.05 },
+  oracle:             { method: "POST", path: "/v1/oracle",          price: 0.05 },
+  tldr:               { method: "POST", path: "/v1/tldr",            price: 0.01 },
+  aura:               { method: "POST", path: "/v1/aura",            price: 0.01 },
+  grade:              { method: "POST", path: "/v1/grade",           price: 0.01 },
 };
 
 function renderApprovalAndRun(tu) {
   return new Promise((resolve) => {
     const route = TOOL_ROUTES[tu.name];
     const price = route?.price ?? tu.price_usd ?? 0;
+
     const card = document.createElement("div");
     card.className = "approval";
     card.innerHTML = `
-      <h4>Agent wants to call <code>${tu.name}</code> — <span class="price">$${price.toFixed(3)} USDC</span></h4>
-      <div class="small muted">${route?.method || "?"} ${route?.path || ""}</div>
+      <h3>Run <strong>${tu.name}</strong> for <span class="price">$${price.toFixed(3)} USDC</span>?</h3>
+      <div class="why">${route ? `${route.method} ${route.path}` : "unknown tool"}</div>
       <pre></pre>
       <div class="actions"></div>
     `;
     card.querySelector("pre").textContent = JSON.stringify(tu.input, null, 2);
     const actions = card.querySelector(".actions");
 
-    const approveBtn = document.createElement("button");
-    approveBtn.className = "primary small";
-    approveBtn.textContent = `Approve $${price.toFixed(3)}`;
+    const finish = (resObj) => {
+      Array.from(actions.querySelectorAll("button")).forEach((b) => (b.disabled = true));
+      resolve(resObj);
+    };
 
-    const skipBtn = document.createElement("button");
-    skipBtn.className = "ghost small danger";
-    skipBtn.textContent = "Skip";
-
-    const finish = (resultObj) => { approveBtn.disabled = skipBtn.disabled = true; resolve(resultObj); };
-
-    approveBtn.addEventListener("click", async () => {
-      if (!route) { finish({ error: "unknown_tool", tool_name: tu.name }); return; }
-      if (state.sessionSpend + price > state.sessionCap + 1e-9) {
-        toast(`Cap exceeded: $${(state.sessionSpend + price).toFixed(3)} > $${state.sessionCap.toFixed(2)}. Raise the cap or skip.`, "err");
-        return;
-      }
-      approveBtn.disabled = true; approveBtn.textContent = "Running…";
+    const runBtn = document.createElement("button");
+    runBtn.className = "btn primary";
+    runBtn.textContent = state.account ? `Approve $${price.toFixed(3)}` : `Connect wallet & approve $${price.toFixed(3)}`;
+    runBtn.addEventListener("click", async () => {
       try {
+        if (!state.account) {
+          runBtn.disabled = true; runBtn.textContent = "Connecting…";
+          await connectWallet();
+          runBtn.textContent = `Approving $${price.toFixed(3)}…`;
+        }
+        if (!route) throw new Error("unknown tool: " + tu.name);
+        if (state.sessionSpend + price > state.sessionCap + 1e-9) {
+          const ok = window.confirm(`This call would exceed your session cap ($${state.sessionCap.toFixed(2)}). Raise to $${(state.sessionSpend + price + 1).toFixed(2)}?`);
+          if (!ok) { finish({ skipped: true, reason: "cap exceeded" }); return; }
+          state.sessionCap = state.sessionSpend + price + 1;
+        }
+        runBtn.disabled = true; runBtn.textContent = "Running…";
         const out = await executeTool(tu.name, route, tu.input);
-        state.sessionSpend += price; updateSpendUI();
-        renderResult(out, false);
+        state.sessionSpend += price; renderPill();
+        renderResult(tu.name, out, false);
         finish(out);
       } catch (e) {
         const err = { error: String(e?.message || e) };
-        renderResult(err, true);
+        renderResult(tu.name, err, true);
         finish(err);
       }
     });
 
-    skipBtn.addEventListener("click", () => { renderResult({ skipped: true }, false, "skipped"); finish({ skipped: true }); });
+    const skipBtn = document.createElement("button");
+    skipBtn.className = "btn ghost small";
+    skipBtn.textContent = "Skip";
+    skipBtn.addEventListener("click", () => { renderResult(tu.name, { skipped: true }, false, "skipped"); finish({ skipped: true }); });
 
-    actions.appendChild(approveBtn);
+    actions.appendChild(runBtn);
     actions.appendChild(skipBtn);
+
+    if (!state.account) {
+      const topup = document.createElement("div");
+      topup.className = "topup";
+      topup.innerHTML = `Need USDC on Base? <a href="https://pay.coinbase.com" target="_blank" rel="noopener">Coinbase</a> · <a href="https://www.moonpay.com/buy/usdc" target="_blank" rel="noopener">MoonPay</a>`;
+      actions.appendChild(topup);
+    }
+
     appendNode(card);
   });
 }
 
-function renderResult(obj, isErr, label = "result") {
+function renderResult(name, obj, isErr, label) {
   const div = document.createElement("div");
   div.className = "result" + (isErr ? " err" : "");
-  const cls = isErr ? "bad" : "ok";
-  div.innerHTML = `<div class="head"><span class="${cls}">${label}</span></div><pre></pre>`;
+  div.innerHTML = `<div class="head"><span>${name}</span><span class="${isErr ? "bad" : "ok"}">${label || (isErr ? "error" : "ok")}</span></div><pre></pre>`;
   div.querySelector("pre").textContent = JSON.stringify(obj, null, 2);
   appendNode(div);
 }
 
 async function executeTool(name, route, input) {
+  if (!state.paidFetch) throw new Error("Wallet not connected");
   const url = buildUrl(route, input);
   const init = { method: route.method, headers: { "Content-Type": "application/json" } };
   if (route.method !== "GET") init.body = JSON.stringify(input);
-
-  const r = await state.paidFetch(API_BASE + url, init);
+  const r = await state.paidFetch(url, init);
   if (!r.ok) throw new Error(`paid call failed: HTTP ${r.status}`);
   const data = await r.json();
-
-  if (route.async && data.job_id && data.status_url) {
-    return await pollInvestigate(data.status_url, data.job_id);
-  }
+  if (route.async && data.job_id && data.status_url) return await pollInvestigate(data.status_url, data.job_id);
   return data;
 }
 
 function buildUrl(route, input) {
-  if (!route.query || route.query.length === 0) return route.path;
+  if (!route.query || !route.query.length) return route.path;
   const params = new URLSearchParams();
   for (const k of route.query) if (input[k] != null) params.set(k, input[k]);
   const qs = params.toString();
@@ -577,21 +884,92 @@ function buildUrl(route, input) {
 }
 
 async function pollInvestigate(statusUrl, jobId) {
-  appendMsg("tool", `investigate started — job_id ${jobId}. Polling every 30s (max ~15 min)…`);
-  // status_url is absolute; if it returns same-origin path, use directly
-  const url = statusUrl.startsWith("http") ? statusUrl : API_BASE + statusUrl;
+  appendMsg("system", `investigate started — job_id ${jobId}. Polling every 30s (max ~15 min)…`);
+  const url = statusUrl.startsWith("http") ? statusUrl : statusUrl;
   for (let i = 0; i < INVESTIGATE_MAX_POLLS; i++) {
     await new Promise((res) => setTimeout(res, INVESTIGATE_POLL_MS));
     try {
       const r = await fetch(url);
       if (!r.ok) continue;
       const j = await r.json();
-      if (j.status === "DELIVERED") return j;
-      if (j.status === "FAILED") return j;
+      if (j.status === "DELIVERED" || j.status === "FAILED") return j;
     } catch {}
   }
   return { job_id: jobId, status: "TIMEOUT", note: "client polling stopped — check status_url later" };
 }
+
+// ====================== wallet ======================
+async function connectWallet() {
+  if (state.account) return;
+  if (!state.projectId) throw new Error("Wallet connect not configured by operator yet.");
+  if (window.__diag) window.__diag("[wallet] initializing WC EthereumProvider…");
+  state.provider = await EthereumProvider.init({
+    projectId: state.projectId,
+    chains: [8453],
+    optionalChains: [8453],
+    showQrModal: true,
+    metadata: { name: "anchor-x402 agent", description: "Pay-per-call AI services from your wallet.", url: location.origin, icons: [] },
+  });
+  if (window.__diag) window.__diag("[wallet] connecting…");
+  await state.provider.connect();
+  const accounts = (state.provider.accounts && state.provider.accounts.length)
+    ? state.provider.accounts
+    : await state.provider.request({ method: "eth_accounts" });
+  state.account = accounts[0];
+  if (!state.account) throw new Error("No account returned from wallet.");
+  const wallet = createWalletClient({ account: state.account, chain: base, transport: custom(state.provider) });
+  state.paidFetch = wrapFetchWithPayment(fetch, wallet);
+  renderPill();
+  state.provider.on("disconnect", () => {
+    state.account = null;
+    state.paidFetch = null;
+    renderPill();
+    appendMsg("system", "Wallet disconnected.");
+  });
+}
+
+// ====================== bootstrap ======================
+(async function init() {
+  if (window.__diag) window.__diag("[boot] init starting");
+  renderChips();
+
+  // Send via button
+  $("send-btn").addEventListener("click", sendUserMessage);
+
+  // Enter sends, Shift+Enter newlines
+  inputEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendUserMessage(); }
+  });
+  // Auto-grow textarea
+  inputEl.addEventListener("input", () => {
+    inputEl.style.height = "auto";
+    inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + "px";
+  });
+
+  // Connect pill: tap to connect (or disconnect if connected)
+  $("connect-pill").addEventListener("click", async () => {
+    if (state.account) {
+      // Disconnect
+      try { await state.provider?.disconnect?.(); } catch {}
+      state.account = null;
+      state.paidFetch = null;
+      renderPill();
+      appendMsg("system", "Wallet disconnected.");
+    } else {
+      try { await connectWallet(); appendMsg("system", "Wallet connected. Your spend cap is $" + state.sessionCap.toFixed(2) + " per session."); }
+      catch (e) { toast(e.message || String(e), "err"); }
+    }
+  });
+
+  // Load config
+  try {
+    const r = await fetch("/v1/config");
+    if (r.ok) state.projectId = (await r.json()).wcProjectId || "";
+  } catch (e) { if (window.__diag) window.__diag("[boot] /v1/config failed: " + e.message, "err"); }
+
+  renderPill();
+  if (window.__diag) window.__diag("[boot] ready");
+})();
 </script>
 </body>
 </html>
