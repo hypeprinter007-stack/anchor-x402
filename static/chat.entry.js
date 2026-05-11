@@ -10,3 +10,4 @@ export { base } from "viem/chains";
 export { CoinbaseWalletSDK } from "@coinbase/wallet-sdk";
 export { wrapFetchWithPayment, wrapFetchWithPaymentFromConfig } from "@x402/fetch";
 export { ExactEvmScheme } from "@x402/evm";
+export * as Attribution from "ox/erc8021/Attribution";

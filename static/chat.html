@@ -345,7 +345,13 @@ import {
   CoinbaseWalletSDK,
   wrapFetchWithPaymentFromConfig,
   ExactEvmScheme,
-} from "/chat.bundle.js?v=7";
+  Attribution,
+} from "/chat.bundle.js?v=8";
+
+// Base App Builder Code (ERC-8021). Appended to any tx calldata our wallet
+// client sends, so onchain activity from this app attributes to anchor-x402.
+const BUILDER_CODE = "bc_kxz79e8i";
+const DATA_SUFFIX = Attribution.toDataSuffix({ codes: [BUILDER_CODE] });
 
 // ====================== state ======================
 const TURN_SAFETY_CAP = 10;
@@ -856,7 +862,12 @@ async function ensureBaseChain(provider) {
 }
 
 function buildPaidFetch(provider, address) {
-  const walletClient = createWalletClient({ account: address, chain: base, transport: custom(provider) });
+  const walletClient = createWalletClient({
+    account: address,
+    chain: base,
+    transport: custom(provider),
+    dataSuffix: DATA_SUFFIX,
+  });
   const signer = { address, signTypedData: (msg) => walletClient.signTypedData(msg) };
   return wrapFetchWithPaymentFromConfig(fetch, {
     schemes: [{ network: "eip155:8453", client: new ExactEvmScheme(signer) }],
