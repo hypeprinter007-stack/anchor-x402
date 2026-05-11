@@ -4,603 +4,218 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>anchor-x402 / agent</title>
-<meta name="description" content="Pay-per-call AI services from your own wallet. Chat free, connect only when you want to run a paid tool." />
-<meta name="theme-color" content="#0a0a0a" />
+<meta name="description" content="A terminal for paid AI tools. Pay per call from your own wallet. No accounts." />
+<meta name="theme-color" content="#0c0d10" />
 <style>
   :root {
-    --bg: #0a0a0a;
-    --panel: #141414;
-    --panel-2: #1a1a1a;
-    --border: #252525;
-    --border-2: #2f2f2f;
-    --text: #e8e8e8;
-    --muted: #8a8a8a;
-    --accent: #4ade80;
-    --accent-dim: #2d8a4d;
-    --warning: #f59e0b;
-    --error: #f87171;
-    --link: #93c5fd;
-    --user-bubble: #1f2a3a;
-    --agent-bubble: #1a1a1a;
+    --bg: #0c0d10;
+    --bg-2: #14161a;
+    --text: #ece9e2;
+    --muted: #7a7c84;
+    --accent: #d97954;        /* rust */
+    --accent-dim: #8a4d36;
+    --line: #1c1e24;
+    --warn: #d4a64a;
+    --err: #d97373;
+    --user: #6b8aa8;          /* slate-blue for user voice */
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); height: 100%; }
-  body { font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Helvetica, Arial, sans-serif; }
-  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-  a { color: var(--link); text-decoration: none; }
-  a:hover { text-decoration: underline; }
+  body {
+    font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Inter", "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.92em; }
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; }
+  a:hover { border-bottom-color: var(--accent-dim); }
+  button { font: inherit; color: inherit; }
 
-  /* Layout: fixed header, scrolling chat, fixed input */
   .app {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
     min-height: 100dvh;
   }
+
+  /* Top bar — just brand + sign-in link, no chrome */
   .topbar {
-    position: sticky;
-    top: 0;
-    z-index: 5;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 16px;
+    position: sticky; top: 0; z-index: 5;
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 16px 24px;
     background: var(--bg);
-    border-bottom: 1px solid var(--border);
-    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
   }
-  .topbar .brand { font-weight: 600; font-size: 15px; }
-  .topbar .brand .accent { color: var(--accent); font-weight: 500; }
+  .topbar .brand {
+    font-size: 14px; font-weight: 500; letter-spacing: 0.01em;
+  }
+  .topbar .brand .dim { color: var(--muted); }
+  .pill {
+    background: none; border: none; padding: 4px 0;
+    color: var(--muted); font-size: 13px; cursor: pointer;
+    border-bottom: 1px solid transparent;
+  }
+  .pill:hover { color: var(--text); border-bottom-color: var(--line); }
+  .pill.connected { color: var(--accent); }
+  .pill .spend { color: var(--muted); margin-left: 10px; }
 
-  .connect-pill {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 14px;
-    background: var(--panel);
-    border: 1px solid var(--border-2);
-    border-radius: 999px;
-    font-size: 13px;
-    color: var(--text);
-    cursor: pointer;
-    min-height: 36px;
-    font: inherit;
-    font-size: 13px;
-  }
-  .connect-pill.connected { border-color: var(--accent-dim); color: var(--accent); }
-  .connect-pill .dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--muted);
-  }
-  .connect-pill.connected .dot { background: var(--accent); }
-
+  /* Chat scroll area */
   .chat {
-    flex: 1;
-    overflow-y: auto;
-    padding: 16px;
-    padding-bottom: 24px;
-    max-width: 760px;
-    margin: 0 auto;
-    width: 100%;
+    flex: 1; overflow-y: auto;
+    max-width: 720px; width: 100%; margin: 0 auto;
+    padding: 28px 24px 12px;
   }
 
-  /* Welcome card */
-  .welcome {
-    text-align: center;
-    padding: 24px 8px 16px;
-  }
-  .welcome h1 {
-    font-size: 24px;
-    font-weight: 600;
-    margin: 8px 0 6px;
-  }
-  .welcome p {
-    color: var(--muted);
-    margin: 0 0 18px;
-    font-size: 15px;
-  }
-  .welcome .free-badge {
-    display: inline-block;
-    padding: 3px 10px;
-    background: rgba(74, 222, 128, 0.1);
-    border: 1px solid var(--accent-dim);
-    border-radius: 999px;
-    color: var(--accent);
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    margin-bottom: 10px;
-  }
-  .chip-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin: 18px 0 4px;
-  }
-  .chip {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 12px 14px;
-    cursor: pointer;
-    text-align: left;
-    font: inherit;
-    color: var(--text);
-    font-size: 14px;
-    line-height: 1.3;
-    min-height: 60px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    transition: border-color 0.15s, background 0.15s;
-  }
-  .chip:active, .chip:hover { background: var(--panel-2); border-color: var(--border-2); }
-  .chip .head { font-weight: 500; }
-  .chip .sub { color: var(--muted); font-size: 12px; margin-top: 3px; }
-  .section-label {
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-size: 11px;
-    color: var(--muted);
-    margin: 18px 0 4px;
-    font-weight: 600;
-  }
-  .signin-row {
-    margin: 22px auto 0;
-    max-width: 480px;
-    text-align: center;
-  }
-  .signin-btn {
-    width: 100%;
-    padding: 16px;
-    font-size: 16px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-    min-height: 64px;
-  }
-  .signin-btn-alt {
-    width: 100%;
-    margin-top: 8px;
-    padding: 12px;
-    font-size: 14px;
-  }
-  .signin-emoji { font-size: 18px; }
-  .signin-sub { font-size: 12px; font-weight: 500; opacity: 0.7; }
-  .signin-or { color: var(--muted); font-size: 13px; margin: 10px 0 0; line-height: 1.45; }
-
-  details.first-time {
-    margin: 20px auto 0;
-    max-width: 540px;
-    text-align: left;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 0 16px;
-  }
-  details.first-time summary {
-    cursor: pointer;
-    padding: 12px 0;
-    color: var(--link);
-    font-size: 14px;
-    list-style: none;
-  }
-  details.first-time summary::-webkit-details-marker { display: none; }
-  details.first-time summary::after { content: " ▾"; font-size: 11px; color: var(--muted); }
-  details.first-time[open] summary::after { content: " ▴"; }
-  details.first-time .first-time-body { padding: 0 0 14px; color: var(--text); font-size: 14px; line-height: 1.55; }
-  details.first-time .first-time-body ol { padding-left: 20px; margin: 6px 0 12px; }
-  details.first-time .first-time-body li { margin-bottom: 4px; }
-  details.first-time .first-time-body p { margin: 8px 0; }
-  details.first-time .first-time-body em { color: var(--muted); font-style: normal; }
-
-  /* Messages */
-  .msg { margin: 14px 0; max-width: 88%; }
-  .msg.user { margin-left: auto; }
-  .msg.agent, .msg.tool, .msg.system { margin-right: auto; }
-  .msg .bubble {
-    padding: 11px 15px;
-    border-radius: 14px;
-    white-space: pre-wrap;
-    word-break: break-word;
-    overflow-wrap: anywhere;
-    font-size: 15px;
-    line-height: 1.45;
-  }
-  .msg.user .bubble {
-    background: var(--user-bubble);
-    border-bottom-right-radius: 4px;
-  }
-  .msg.agent .bubble {
-    background: var(--agent-bubble);
-    border: 1px solid var(--border);
-    border-bottom-left-radius: 4px;
-  }
-  .msg.system .bubble {
-    background: transparent;
-    border: 1px dashed var(--border-2);
-    color: var(--muted);
-    font-size: 13px;
-    text-align: center;
-  }
+  /* Messages — no bubbles. Thin colored bar + plain prose. */
+  .msg { margin: 22px 0; padding-left: 14px; border-left: 2px solid var(--line); }
+  .msg.agent { border-left-color: var(--accent-dim); }
+  .msg.user  { border-left-color: var(--user); }
+  .msg.tool  { border-left-color: var(--warn); }
+  .msg.sys   { border-left-color: var(--line); color: var(--muted); font-size: 13px; }
   .msg .who {
-    font-size: 11px;
-    color: var(--muted);
-    margin: 0 6px 4px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    font-size: 11px; color: var(--muted); letter-spacing: 0.06em;
+    text-transform: uppercase; margin-bottom: 4px;
   }
-  .msg.user .who { text-align: right; }
+  .msg.agent .who { color: var(--accent); }
+  .msg.user .who  { color: var(--user); }
+  .msg .body { white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; }
+  .msg .body p { margin: 0 0 8px; }
+  .msg .body p:last-child { margin-bottom: 0; }
 
-  .demo-badge {
-    display: inline-block;
-    padding: 1px 7px;
-    background: rgba(245, 158, 11, 0.15);
-    border: 1px solid rgba(245, 158, 11, 0.4);
-    border-radius: 4px;
-    color: var(--warning);
-    font-size: 10px;
-    font-weight: 600;
-    margin-right: 6px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+  /* Tappable prompts in the agent's first message — text-link style, no chips */
+  .promptlist { list-style: none; margin: 8px 0 4px; padding: 0; }
+  .promptlist li { padding: 3px 0; }
+  .promptlist button {
+    background: none; border: none; padding: 0; cursor: pointer;
+    color: var(--text); font: inherit; text-align: left;
+    border-bottom: 1px dotted var(--line);
   }
+  .promptlist button:hover { border-bottom-color: var(--accent); color: var(--accent); }
+  .promptlist .price { color: var(--muted); margin-left: 8px; font-size: 13px; }
 
-  /* Approval card (inline in chat history) */
-  .approval {
-    margin: 14px auto 14px 0;
-    max-width: 88%;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--warning);
-    border-radius: 10px;
-    padding: 14px;
-  }
-  .approval h3 { margin: 0 0 6px; font-size: 14px; font-weight: 500; }
-  .approval .why { color: var(--muted); font-size: 13px; margin-bottom: 10px; line-height: 1.4; }
-  .approval pre {
-    background: var(--bg);
-    padding: 8px 10px;
-    border-radius: 6px;
-    font-size: 12px;
-    margin: 8px 0;
-    max-height: 180px;
-    overflow: auto;
-    border: 1px solid var(--border);
-  }
-  .approval .actions { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
-  .approval .price {
-    font-weight: 600;
-    color: var(--warning);
-  }
-  .approval .topup {
-    color: var(--muted);
-    font-size: 12px;
-    text-align: center;
-    margin: 6px 0 0;
-  }
+  /* Approval — quiet card, no shadow */
+  .approval { margin: 18px 0; padding: 14px 16px; border: 1px solid var(--line); border-left: 2px solid var(--warn); background: var(--bg-2); }
+  .approval h3 { margin: 0 0 4px; font-size: 14px; font-weight: 500; }
+  .approval .price { color: var(--warn); font-family: "JetBrains Mono", ui-monospace, monospace; }
+  .approval pre { margin: 8px 0 12px; padding: 8px 10px; background: var(--bg); border: 1px solid var(--line); font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; max-height: 180px; overflow: auto; white-space: pre-wrap; }
+  .approval .actions { display: flex; flex-direction: column; gap: 6px; }
+  .approval .actions .row { display: flex; gap: 8px; }
 
-  /* Buttons */
+  /* Buttons — flat, hairline border. Primary uses accent. */
   .btn {
-    background: var(--panel-2);
-    color: var(--text);
-    border: 1px solid var(--border-2);
-    border-radius: 10px;
-    padding: 12px 18px;
-    font: inherit;
-    font-size: 15px;
-    cursor: pointer;
-    min-height: 44px;
-    transition: background 0.15s, border-color 0.15s;
+    background: transparent; color: var(--text);
+    border: 1px solid var(--line); padding: 9px 14px;
+    font-size: 14px; cursor: pointer;
+    transition: border-color 0.12s, color 0.12s, background 0.12s;
   }
-  .btn:active { background: #222; }
-  .btn:hover:not(:disabled) { border-color: #3a3a3a; }
-  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn.primary {
-    background: var(--accent);
-    color: #000;
-    border-color: var(--accent);
-    font-weight: 600;
-  }
-  .btn.primary:active { background: #6ee7a1; }
-  .btn.ghost { background: transparent; }
-  .btn.small { padding: 8px 12px; min-height: 36px; font-size: 13px; }
+  .btn:hover:not(:disabled) { border-color: var(--muted); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.primary { border-color: var(--accent); color: var(--accent); }
+  .btn.primary:hover:not(:disabled) { background: var(--accent); color: var(--bg); }
+  .btn.sm { padding: 6px 10px; font-size: 13px; }
+  .btn.ghost { border-color: transparent; color: var(--muted); }
+  .btn.ghost:hover:not(:disabled) { color: var(--text); border-color: var(--line); }
 
-  /* Demo CTA — appears after a demo result */
-  .demo-cta {
-    margin: 4px auto 14px 0;
-    max-width: 88%;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--accent);
-    border-radius: 10px;
-    padding: 12px 14px;
-  }
-  .demo-cta-note { color: var(--muted); font-size: 13px; margin-bottom: 8px; line-height: 1.45; }
-  .demo-cta .demo-try { width: 100%; }
-
-  /* "Try something else" row after each result */
-  .next-row {
-    margin: 6px 0 14px;
-    max-width: 100%;
-  }
-  .next-row .next-label {
-    color: var(--muted);
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: 6px;
-  }
-  .next-row .next-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-  .chip.next {
-    flex: 0 0 auto;
-    min-height: 38px;
-    padding: 6px 12px;
-    font-size: 12px;
-  }
-  .chip.next .head { font-size: 13px; }
-  .chip.next .sub { font-size: 10px; }
-
-  /* Tool result card */
-  .result {
-    margin: 14px auto 14px 0;
-    max-width: 88%;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--accent);
-    border-radius: 10px;
-    padding: 12px 14px;
-    font-size: 13px;
-  }
-  .result.err { border-left-color: var(--error); }
-  .result .head {
-    display: flex;
-    justify-content: space-between;
-    color: var(--muted);
-    font-size: 12px;
-    margin-bottom: 6px;
-  }
+  /* Tool result — flat, mono */
+  .result { margin: 14px 0; padding: 10px 14px; border: 1px solid var(--line); border-left: 2px solid var(--accent); background: var(--bg-2); font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; }
+  .result.err { border-left-color: var(--err); }
+  .result .head { display: flex; justify-content: space-between; color: var(--muted); margin-bottom: 6px; font-family: inherit; font-size: 12px; }
   .result .head .ok { color: var(--accent); }
-  .result .head .bad { color: var(--error); }
-  .result pre {
-    margin: 6px 0 0;
-    white-space: pre-wrap;
-    word-break: break-word;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 12px;
-    max-height: 240px;
-    overflow: auto;
-  }
+  .result .head .bad { color: var(--err); }
+  .result pre { margin: 0; white-space: pre-wrap; max-height: 240px; overflow: auto; }
 
-  /* Input bar (fixed bottom on mobile, inline on desktop) */
+  /* Input bar — minimal, single line */
   .input-bar {
-    position: sticky;
-    bottom: 0;
-    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    position: sticky; bottom: 0;
+    padding: 12px 24px calc(12px + env(safe-area-inset-bottom));
     background: var(--bg);
-    border-top: 1px solid var(--border);
-    display: flex;
-    gap: 8px;
-    align-items: flex-end;
-    max-width: 760px;
-    margin: 0 auto;
-    width: 100%;
+    border-top: 1px solid var(--line);
+    display: flex; gap: 10px; align-items: flex-end;
+    max-width: 720px; width: 100%; margin: 0 auto;
   }
   .input-bar textarea {
     flex: 1;
-    background: var(--panel);
-    color: var(--text);
-    border: 1px solid var(--border-2);
-    border-radius: 12px;
-    padding: 11px 14px;
-    font: inherit;
-    font-size: 16px;
-    resize: none;
-    max-height: 120px;
-    line-height: 1.4;
-    min-height: 44px;
+    background: transparent; color: var(--text);
+    border: none; outline: none;
+    font: inherit; font-size: 16px;
+    resize: none; max-height: 120px; line-height: 1.4; min-height: 24px;
+    padding: 8px 0;
   }
-  .input-bar textarea:focus { outline: none; border-color: #444; }
-  .input-bar .btn { padding: 11px 18px; }
+  .input-bar textarea::placeholder { color: var(--muted); }
+  .send-btn {
+    background: transparent; border: 1px solid var(--line);
+    color: var(--muted); cursor: pointer;
+    width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .send-btn:hover { color: var(--accent); border-color: var(--accent); }
 
-  /* Footer (collapsible trust info) */
-  .footer-wrap {
-    border-top: 1px solid var(--border);
-    background: var(--bg);
+  /* Footer — thin colophon links */
+  .colophon {
+    font-size: 12px; color: var(--muted);
+    max-width: 720px; width: 100%; margin: 0 auto;
+    padding: 10px 24px 24px;
+    display: flex; flex-wrap: wrap; gap: 0 22px;
   }
-  .footer-wrap details {
-    max-width: 760px;
-    margin: 0 auto;
-    padding: 8px 16px;
-  }
-  .footer-wrap summary {
-    cursor: pointer;
-    padding: 12px 0;
-    color: var(--muted);
-    font-size: 14px;
-    list-style: none;
-  }
-  .footer-wrap summary::-webkit-details-marker { display: none; }
-  .footer-wrap summary::after { content: " ▾"; font-size: 11px; }
-  .footer-wrap details[open] summary::after { content: " ▴"; }
-  .footer-wrap .info-grid {
-    padding: 4px 0 18px;
-    color: var(--muted);
-    font-size: 13px;
-    line-height: 1.55;
-  }
-  .footer-wrap .info-grid h4 {
-    margin: 12px 0 4px;
-    font-size: 12px;
-    color: var(--text);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    font-weight: 600;
-  }
-  .footer-wrap a { color: var(--link); }
+  .colophon a { color: var(--muted); }
+  .colophon a:hover { color: var(--text); border-bottom-color: var(--muted); }
+  .colophon .sep { color: var(--line); }
 
   /* Toast */
-  .toast-wrap {
-    position: fixed;
-    bottom: 80px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    z-index: 20;
-    pointer-events: none;
-  }
-  .toast {
-    background: var(--panel);
-    border: 1px solid var(--border-2);
-    border-radius: 10px;
-    padding: 10px 14px;
-    font-size: 13px;
-    max-width: 320px;
-    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
-    pointer-events: auto;
-  }
-  .toast.err { border-color: var(--error); color: var(--error); }
-  .toast.ok { border-color: var(--accent); }
+  .toast-wrap { position: fixed; bottom: 76px; left: 50%; transform: translateX(-50%); z-index: 20; pointer-events: none; }
+  .toast { background: var(--bg-2); border: 1px solid var(--line); padding: 8px 14px; font-size: 13px; max-width: 320px; pointer-events: auto; margin-top: 6px; }
+  .toast.err { border-color: var(--err); color: var(--err); }
+  .toast.ok { border-color: var(--accent); color: var(--accent); }
 
-  /* Diagnostic surface — hidden unless ?debug=1 */
+  /* Diag — hidden unless ?debug=1 or there's an error */
   .diag {
     display: none;
-    max-width: 760px;
-    margin: 8px auto 0;
+    max-width: 720px; width: 100%; margin: 0 auto;
     padding: 8px 14px;
-    background: var(--panel);
-    border: 1px solid var(--border-2);
-    border-radius: 8px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 11px;
-    color: var(--muted);
-    white-space: pre-wrap;
-    word-break: break-word;
+    background: var(--bg-2); border: 1px solid var(--line);
+    font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px;
+    color: var(--muted); white-space: pre-wrap; word-break: break-word;
   }
-  .diag.err { color: var(--error); border-color: var(--error); }
+  .diag.err { color: var(--err); border-color: var(--err); }
 
-  /* Smaller screens */
-  @media (max-width: 480px) {
-    .topbar { padding: 10px 12px; }
-    .topbar .brand { font-size: 14px; }
-    .chat { padding: 12px; padding-bottom: 16px; }
-    .welcome h1 { font-size: 22px; }
-    .welcome p { font-size: 14px; }
-    .chip-grid { grid-template-columns: 1fr; }
-    .msg { max-width: 92%; }
-    .input-bar { padding-left: 12px; padding-right: 12px; }
+  @media (max-width: 560px) {
+    .topbar { padding: 12px 16px; }
+    .chat { padding: 20px 16px 8px; }
+    .input-bar { padding-left: 16px; padding-right: 16px; }
+    .colophon { padding-left: 16px; padding-right: 16px; }
   }
 </style>
 </head>
 <body>
 <div class="app">
-  <!-- Sticky top bar -->
+
   <header class="topbar">
-    <div class="brand"><span class="accent">anchor</span>-x402 <span style="color: var(--muted)">/ agent</span></div>
-    <button id="connect-pill" class="connect-pill" type="button" aria-label="Connect wallet to spend">
-      <span class="dot"></span>
-      <span id="pill-label">Connect</span>
-    </button>
+    <div class="brand">anchor-x402 <span class="dim">/ agent</span></div>
+    <button id="connect-pill" class="pill" type="button">sign in</button>
   </header>
 
-  <!-- Main chat area -->
-  <main class="chat" id="chat">
-    <section class="welcome" id="welcome">
-      <span class="free-badge">Free to try</span>
-      <h1>What do you want to know?</h1>
-      <p>I run paid AI services from <strong>your</strong> wallet. Chat is free. You only pay (and only after you approve) when I actually run a tool.</p>
+  <main class="chat" id="chat"></main>
 
-      <div class="section-label">Try one</div>
-      <div class="chip-grid" id="prompt-chips"></div>
-
-      <div class="section-label">See a free demo</div>
-      <div class="chip-grid" id="demo-chips"></div>
-
-      <div class="signin-row">
-        <button class="btn primary signin-btn" id="passkey-btn" type="button">
-          <span class="signin-emoji">✨</span> Sign in with passkey
-          <span class="signin-sub">no app needed · recommended</span>
-        </button>
-        <button class="btn signin-btn-alt" id="injected-btn" type="button" style="display:none">
-          Use my browser wallet
-        </button>
-        <p class="signin-or">Passkey signs in with Face ID / Touch ID — no app install, works on every modern browser. Mobile users without a wallet: this is the simplest path.</p>
-      </div>
-
-      <div style="text-align:center; margin-top: 22px;">
-        <button class="btn ghost small" id="more-services-btn" type="button">View all 15 services →</button>
-        <details class="first-time">
-          <summary>First time? Which sign-in option to use</summary>
-          <div class="first-time-body">
-            <p><strong>Sign in with passkey</strong> (recommended for almost everyone):</p>
-            <ol>
-              <li>Tap the green <strong>Sign in with passkey</strong> button.</li>
-              <li>Your browser/device prompts for Face ID / Touch ID / device PIN.</li>
-              <li>That creates a self-custodial Coinbase Smart Wallet bound to your device. No app to install.</li>
-              <li>Fund it with USDC on Base (the trust footer below has links).</li>
-            </ol>
-            <p><strong>Use my browser wallet</strong> (desktop power users):</p>
-            <ol>
-              <li>If you have MetaMask / Rabby / Frame / etc. as a browser extension, the button appears below "Sign in with passkey".</li>
-              <li>One click — your extension prompts; you approve.</li>
-            </ol>
-            <p class="muted">We dropped WalletConnect mobile flow. It's fundamentally unreliable for x402 payments — mobile wallet apps lose their relay subscription when backgrounded, and the WC spec provides no soft-recovery path. Coinbase's own x402 reference architecture uses embedded / smart wallets, not WC.</p>
-          </div>
-        </details>
-      </div>
-    </section>
-  </main>
-
-  <!-- Input bar -->
   <div class="input-bar">
-    <textarea id="user-input" rows="1" placeholder="Ask anything… or paste a wallet/URL/idea" autocomplete="off" enterkeyhint="send"></textarea>
-    <button class="btn primary" id="send-btn" type="button" aria-label="Send">Send</button>
-  </div>
-
-  <!-- Collapsible footer -->
-  <div class="footer-wrap">
-    <details>
-      <summary>How does this work? · Who runs this? · Where do payments go?</summary>
-      <div class="info-grid">
-        <h4>Operator</h4>
-        <p><strong>anchor-x402</strong> — built by Christopher Ferjo.
-          <a href="https://anchor-x402.com/trust" target="_blank" rel="noopener">Trust portal</a> ·
-          <a href="https://github.com/hypeprinter007-stack/anchor-x402" target="_blank" rel="noopener">GitHub</a> ·
-          <a href="https://github.com/hypeprinter007-stack/anchor-x402/blob/main/static/chat.html" target="_blank" rel="noopener">Source for this page</a> ·
-          <a href="https://agentarena.site/api/agent/8453/47261" target="_blank" rel="noopener">ERC-8004 #47261</a> ·
-          <a href="https://api.anchor-x402.com/docs" target="_blank" rel="noopener">OpenAPI</a>
-        </p>
-
-        <h4>Where your payments go</h4>
-        <p>Treasury: <a class="mono" href="https://basescan.org/address/0x127462e296fAc1A7F5cF33bA57bB2f0FFf5cD0B6" target="_blank" rel="noopener">0x12746…cD0B6</a> — verified on Basescan. Every payment is a single EIP-3009 USDC authorization you sign per tool call. No subscription, no held balance.</p>
-
-        <h4>What we can and cannot do</h4>
-        <p><strong>Can:</strong> sign USDC payments to the treasury above, scoped to a session cap you control. <strong>Cannot:</strong> touch other tokens, exceed your cap, custody keys, or sign arbitrary transactions.</p>
-
-        <h4>Need USDC?</h4>
-        <p>You can fund a wallet with USDC on Base via <a href="https://pay.coinbase.com" target="_blank" rel="noopener">Coinbase Onramp</a>, <a href="https://www.moonpay.com/buy/usdc" target="_blank" rel="noopener">MoonPay</a>, or any exchange that supports Base. In-app top-up coming soon.</p>
-
-        <h4>Anti-abuse</h4>
-        <p>Free chat is rate-limited and bounded by message length so a single user can't burn through our LLM budget. Tool calls require explicit per-call approval — there is no autonomous spend.</p>
-      </div>
-    </details>
+    <textarea id="user-input" rows="1" autocomplete="off" enterkeyhint="send"></textarea>
+    <button id="send-btn" class="send-btn" type="button" aria-label="Send">→</button>
   </div>
 
   <div id="diag" class="diag"></div>
+
+  <footer class="colophon">
+    <a href="https://anchor-x402.com" target="_blank" rel="noopener">anchor-x402.com</a>
+    <a href="https://github.com/hypeprinter007-stack/anchor-x402" target="_blank" rel="noopener">source</a>
+    <a href="https://anchor-x402.com/trust" target="_blank" rel="noopener">trust</a>
+    <a href="https://api.anchor-x402.com/docs" target="_blank" rel="noopener">openapi</a>
+    <a href="https://basescan.org/address/0x127462e296fAc1A7F5cF33bA57bB2f0FFf5cD0B6" target="_blank" rel="noopener">treasury</a>
+  </footer>
+
 </div>
 
 <div class="toast-wrap" id="toasts"></div>
 
 <script>
-// Inline pre-script — captures uncaught errors even if the ES module fails.
+// Inline pre-script: captures uncaught errors even if the module fails.
 (function () {
   function append(msg, cls) {
     var d = document.getElementById("diag");
@@ -621,11 +236,8 @@
     append("[rej] " + (r && (r.message || r.toString()) || "unknown"), "err");
   });
   window.addEventListener("DOMContentLoaded", function () {
-    append("[boot] DOM ready");
     setTimeout(function () {
-      if (!window.__moduleLoaded) {
-        append("[boot] module did NOT execute — ESM imports likely failed silently", "err");
-      }
+      if (!window.__moduleLoaded) append("[boot] module did NOT execute — ESM imports failed", "err");
     }, 3000);
   });
 })();
@@ -634,12 +246,6 @@
 <script type="module">
 window.__moduleLoaded = true;
 
-// Self-bundled via esbuild — single same-origin file.
-// Two wallet paths, no WalletConnect anywhere:
-//   - Coinbase Smart Wallet (passkey) — primary, recommended by Coinbase's
-//     own x402 docs. No relay, no deep-links, works everywhere.
-//   - window.ethereum (injected EIP-1193) — desktop browser extensions.
-// Source: static/chat.entry.js · build: `npm run build`
 import {
   createWalletClient, custom, base,
   CoinbaseWalletSDK,
@@ -647,17 +253,15 @@ import {
   ExactEvmScheme,
 } from "/chat.bundle.js?v=7";
 
-if (window.__diag) window.__diag("[boot] module imports OK");
-
 // ====================== state ======================
 const TURN_SAFETY_CAP = 10;
 const INVESTIGATE_POLL_MS = 30_000;
 const INVESTIGATE_MAX_POLLS = 30;
 
 const state = {
-  cbProvider: null,        // Coinbase Smart Wallet provider (passkey path)
-  injectedProvider: null,  // window.ethereum (browser extension path)
-  connectMethod: null,     // "coinbase" | "injected"
+  cbProvider: null,
+  injectedProvider: null,
+  connectMethod: null,
   account: null,
   paidFetch: null,
   conversation: [],
@@ -665,95 +269,52 @@ const state = {
   sessionCap: 5.00,
 };
 
-// What browser-extension wallet (if any) is in this page? Used to label the
-// "Use my <wallet>" button. Best-effort detection — most wallets set isXxx
-// on window.ethereum.
-function detectInjectedName() {
-  const e = window.ethereum;
-  if (!e) return null;
-  if (e.isMetaMask) return "MetaMask";
-  if (e.isRabby) return "Rabby";
-  if (e.isCoinbaseWallet) return "Coinbase Wallet";
-  if (e.isBraveWallet) return "Brave Wallet";
-  if (e.isFrame) return "Frame";
-  if (e.isTrust) return "Trust";
-  return "Browser wallet";
-}
-
 // ====================== service catalog ======================
-// Prompt chips prefill the input, place the cursor at the end, and toast a
-// brief edit hint. They do NOT auto-send — user always edits + taps Send.
 const PROMPTS = [
-  { head: "🔥 Roast", sub: "$0.05 · roast anything", text: 'roast this: ', placeholder: "a tweet, an idea, a wallet, your last commit message…" },
-  { head: "✨ Aura read", sub: "$0.01 · vibe check", text: 'aura check: ', placeholder: "wallet address, person, project, meme…" },
-  { head: "🔮 Oracle", sub: "$0.05 · yes/no + receipt", text: 'oracle: ', placeholder: "a yes/no question — e.g. will I ship today?" },
-  { head: "🚨 Sanctions check", sub: "$0.001", text: 'is this wallet sanctioned: ', placeholder: "0x… or solana base58 address" },
-  { head: "🎓 Grade", sub: "$0.01 · A+ to F", text: 'grade: ', placeholder: "your pitch, your code, your idea…" },
-  { head: "📝 TLDR", sub: "$0.01 · summarize", text: 'tldr: ', placeholder: "paste a URL or some text" },
+  { label: "roast something",          text: "roast this: ",                   placeholder: "a tweet, an idea, your last commit message…", price: "$0.05" },
+  { label: "aura-read a wallet",       text: "aura check: ",                   placeholder: "wallet, person, project, meme…",            price: "$0.01" },
+  { label: "yes/no oracle (anchored)", text: "oracle: ",                       placeholder: "will I ship today?",                        price: "$0.05" },
+  { label: "sanctions-check a wallet", text: "is this wallet sanctioned: ",    placeholder: "0x… or solana base58",                      price: "$0.001" },
+  { label: "grade an idea / pitch",    text: "grade: ",                        placeholder: "your pitch, code, idea…",                    price: "$0.01" },
+  { label: "summarize a URL",          text: "tldr: ",                         placeholder: "paste a URL or text",                       price: "$0.01" },
 ];
 
 const ALL_SERVICES = [
-  { name: "anchor", price: 0.005, what: "Anchor any 32-byte hash to Base + Solana mainnet" },
-  { name: "screen", price: 0.001, what: "Sanctions + AML screen for any wallet" },
-  { name: "attest", price: 0.01, what: "Verify a signature + dual-chain anchor the result" },
-  { name: "decode tx", price: 0.001, what: "Decode any Base/Ethereum transaction" },
-  { name: "decode calldata", price: 0.001, what: "Decode raw EVM calldata into function + params" },
-  { name: "resolve name", price: 0.001, what: "ENS / Bonfida SNS name → address" },
-  { name: "token price", price: 0.001, what: "USD price for any major token" },
-  { name: "parse datetime", price: 0.001, what: "Freeform datetime → ISO 8601 + components" },
-  { name: "wallet intel", price: 0.005, what: "Balances + activity + identity + sanctions bundle" },
-  { name: "investigate", price: 7.77, what: "Agent-driven multi-step wallet due diligence (async)" },
-  { name: "roast", price: 0.05, what: "Witty roast of anything" },
-  { name: "oracle", price: 0.05, what: "Yes/no oracle with dual-chain anchored verdict" },
-  { name: "tldr", price: 0.01, what: "Summarize a URL or text into bullets" },
-  { name: "aura", price: 0.01, what: "Color + tier + score 0-9999 for anything" },
-  { name: "grade", price: 0.01, what: "Letter grade + red-pen marginalia" },
+  { name: "anchor",          price: 0.005, what: "Anchor a 32-byte hash to Base + Solana" },
+  { name: "screen",          price: 0.001, what: "Sanctions + AML screen for any wallet" },
+  { name: "attest",          price: 0.010, what: "Verify a signature + dual-chain anchor" },
+  { name: "decode tx",       price: 0.001, what: "Decode any Base/Ethereum tx" },
+  { name: "decode calldata", price: 0.001, what: "Decode raw EVM calldata" },
+  { name: "resolve name",    price: 0.001, what: "ENS / Bonfida SNS → address" },
+  { name: "token price",     price: 0.001, what: "USD price for any major token" },
+  { name: "parse datetime",  price: 0.001, what: "Freeform datetime → ISO 8601" },
+  { name: "wallet intel",    price: 0.005, what: "Bundled wallet intelligence" },
+  { name: "investigate",     price: 7.770, what: "Multi-step due diligence (async, 5–10 min)" },
+  { name: "roast",           price: 0.050, what: "Witty roast of anything" },
+  { name: "oracle",          price: 0.050, what: "Yes/no oracle with anchored verdict" },
+  { name: "tldr",            price: 0.010, what: "Summarize URL or text" },
+  { name: "aura",            price: 0.010, what: "Color + tier + score for anything" },
+  { name: "grade",           price: 0.010, what: "Letter grade + red-pen marginalia" },
 ];
 
-// Static demos — no LLM call, no payment. Show users what they'd get.
 const DEMOS = {
-  aura: {
-    chip: "✨ See an aura read",
-    input: "aura check vitalik.eth",
-    output: { color: "molten gold with copper veins", tier: "S", score: 8845, description: "Old-money aura. Quietly architecting things the rest of crypto twitter doesn't yet have words for. Soft-spoken; loud receipts." },
-    price: "$0.01",
-  },
-  roast: {
-    chip: "🔥 See a roast",
-    input: "roast 'crypto bro who tweets about discipline 40 times a day'",
-    output: { roast: "Discipline is what you'd call it if you couldn't say 'mental illness with a custom font'. Forty tweets a day about waking up early, said the man whose only consistent habit is checking how many people unfollowed him. His routine has a routine, his routine's routine has a podcast, and somehow the only thing he hasn't disciplined is his urge to type.\n\nKeep grinding, king. The market thanks you for paying gas.", target_summary: "A persona caricature: the over-tweeting crypto-discipline guru." },
-    price: "$0.05",
-  },
-  oracle: {
-    chip: "🔮 See an oracle answer",
-    input: "oracle: will I finish my todo list this week?",
-    output: { answer: "MAYBE", explanation: "Possible if you cut the bottom three items and stop opening Twitter every nine seconds.", merkle_root: "ab0898397c86fbf97c99c6f8b29e55ab697315705777ee1d106e2dcb9bd686b3", base_tx: "0x7fb4d107d8c1b65b33851434c6fd178b682a143904a2bfa89ff2c1fa70974e96", solana_tx: "u8rqU4oSQkkHQw93nCCtQym5crh4UjuoNvYhspLcUTEny59asrNNffpmxpgzRuZ4MXQnN5UEoCKQuDS16ZMPKW2" },
-    price: "$0.05",
-  },
-  tldr: {
-    chip: "📝 See a summary",
-    input: "tldr https://anchor-x402.com",
-    output: { summary_bullets: ["Fifteen x402-paid AI services for agents, callable via one HTTPS API.", "No accounts; pay per call in USDC on Base or Solana.", "Live across CDP Bazaar, agentic.market, Virtuals ACP, MCP registries."], source_chars: 5200 },
-    price: "$0.01",
-  },
-  screen: {
-    chip: "🚨 See a sanctions check",
-    input: "is 0x8589427373d6d84e98730d7795d8f6f8731fda16 sanctioned?",
-    output: { wallet: "0x8589427373d6d84e98730d7795d8f6f8731fda16", sanctions_match: true, sanctioned_lists: ["OFAC SDN", "Tornado Cash"], risk_level: "high", inferred_chain: "ethereum" },
-    price: "$0.001",
-  },
-  grade: {
-    chip: "🎓 See a graded pitch",
-    input: 'grade "uber but for sourdough starters"',
-    output: { letter_grade: "C-", marginalia: ["Market size: bakers who can't already mail flour to each other?", "Logistics: live-culture cargo is a regulatory mood.", "Brand assumes 'sourdough discourse' is monetizable. It isn't.", "However: vertical-niche food platforms have surprised before. Keep one eye on it."], summary: "Adventurous concept, brutal unit economics. Earnest C-." },
-    price: "$0.01",
-  },
+  aura:   { input: "aura check vitalik.eth", price: "$0.01",
+            output: { color: "molten gold with copper veins", tier: "S", score: 8845, description: "Old-money aura. Quietly architecting things the rest of crypto twitter doesn't yet have words for." } },
+  roast:  { input: 'roast "crypto bro who tweets about discipline 40 times a day"', price: "$0.05",
+            output: { roast: "Discipline is what you'd call it if you couldn't say 'mental illness with a custom font'. Forty tweets a day about waking up early, said the man whose only consistent habit is checking how many people unfollowed him.", target_summary: "An over-tweeting crypto-discipline guru caricature." } },
+  oracle: { input: "oracle: will I finish my todo list this week?", price: "$0.05",
+            output: { answer: "MAYBE", explanation: "Possible if you cut the bottom three items and stop opening Twitter.", merkle_root: "ab0898397c…dcb9bd686b3", base_tx: "0x7fb4d107d8…0974e96", solana_tx: "u8rqU4oSQk…ZMPKW2" } },
+  tldr:   { input: "tldr https://anchor-x402.com", price: "$0.01",
+            output: { summary_bullets: ["Fifteen x402-paid AI services for agents.", "Pay per call in USDC on Base or Solana.", "Indexed across CDP Bazaar, agentic.market, Virtuals ACP, MCP registries."], source_chars: 5200 } },
+  screen: { input: "is 0x8589427373d6d84e98730d7795d8f6f8731fda16 sanctioned?", price: "$0.001",
+            output: { wallet: "0x8589…fda16", sanctions_match: true, sanctioned_lists: ["OFAC SDN", "Tornado Cash"], risk_level: "high" } },
+  grade:  { input: 'grade "uber but for sourdough starters"', price: "$0.01",
+            output: { letter_grade: "C-", marginalia: ["Live-culture cargo is a regulatory mood.", "Brand assumes sourdough discourse is monetizable. It isn't.", "Vertical-niche food platforms have surprised before. Keep one eye on it."], summary: "Adventurous concept, brutal unit economics." } },
 };
 
-// ====================== DOM ======================
+// ====================== DOM helpers ======================
 const $ = (id) => document.getElementById(id);
 const chatEl = $("chat");
-const welcomeEl = $("welcome");
 const inputEl = $("user-input");
 
 function toast(msg, kind) {
@@ -761,145 +322,181 @@ function toast(msg, kind) {
   el.className = "toast " + (kind || "");
   el.textContent = msg;
   $("toasts").appendChild(el);
-  setTimeout(() => el.remove(), 5500);
+  setTimeout(() => el.remove(), 4500);
 }
-
-function scrollToEnd() {
-  // Use rAF so layout settles after content append
-  requestAnimationFrame(() => { chatEl.scrollTop = chatEl.scrollHeight; });
-}
+function shortenAddr(a) { return a ? a.slice(0, 6) + "…" + a.slice(-4) : ""; }
+function scrollToEnd() { requestAnimationFrame(() => { chatEl.scrollTop = chatEl.scrollHeight; }); }
 
 function renderPill() {
   const pill = $("connect-pill");
-  const lbl = $("pill-label");
   if (state.account) {
     pill.classList.add("connected");
-    lbl.textContent = `${state.account.slice(0, 6)}…${state.account.slice(-4)} · $${state.sessionSpend.toFixed(2)}/${state.sessionCap.toFixed(0)}`;
+    pill.innerHTML = shortenAddr(state.account) + ` <span class="spend">$${state.sessionSpend.toFixed(3)} / ${state.sessionCap.toFixed(2)}</span>`;
   } else {
     pill.classList.remove("connected");
-    lbl.textContent = "Connect";
+    pill.textContent = "sign in";
   }
 }
 
+// Append a message in transcript style (no bubbles). `body` is plain text OR an HTML node.
 function appendMsg(role, body) {
   const div = document.createElement("div");
   div.className = "msg " + role;
-  div.innerHTML = `<div class="who"></div><div class="bubble"></div>`;
-  div.querySelector(".who").textContent = role === "user" ? "you" : role === "agent" ? "agent" : "system";
-  div.querySelector(".bubble").textContent = body;
+  const who = role === "agent" ? "agent" : role === "user" ? "you" : role === "tool" ? "tool" : "system";
+  div.innerHTML = `<div class="who">${who}</div><div class="body"></div>`;
+  const b = div.querySelector(".body");
+  if (typeof body === "string") b.textContent = body;
+  else b.appendChild(body);
   chatEl.appendChild(div);
   scrollToEnd();
+  return div;
 }
 
-function appendNode(node) {
-  chatEl.appendChild(node);
-  scrollToEnd();
-}
+function appendNode(node) { chatEl.appendChild(node); scrollToEnd(); return node; }
 
-function dismissWelcome() {
-  if (welcomeEl && welcomeEl.parentNode) {
-    welcomeEl.style.display = "none";
-  }
-}
+// ====================== first agent message (replaces welcome card) ======================
+function bootGreeting() {
+  const wrap = document.createElement("div");
+  wrap.innerHTML = `
+    <p>Hi. I run paid AI tools from <strong>your</strong> wallet. The chat is free — you only pay when you approve a tool, and only after seeing the price.</p>
+    <p style="color: var(--muted); margin-top: 12px;">Tap one to get started, or type your own.</p>
+  `;
 
-// ====================== prompt + demo chips ======================
-function renderChips() {
-  const promptC = $("prompt-chips");
+  const list = document.createElement("ul");
+  list.className = "promptlist";
   PROMPTS.forEach((p) => {
-    const b = document.createElement("button");
-    b.className = "chip";
-    b.type = "button";
-    b.innerHTML = `<div class="head"></div><div class="sub"></div>`;
-    b.querySelector(".head").textContent = p.head;
-    b.querySelector(".sub").textContent = p.sub;
-    b.addEventListener("click", () => {
-      inputEl.value = p.text;
-      inputEl.placeholder = p.placeholder || "type your input then tap Send";
-      inputEl.focus();
-      // Put the cursor at the end so user types right after the colon
-      try { inputEl.setSelectionRange(inputEl.value.length, inputEl.value.length); } catch {}
-      // Trigger auto-grow
-      inputEl.dispatchEvent(new Event("input"));
-      toast(`Type your input after "${p.text.trim()}" then tap Send`, "ok");
-      // Visually nudge the send button
-      const sb = $("send-btn");
-      sb.style.transition = "transform 0.3s";
-      sb.style.transform = "scale(1.06)";
-      setTimeout(() => { sb.style.transform = ""; }, 350);
-    });
-    promptC.appendChild(b);
+    const li = document.createElement("li");
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = p.label;
+    btn.addEventListener("click", () => prefillInput(p));
+    li.appendChild(btn);
+    const px = document.createElement("span");
+    px.className = "price";
+    px.textContent = p.price;
+    li.appendChild(px);
+    list.appendChild(li);
   });
+  wrap.appendChild(list);
 
-  const demoC = $("demo-chips");
-  Object.entries(DEMOS).forEach(([key, d]) => {
-    const b = document.createElement("button");
-    b.className = "chip";
-    b.type = "button";
-    b.innerHTML = `<div class="head"></div><div class="sub"></div>`;
-    b.querySelector(".head").textContent = d.chip;
-    b.querySelector(".sub").textContent = "free preview · " + d.price;
-    b.addEventListener("click", () => playDemo(key));
-    demoC.appendChild(b);
-  });
+  const hint = document.createElement("p");
+  hint.style.color = "var(--muted)";
+  hint.style.marginTop = "12px";
+  hint.style.fontSize = "13px";
+  hint.innerHTML = `Slash commands: <span class="mono">/help</span> · <span class="mono">/services</span> · <span class="mono">/demo &lt;name&gt;</span> (e.g. <span class="mono">/demo aura</span>)`;
+  wrap.appendChild(hint);
 
-  $("more-services-btn").addEventListener("click", () => {
-    dismissWelcome();
-    const lines = ALL_SERVICES.map((s) => `• ${s.name.padEnd(18, " ")} $${s.price.toFixed(3)}  ${s.what}`).join("\n");
-    appendMsg("system", "All 15 services:\n\n" + lines + "\n\nAsk me anything in natural language — I'll figure out which to use.");
-  });
+  appendMsg("agent", wrap);
 }
 
-// Map demo key -> matching prompt template so "Try this for real" can prefill.
-const DEMO_TO_PROMPT = {
-  aura: "aura check: ", roast: "roast this: ", oracle: "oracle: ",
-  screen: "is this wallet sanctioned: ", grade: "grade: ", tldr: "tldr: ",
-};
+function prefillInput(p) {
+  inputEl.value = p.text;
+  inputEl.placeholder = p.placeholder || "";
+  inputEl.focus();
+  try { inputEl.setSelectionRange(inputEl.value.length, inputEl.value.length); } catch {}
+  inputEl.dispatchEvent(new Event("input"));
+}
+
+// ====================== rotating placeholder ======================
+const PLACEHOLDERS = [
+  "ask anything…",
+  "is 0x8589427373d6d84e98730d7795d8f6f8731fda16 sanctioned?",
+  "aura check vitalik.eth",
+  "grade my startup pitch: …",
+  "oracle: will the market be up tomorrow?",
+  "tldr https://stripe.com/docs",
+  "roast 'thought leader on linkedin'",
+];
+let phIdx = 0;
+function rotatePlaceholder() {
+  if (document.activeElement === inputEl || inputEl.value) return;
+  inputEl.placeholder = PLACEHOLDERS[phIdx % PLACEHOLDERS.length];
+  phIdx++;
+}
+
+// ====================== slash commands ======================
+function tryHandleSlashCommand(text) {
+  const t = text.trim().toLowerCase();
+  if (t === "/help") {
+    appendMsg("user", text);
+    showHelp();
+    return true;
+  }
+  if (t === "/services") {
+    appendMsg("user", text);
+    showServices();
+    return true;
+  }
+  if (t.startsWith("/demo")) {
+    const parts = text.trim().split(/\s+/);
+    const key = (parts[1] || "").toLowerCase();
+    appendMsg("user", text);
+    if (!key || !DEMOS[key]) {
+      const names = Object.keys(DEMOS).join(", ");
+      appendMsg("sys", `Try: /demo ${names}`);
+    } else {
+      playDemo(key);
+    }
+    return true;
+  }
+  return false;
+}
+
+function showHelp() {
+  const lines = [
+    "Type anything in natural language — I'll figure out which paid tool runs it.",
+    "",
+    "Commands:",
+    "  /services         list all 15 services and prices",
+    "  /demo <name>      see a free demo (no payment): aura, roast, oracle, tldr, screen, grade",
+    "",
+    "How payment works:",
+    "  1. Type your request. I respond and quote the tool's price.",
+    "  2. Tap Approve. Your wallet signs an EIP-3009 USDC authorization for that exact call.",
+    "  3. I run the tool and show you the result.",
+    "  4. Nothing is custodial. Nothing is auto-charged. Each call signs separately.",
+    "",
+    "Sign in:",
+    "  Tap 'sign in' (top right). Choose passkey (no app) or your browser-extension wallet.",
+    "  Treasury (where payments go): 0x127462e296fAc1A7F5cF33bA57bB2f0FFf5cD0B6",
+  ].join("\n");
+  appendMsg("agent", lines);
+}
+
+function showServices() {
+  const lines = ALL_SERVICES.map((s) =>
+    `  ${s.name.padEnd(18, " ")}  $${s.price.toFixed(3).padStart(6, " ")}   ${s.what}`
+  ).join("\n");
+  const node = document.createElement("pre");
+  node.className = "mono";
+  node.style.cssText = "margin: 0; white-space: pre-wrap; font-size: 12.5px;";
+  node.textContent = lines;
+  appendMsg("agent", node);
+}
 
 function playDemo(key) {
-  dismissWelcome();
   const d = DEMOS[key];
   if (!d) return;
-
-  const userDiv = document.createElement("div");
-  userDiv.className = "msg user";
-  userDiv.innerHTML = `<div class="who">you · demo</div><div class="bubble"></div>`;
-  userDiv.querySelector(".bubble").textContent = d.input;
-  appendNode(userDiv);
-
+  // Show as if user typed it
+  appendMsg("user", d.input + "    (demo)");
   const result = document.createElement("div");
   result.className = "result";
-  result.innerHTML = `<div class="head"><span><span class="demo-badge">demo</span>${key} · ${d.price}</span><span class="ok">no payment</span></div><pre></pre>`;
+  result.innerHTML = `<div class="head"><span>${key} · demo · ${d.price}</span><span class="ok">no payment</span></div><pre></pre>`;
   result.querySelector("pre").textContent = JSON.stringify(d.output, null, 2);
   appendNode(result);
-
-  const cta = document.createElement("div");
-  cta.className = "demo-cta";
-  cta.innerHTML = `
-    <div class="demo-cta-note">↑ that's what <strong>${key}</strong> returns. Try it on your own input (${d.price}):</div>
-    <button class="btn primary small demo-try" type="button">Try ${key} on my own input →</button>
-  `;
-  cta.querySelector(".demo-try").addEventListener("click", () => {
-    const prefix = DEMO_TO_PROMPT[key];
-    const p = PROMPTS.find((x) => x.text === prefix);
-    if (!p) return;
-    inputEl.value = p.text;
-    inputEl.placeholder = p.placeholder || "";
-    inputEl.focus();
-    try { inputEl.setSelectionRange(inputEl.value.length, inputEl.value.length); } catch {}
-    inputEl.dispatchEvent(new Event("input"));
-    inputEl.scrollIntoView({ behavior: "smooth", block: "center" });
-  });
-  appendNode(cta);
+  appendMsg("sys", `That's what ${key} returns. Type your own to run it for real (${d.price}).`);
 }
 
 // ====================== chat with /v1/chat ======================
 function sendUserMessage() {
   const text = inputEl.value.trim();
   if (!text) return;
-  if (text.length > 4000) { toast("Message too long (4000 char max)", "err"); return; }
+  if (text.length > 4000) { toast("Message too long (4000 max)", "err"); return; }
   inputEl.value = "";
   inputEl.style.height = "auto";
-  dismissWelcome();
+
+  if (tryHandleSlashCommand(text)) return;
+
   appendMsg("user", text);
   state.conversation.push({ role: "user", content: text });
   runTurns().catch((e) => toast(e.message || String(e), "err"));
@@ -908,12 +505,9 @@ function sendUserMessage() {
 async function runTurns() {
   for (let i = 0; i < TURN_SAFETY_CAP; i++) {
     let turn;
-    try {
-      turn = await chatTurn(state.conversation);
-    } catch (e) {
-      appendMsg("system", "Chat error: " + e.message);
-      return;
-    }
+    try { turn = await chatTurn(state.conversation); }
+    catch (e) { appendMsg("sys", "Chat error: " + e.message); return; }
+
     if (turn.assistant_text) appendMsg("agent", turn.assistant_text);
 
     const assistantContent = [];
@@ -930,7 +524,7 @@ async function runTurns() {
     }
     state.conversation.push({ role: "user", content: results });
   }
-  appendMsg("system", `Safety cap of ${TURN_SAFETY_CAP} turns reached.`);
+  appendMsg("sys", `Safety cap of ${TURN_SAFETY_CAP} turns reached.`);
 }
 
 async function chatTurn(messages) {
@@ -940,7 +534,7 @@ async function chatTurn(messages) {
   return await r.json();
 }
 
-// ====================== tool approval + execution ======================
+// ====================== approvals + execute ======================
 const TOOL_ROUTES = {
   anchor_hash:        { method: "POST", path: "/v1/anchor",          price: 0.005 },
   screen_wallet:      { method: "GET",  path: "/v1/screen",          price: 0.001, query: ["wallet"] },
@@ -951,12 +545,12 @@ const TOOL_ROUTES = {
   token_price:        { method: "GET",  path: "/v1/price/token",     price: 0.001, query: ["symbol"] },
   parse_datetime:     { method: "POST", path: "/v1/parse/datetime",  price: 0.001 },
   wallet_intel:       { method: "GET",  path: "/v1/intel/wallet",    price: 0.005, query: ["wallet"] },
-  investigate_wallet: { method: "POST", path: "/v1/investigate",     price: 7.77,  async: true },
-  roast:              { method: "POST", path: "/v1/roast",           price: 0.05 },
-  oracle:             { method: "POST", path: "/v1/oracle",          price: 0.05 },
-  tldr:               { method: "POST", path: "/v1/tldr",            price: 0.01 },
-  aura:               { method: "POST", path: "/v1/aura",            price: 0.01 },
-  grade:              { method: "POST", path: "/v1/grade",           price: 0.01 },
+  investigate_wallet: { method: "POST", path: "/v1/investigate",     price: 7.770, async: true },
+  roast:              { method: "POST", path: "/v1/roast",           price: 0.050 },
+  oracle:             { method: "POST", path: "/v1/oracle",          price: 0.050 },
+  tldr:               { method: "POST", path: "/v1/tldr",            price: 0.010 },
+  aura:               { method: "POST", path: "/v1/aura",            price: 0.010 },
+  grade:              { method: "POST", path: "/v1/grade",           price: 0.010 },
 };
 
 function prettyInput(input) {
@@ -974,8 +568,8 @@ function renderApprovalAndRun(tu) {
     const card = document.createElement("div");
     card.className = "approval";
     card.innerHTML = `
-      <h3>Run <strong>${tu.name}</strong> for <span class="price">$${price.toFixed(3)} USDC</span>?</h3>
-      <div class="why">Input:</div>
+      <h3>Run <strong>${tu.name}</strong> · <span class="price">$${price.toFixed(3)} USDC</span></h3>
+      <div style="color: var(--muted); font-size: 12px;" class="mono">${route ? route.method + " " + route.path : "unknown tool"}</div>
       <pre></pre>
       <div class="actions"></div>
     `;
@@ -989,21 +583,21 @@ function renderApprovalAndRun(tu) {
 
     const runBtn = document.createElement("button");
     runBtn.className = "btn primary";
-    runBtn.textContent = state.account ? `Approve $${price.toFixed(3)}` : `Sign in with passkey & approve $${price.toFixed(3)}`;
+    runBtn.textContent = state.account ? `approve $${price.toFixed(3)}` : `sign in & approve $${price.toFixed(3)}`;
     runBtn.addEventListener("click", async () => {
       try {
         if (!state.account) {
-          runBtn.disabled = true; runBtn.textContent = "Signing in…";
+          runBtn.disabled = true; runBtn.textContent = "signing in…";
           await connectCoinbase();
-          runBtn.textContent = `Approving $${price.toFixed(3)}…`;
+          runBtn.textContent = `approving $${price.toFixed(3)}…`;
         }
         if (!route) throw new Error("unknown tool: " + tu.name);
         if (state.sessionSpend + price > state.sessionCap + 1e-9) {
-          const ok = window.confirm(`This call would exceed your session cap ($${state.sessionCap.toFixed(2)}). Raise to $${(state.sessionSpend + price + 1).toFixed(2)}?`);
+          const ok = window.confirm(`This call would exceed your session cap ($${state.sessionCap.toFixed(2)}). Raise it?`);
           if (!ok) { finish({ skipped: true, reason: "cap exceeded" }); return; }
           state.sessionCap = state.sessionSpend + price + 1;
         }
-        runBtn.disabled = true; runBtn.textContent = "Running…";
+        runBtn.disabled = true; runBtn.textContent = "running…";
         const out = await executeTool(tu.name, route, tu.input);
         state.sessionSpend += price; renderPill();
         renderResult(tu.name, out, false);
@@ -1016,38 +610,32 @@ function renderApprovalAndRun(tu) {
     });
 
     const skipBtn = document.createElement("button");
-    skipBtn.className = "btn ghost small";
-    skipBtn.textContent = "Skip";
+    skipBtn.className = "btn ghost sm";
+    skipBtn.textContent = "skip";
     skipBtn.addEventListener("click", () => { renderResult(tu.name, { skipped: true }, false, "skipped"); finish({ skipped: true }); });
 
-    actions.appendChild(runBtn);
-    actions.appendChild(skipBtn);
+    const row = document.createElement("div"); row.className = "row";
+    row.appendChild(runBtn); row.appendChild(skipBtn);
+    actions.appendChild(row);
 
     if (!state.account) {
-      // Optional secondary: if browser-extension wallet is detected, offer it.
       const injectedName = detectInjectedName();
       if (injectedName) {
         const injBtn = document.createElement("button");
-        injBtn.className = "btn small ghost";
-        injBtn.textContent = `Or use my ${injectedName}`;
+        injBtn.className = "btn sm ghost";
+        injBtn.textContent = `use ${injectedName} instead`;
         injBtn.addEventListener("click", async () => {
           if (injBtn.disabled) return;
-          injBtn.disabled = true;
-          injBtn.textContent = "Connecting…";
-          try {
-            await connectInjected();
-            runBtn.click();
-          } catch (e) {
-            toast(e.message || String(e), "err");
-            injBtn.disabled = false;
-            injBtn.textContent = `Or use my ${injectedName}`;
-          }
+          injBtn.disabled = true; injBtn.textContent = "connecting…";
+          try { await connectInjected(); runBtn.click(); }
+          catch (e) { toast(e.message || String(e), "err"); injBtn.disabled = false; injBtn.textContent = `use ${injectedName} instead`; }
         });
-        actions.appendChild(injBtn);
+        const row2 = document.createElement("div"); row2.className = "row";
+        row2.appendChild(injBtn);
+        actions.appendChild(row2);
       }
-
       const topup = document.createElement("div");
-      topup.className = "topup";
+      topup.style.cssText = "color: var(--muted); font-size: 12px; margin-top: 8px;";
       topup.innerHTML = `Need USDC on Base? <a href="https://pay.coinbase.com" target="_blank" rel="noopener">Coinbase</a> · <a href="https://www.moonpay.com/buy/usdc" target="_blank" rel="noopener">MoonPay</a>`;
       actions.appendChild(topup);
     }
@@ -1062,92 +650,17 @@ function renderResult(name, obj, isErr, label) {
   div.innerHTML = `<div class="head"><span>${name}</span><span class="${isErr ? "bad" : "ok"}">${label || (isErr ? "error" : "ok")}</span></div><pre></pre>`;
   div.querySelector("pre").textContent = JSON.stringify(obj, null, 2);
   appendNode(div);
-  if (!isErr && !obj.skipped) renderNextChips(name);
-}
-
-function renderNextChips(justRan) {
-  // Suggest 3 other services so the user always has a next step.
-  const NEXT_BANK = PROMPTS.filter((p) => !p.text.startsWith(justRanGuess(justRan))).slice(0, 3);
-  if (NEXT_BANK.length === 0) return;
-
-  const wrap = document.createElement("div");
-  wrap.className = "next-row";
-  wrap.innerHTML = `<div class="next-label">Try something else</div><div class="next-chips"></div>`;
-  const c = wrap.querySelector(".next-chips");
-  NEXT_BANK.forEach((p) => {
-    const b = document.createElement("button");
-    b.className = "chip next";
-    b.type = "button";
-    b.innerHTML = `<div class="head"></div><div class="sub"></div>`;
-    b.querySelector(".head").textContent = p.head;
-    b.querySelector(".sub").textContent = p.sub;
-    b.addEventListener("click", () => {
-      inputEl.value = p.text;
-      inputEl.placeholder = p.placeholder || "";
-      inputEl.focus();
-      try { inputEl.setSelectionRange(inputEl.value.length, inputEl.value.length); } catch {}
-      inputEl.dispatchEvent(new Event("input"));
-      // Scroll input into view on mobile
-      $("user-input").scrollIntoView({ behavior: "smooth", block: "center" });
-    });
-    c.appendChild(b);
-  });
-  appendNode(wrap);
-}
-
-function justRanGuess(toolName) {
-  // Map tool name back to its likely prompt prefix to filter from next-chips.
-  const map = { roast: "roast ", aura: "aura ", oracle: "oracle:", screen_wallet: "is this wallet", grade: "grade:", tldr: "tldr" };
-  return map[toolName] || "";
-}
-
-function resetWalletState(reason) {
-  state.account = null;
-  state.paidFetch = null;
-  renderPill();
-  if (reason) appendMsg("system", reason);
-}
-
-async function warmupWallet() {
-  // Cheap liveness probe before requesting a signature. Both EIP-1193 paths
-  // expose eth_chainId — if it throws, the transport is dead.
-  const provider = state.connectMethod === "coinbase" ? state.cbProvider
-                  : state.connectMethod === "injected" ? state.injectedProvider
-                  : null;
-  if (!provider) return false;
-  try {
-    await provider.request({ method: "eth_chainId" });
-    return true;
-  } catch (e) {
-    if (window.__diag) window.__diag("[wallet] warmup failed: " + (e?.message || e), "err");
-    return false;
-  }
 }
 
 async function executeTool(name, route, input) {
-  if (!state.paidFetch) {
-    resetWalletState("Wallet connection was lost — please reconnect and try again.");
-    throw new Error("Wallet connection lost — reconnect and retry.");
-  }
-
-  // Step 1: pre-flight check the transport is alive. If not, treat the
-  // session as dead and force a full disconnect — UI was lying about the
-  // wallet still being connected.
-  const warm = await warmupWallet();
-  if (!warm) {
-    await forceFullDisconnect();
-    throw new Error("Your wallet session expired. Tap Connect to pair fresh.");
-  }
-
+  if (!state.paidFetch) throw new Error("Wallet not connected — sign in first.");
   const url = buildUrl(route, input);
   const init = { method: route.method, headers: { "Content-Type": "application/json" } };
   if (route.method !== "GET") init.body = JSON.stringify(input);
-
   try {
     const r = await state.paidFetch(url, init);
     if (!r.ok) {
-      let body = "";
-      try { body = await r.text(); } catch {}
+      let body = ""; try { body = await r.text(); } catch {}
       const truncated = body.length > 400 ? body.slice(0, 400) + "…" : body;
       throw new Error(`HTTP ${r.status}: ${truncated || r.statusText}`);
     }
@@ -1155,28 +668,13 @@ async function executeTool(name, route, input) {
     if (route.async && data.job_id && data.status_url) return await pollInvestigate(data.status_url, data.job_id);
     return data;
   } catch (e) {
-    // Surface the FULL error to diag so the user can paste it back and we can act.
     const msg = String(e?.message || e);
-    const stack = e?.stack ? String(e.stack).slice(0, 500) : "";
-    if (window.__diag) window.__diag(`[paid-call] ${e?.name || "Error"}: ${msg}\n${stack}`, "err");
-
-    // User explicitly rejected in their wallet — not a bug, just surface.
+    if (window.__diag) window.__diag(`[paid-call] ${e?.name || "Error"}: ${msg}`, "err");
     if (msg.includes("rejected") || msg.includes("denied") || msg.includes("User denied")) {
       throw new Error("You declined the signature in your wallet.");
     }
-
-    // Re-throw the actual error so the approval card shows it verbatim. No
-    // more wrapping or auto-retry — we want to see what's really failing.
     throw e;
   }
-}
-
-async function forceFullDisconnect() {
-  try { await state.cbProvider?.disconnect?.(); } catch {}
-  // window.ethereum has no disconnect — just clear our refs.
-  state.cbProvider = null;
-  state.injectedProvider = null;
-  resetWalletState("Wallet disconnected. Sign in again to continue.");
 }
 
 function buildUrl(route, input) {
@@ -1188,7 +686,7 @@ function buildUrl(route, input) {
 }
 
 async function pollInvestigate(statusUrl, jobId) {
-  appendMsg("system", `investigate started — job_id ${jobId}. Polling every 30s (max ~15 min)…`);
+  appendMsg("sys", `investigate started — job_id ${jobId}. Polling every 30s, up to ~15 min…`);
   const url = statusUrl.startsWith("http") ? statusUrl : statusUrl;
   for (let i = 0; i < INVESTIGATE_MAX_POLLS; i++) {
     await new Promise((res) => setTimeout(res, INVESTIGATE_POLL_MS));
@@ -1203,11 +701,19 @@ async function pollInvestigate(statusUrl, jobId) {
 }
 
 // ====================== wallet ======================
-// Two paths, both with EIP-1193 providers: no WalletConnect relay anywhere.
-//   - Coinbase Smart Wallet (passkey-based, browser-native)
-//   - Injected window.ethereum (browser extensions)
+const BASE_CHAIN_ID_HEX = "0x2105";
 
-const BASE_CHAIN_ID_HEX = "0x2105"; // 8453
+function detectInjectedName() {
+  const e = window.ethereum;
+  if (!e) return null;
+  if (e.isMetaMask) return "MetaMask";
+  if (e.isRabby) return "Rabby";
+  if (e.isCoinbaseWallet) return "Coinbase Wallet";
+  if (e.isBraveWallet) return "Brave Wallet";
+  if (e.isFrame) return "Frame";
+  if (e.isTrust) return "Trust";
+  return "browser wallet";
+}
 
 async function ensureBaseChain(provider) {
   try {
@@ -1216,47 +722,35 @@ async function ensureBaseChain(provider) {
     if (e?.code === 4902) {
       await provider.request({
         method: "wallet_addEthereumChain",
-        params: [{
-          chainId: BASE_CHAIN_ID_HEX,
-          chainName: "Base",
-          rpcUrls: ["https://mainnet.base.org"],
-          nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
-          blockExplorerUrls: ["https://basescan.org"],
-        }],
+        params: [{ chainId: BASE_CHAIN_ID_HEX, chainName: "Base", rpcUrls: ["https://mainnet.base.org"],
+                   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+                   blockExplorerUrls: ["https://basescan.org"] }],
       });
-    } else {
-      throw e;
-    }
+    } else { throw e; }
   }
 }
 
-function wireProviderLifecycle(provider, methodName) {
-  provider.on?.("accountsChanged", (accts) => {
-    if (!accts || !accts.length) resetWalletState(`${methodName} disconnected.`);
+function buildPaidFetch(provider, address) {
+  const walletClient = createWalletClient({ account: address, chain: base, transport: custom(provider) });
+  const signer = { address, signTypedData: (msg) => walletClient.signTypedData(msg) };
+  return wrapFetchWithPaymentFromConfig(fetch, {
+    schemes: [{ network: "eip155:8453", client: new ExactEvmScheme(signer) }],
   });
+}
+
+function wireProviderLifecycle(provider, methodName) {
+  provider.on?.("accountsChanged", (accts) => { if (!accts || !accts.length) resetWalletState(`${methodName} disconnected.`); });
   provider.on?.("disconnect", () => resetWalletState(`${methodName} disconnected.`));
 }
 
-function buildPaidFetch(provider, address) {
-  // viem WalletClient with the provider as transport. ExactEvmScheme needs
-  // a signer shaped like { address, signTypedData(msg) } where signTypedData
-  // takes the typed-data message directly (Account-style, not the
-  // walletClient.signTypedData({account, ...}) shape).
-  const walletClient = createWalletClient({ account: address, chain: base, transport: custom(provider) });
-  const signer = {
-    address,
-    signTypedData: (msg) => walletClient.signTypedData(msg),
-  };
-  return wrapFetchWithPaymentFromConfig(fetch, {
-    schemes: [
-      { network: "eip155:8453", client: new ExactEvmScheme(signer) },
-    ],
-  });
+function resetWalletState(reason) {
+  state.account = null; state.paidFetch = null;
+  renderPill();
+  if (reason) appendMsg("sys", reason);
 }
 
 async function connectCoinbase() {
   if (state.account) return;
-  if (window.__diag) window.__diag("[wallet] initializing Coinbase Smart Wallet…");
   const sdk = new CoinbaseWalletSDK({ appName: "anchor-x402 agent", appChainIds: [8453] });
   state.cbProvider = sdk.makeWeb3Provider({ options: "smartWalletOnly" });
   state.connectMethod = "coinbase";
@@ -1267,13 +761,13 @@ async function connectCoinbase() {
 
   state.paidFetch = buildPaidFetch(state.cbProvider, state.account);
   renderPill();
-  appendMsg("system", `Signed in with passkey. Your spend cap is $${state.sessionCap.toFixed(2)} per session.`);
+  appendMsg("sys", `Signed in with passkey. Cap: $${state.sessionCap.toFixed(2)}/session.`);
   wireProviderLifecycle(state.cbProvider, "Coinbase Smart Wallet");
 }
 
 async function connectInjected() {
   if (state.account) return;
-  if (!window.ethereum) throw new Error("No browser-extension wallet detected. Use Sign in with passkey instead, or install MetaMask / Rabby / Frame.");
+  if (!window.ethereum) throw new Error("No browser-extension wallet detected.");
   const provider = window.ethereum;
   state.injectedProvider = provider;
   state.connectMethod = "injected";
@@ -1283,61 +777,58 @@ async function connectInjected() {
   if (!state.account) throw new Error("No account returned from your wallet.");
 
   await ensureBaseChain(provider);
-
   state.paidFetch = buildPaidFetch(provider, state.account);
   renderPill();
-  appendMsg("system", `Connected ${detectInjectedName()}. Your spend cap is $${state.sessionCap.toFixed(2)} per session.`);
+  appendMsg("sys", `Connected ${detectInjectedName()}. Cap: $${state.sessionCap.toFixed(2)}/session.`);
   wireProviderLifecycle(provider, detectInjectedName() || "Wallet");
+}
+
+async function connectChoice() {
+  // Default to passkey. If user wants injected, they can use the inline button
+  // on approval cards, or this UI gives them a single-shot fallback via confirm.
+  const injName = detectInjectedName();
+  if (injName && confirm(`Sign in with passkey (recommended)?\n\nClick OK for passkey, Cancel to use ${injName} instead.`)) {
+    await connectCoinbase();
+  } else if (injName) {
+    await connectInjected();
+  } else {
+    await connectCoinbase();
+  }
 }
 
 // ====================== bootstrap ======================
 (async function init() {
-  if (window.__diag) window.__diag("[boot] init starting");
-  renderChips();
-
-  // Send via button
+  // Send button
   $("send-btn").addEventListener("click", sendUserMessage);
-
-  // Enter sends, Shift+Enter newlines
   inputEl.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendUserMessage(); }
   });
-  // Auto-grow textarea
   inputEl.addEventListener("input", () => {
     inputEl.style.height = "auto";
     inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + "px";
   });
 
-  // Connect pill: tap to connect (or disconnect if connected)
+  // Sign in pill
   $("connect-pill").addEventListener("click", async () => {
     if (state.account) {
-      if (confirm("Sign out?")) await forceFullDisconnect();
+      if (confirm("Sign out?")) {
+        try { await state.cbProvider?.disconnect?.(); } catch {}
+        state.cbProvider = null; state.injectedProvider = null;
+        resetWalletState("Signed out.");
+      }
     } else {
-      // Default to passkey path — recommended by Coinbase's own x402 docs.
-      try { await connectCoinbase(); }
+      try { await connectChoice(); }
       catch (e) { toast(e.message || String(e), "err"); }
     }
   });
 
-  $("passkey-btn")?.addEventListener("click", async () => {
-    try { await connectCoinbase(); }
-    catch (e) { toast(e.message || String(e), "err"); }
-  });
-
-  // Wire the optional injected-wallet button if window.ethereum exists.
-  const injectedBtn = $("injected-btn");
-  const injectedName = detectInjectedName();
-  if (injectedBtn && injectedName) {
-    injectedBtn.textContent = `Use my ${injectedName}`;
-    injectedBtn.style.display = "";
-    injectedBtn.addEventListener("click", async () => {
-      try { await connectInjected(); }
-      catch (e) { toast(e.message || String(e), "err"); }
-    });
-  }
-
+  // Greeting
+  bootGreeting();
   renderPill();
-  if (window.__diag) window.__diag("[boot] ready");
+
+  // Rotating placeholder
+  rotatePlaceholder();
+  setInterval(rotatePlaceholder, 4500);
 })();
 </script>
 </body>
