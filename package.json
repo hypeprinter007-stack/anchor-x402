@@ -1,0 +1,16 @@
+{
+  "name": "anchor-x402-chat-bundle",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild static/chat.entry.js --bundle --format=esm --target=es2020,safari14 --outfile=static/chat.bundle.js --legal-comments=none --minify"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
+  },
+  "dependencies": {
+    "viem": "^2.21.0",
+    "@walletconnect/ethereum-provider": "^2.17.0",
+    "x402-fetch": "^1.2.0"
+  }
+}

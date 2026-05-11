@@ -1,4 +1,4 @@
-.PHONY: install lock build deploy test clean
+.PHONY: install lock bundle build deploy test clean
 
 PY := .venv/bin/python
 
@@ -9,7 +9,11 @@ install:
 lock:
 	uv pip compile requirements.in -o requirements.txt
 
-build:
+bundle:
+	npm install --silent
+	npm run build
+
+build: bundle
 	sam build
 
 deploy:

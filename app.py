@@ -937,6 +937,18 @@ def chat_ui():
     return _serve_chat_html()
 
 
+@app.get("/chat.bundle.js")
+def chat_bundle():
+    path = os.path.join(_STATIC_DIR, "chat.bundle.js")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="chat bundle not built — run `npm run build`")
+    return FileResponse(
+        path,
+        media_type="application/javascript",
+        headers={"Cache-Control": "public, max-age=3600, immutable"},
+    )
+
+
 @app.get("/v1/config")
 def public_config():
     """Public, non-sensitive runtime config for the static chat UI."""

@@ -517,10 +517,11 @@
 <script type="module">
 window.__moduleLoaded = true;
 
-import { createWalletClient, custom } from "https://cdn.jsdelivr.net/npm/viem@2/+esm";
-import { base } from "https://cdn.jsdelivr.net/npm/viem@2/chains/+esm";
-import EthereumProvider from "https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2/+esm";
-import { wrapFetchWithPayment } from "https://cdn.jsdelivr.net/npm/x402-fetch@latest/+esm";
+// Self-bundled via esbuild — single same-origin file. CDN-based ESM imports
+// (esm.sh, jsdelivr +esm) were chaining hundreds of cross-origin requests and
+// mobile Safari was aborting on a transitive @walletconnect/time bundle bug.
+// Source: static/chat.entry.js · build: `npm run build`
+import { createWalletClient, custom, base, EthereumProvider, wrapFetchWithPayment } from "/chat.bundle.js?v=1";
 
 if (window.__diag) window.__diag("[boot] module imports OK");
 
