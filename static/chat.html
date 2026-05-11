@@ -218,6 +218,38 @@
 
 <div class="toast-wrap" id="toasts"></div>
 
+<script>
+// Inline script — runs even if the ES module below fails to load.
+// Captures errors that would otherwise be invisible on mobile.
+(function () {
+  function append(msg) {
+    var s = document.getElementById("status");
+    if (!s) return;
+    var div = document.createElement("div");
+    div.textContent = msg;
+    s.appendChild(div);
+  }
+  window.addEventListener("error", function (e) {
+    append("[inline-err] " + (e.message || "?") + " @ " + (e.filename || "?") + ":" + (e.lineno || "?"));
+  });
+  window.addEventListener("unhandledrejection", function (e) {
+    var r = e && e.reason;
+    append("[inline-rej] " + (r && (r.message || r.toString()) || "unknown"));
+  });
+  window.addEventListener("DOMContentLoaded", function () {
+    append("[inline] DOM ready, ua=" + navigator.userAgent.substring(0, 80));
+    setTimeout(function () {
+      // If the module ran, it would have called showStatus("loading config...").
+      // If still no green lines after 3s, the module never executed.
+      var s = document.getElementById("status");
+      if (s && s.children.length <= 1) {
+        append("[inline] module did NOT execute — ESM imports likely failed silently");
+      }
+    }, 3000);
+  });
+})();
+</script>
+
 <script type="module">
 // Pinned to the same Reown version per skill guidance (mismatches break peer deps).
 import { createAppKit } from "https://esm.sh/@reown/appkit@1.8.19";
