@@ -10,6 +10,6 @@ export { createWalletClient, custom } from "viem";
 export { base } from "viem/chains";
 export { createAppKit } from "@reown/appkit";
 export { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
-export { getWalletClient } from "@wagmi/core";
+export { getWalletClient, disconnect as wagmiDisconnect } from "@wagmi/core";
 export { CoinbaseWalletSDK } from "@coinbase/wallet-sdk";
 export { wrapFetchWithPayment } from "x402-fetch";

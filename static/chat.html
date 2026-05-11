@@ -632,10 +632,10 @@ window.__moduleLoaded = true;
 // Source: static/chat.entry.js · build: `npm run build`
 import {
   createWalletClient, custom, base,
-  createAppKit, WagmiAdapter, getWalletClient,
+  createAppKit, WagmiAdapter, getWalletClient, wagmiDisconnect,
   CoinbaseWalletSDK,
   wrapFetchWithPayment,
-} from "/chat.bundle.js?v=3";
+} from "/chat.bundle.js?v=4";
 
 if (window.__diag) window.__diag("[boot] module imports OK");
 
@@ -1083,36 +1083,110 @@ function resetWalletState(reason) {
   if (reason) appendMsg("system", reason);
 }
 
+async function warmupWallet() {
+  // Verify the transport is alive before requesting a signature. If the
+  // wallet app got backgrounded, this surfaces the failure fast with a
+  // clear message instead of getting stuck in x402-fetch's signing path.
+  try {
+    if (state.connectMethod === "coinbase" && state.cbProvider) {
+      await state.cbProvider.request({ method: "eth_chainId" });
+      return true;
+    }
+    if (state.connectMethod === "appkit" && state.wagmiConfig) {
+      const w = await getWalletClient(state.wagmiConfig);
+      if (!w) return false;
+      // Refresh paidFetch in case the client got rotated mid-session
+      state.paidFetch = wrapFetchWithPayment(fetch, w);
+      // Probe with a chain id call
+      await w.transport.request({ method: "eth_chainId" });
+      return true;
+    }
+  } catch (e) {
+    if (window.__diag) window.__diag("[wallet] warmup failed: " + (e?.message || e), "err");
+    return false;
+  }
+  return false;
+}
+
 async function executeTool(name, route, input) {
   if (!state.paidFetch) {
     resetWalletState("Wallet connection was lost — please reconnect and try again.");
     throw new Error("Wallet connection lost — reconnect and retry.");
   }
+
+  // Step 1: pre-flight check the transport is alive. If not, treat the
+  // session as dead and force a full disconnect — UI was lying about the
+  // wallet still being connected.
+  const warm = await warmupWallet();
+  if (!warm) {
+    await forceFullDisconnect();
+    throw new Error("Your wallet session expired. Tap Connect to pair fresh.");
+  }
+
   const url = buildUrl(route, input);
   const init = { method: route.method, headers: { "Content-Type": "application/json" } };
   if (route.method !== "GET") init.body = JSON.stringify(input);
-  try {
+
+  const tryOnce = async () => {
     const r = await state.paidFetch(url, init);
     if (!r.ok) throw new Error(`paid call failed: HTTP ${r.status}`);
     const data = await r.json();
     if (route.async && data.job_id && data.status_url) return await pollInvestigate(data.status_url, data.job_id);
     return data;
+  };
+
+  // Step 2: try once. Two distinct failure modes to handle:
+  //  - "session topic doesn't exist" / "No matching key" → WC session is
+  //    truly dead on the relay. State.account looks connected but signature
+  //    requests can never succeed. Force full reset so user reconnects fresh.
+  //  - Other transient transport errors → refresh wallet client + retry once.
+  try {
+    return await tryOnce();
   } catch (e) {
     const msg = String(e?.message || e);
-    if (msg.includes("'request'") || msg.includes("session topic") || msg.includes("undefined")) {
-      // Refresh the wallet client from the live Wagmi config — handles wallet
-      // app re-suspension where the underlying transport got torn down.
-      try {
-        const fresh = await getWalletClient(state.wagmiConfig);
-        if (fresh) {
-          state.paidFetch = wrapFetchWithPayment(fetch, fresh);
-          if (window.__diag) window.__diag("[wallet] refreshed wallet client after transport drop");
-        }
-      } catch {}
-      throw new Error("Wallet connection dropped mid-payment. Open your wallet app to ensure it's running, then try again.");
+    const sessionDead = msg.includes("session topic") || msg.includes("No matching key");
+    const transportDrop = msg.includes("'request'") || msg.includes("undefined") || msg.includes("disconnected");
+
+    if (sessionDead) {
+      if (window.__diag) window.__diag("[wallet] session dead on relay — forcing full disconnect", "err");
+      await forceFullDisconnect();
+      throw new Error("Your wallet session expired on the WalletConnect relay (common when the wallet app gets backgrounded). Tap Connect to pair fresh.");
     }
-    throw e;
+
+    if (!transportDrop) throw e;
+
+    if (window.__diag) window.__diag("[wallet] transient error — refresh + retry");
+    try {
+      const fresh = state.connectMethod === "appkit"
+        ? await getWalletClient(state.wagmiConfig)
+        : null;
+      if (fresh) state.paidFetch = wrapFetchWithPayment(fetch, fresh);
+    } catch {}
+    await new Promise((res) => setTimeout(res, 1800));
+
+    try {
+      return await tryOnce();
+    } catch (e2) {
+      // Second failure — still treat as a stale session: full reset.
+      await forceFullDisconnect();
+      throw new Error("Wallet didn't respond after retry. Tap Connect to pair fresh.");
+    }
   }
+}
+
+async function forceFullDisconnect() {
+  // Tear down everything we can: Wagmi disconnect, AppKit modal disconnect,
+  // CB Smart Wallet disconnect, then nuke localStorage. Next Connect tap is
+  // a clean slate.
+  try {
+    if (state.connectMethod === "appkit" && state.wagmiConfig) {
+      await wagmiDisconnect(state.wagmiConfig);
+    }
+  } catch {}
+  try { await state.modal?.disconnect?.(); } catch {}
+  try { await state.cbProvider?.disconnect?.(); } catch {}
+  clearWcStorage();
+  resetWalletState("Wallet disconnected. Tap Connect to start fresh.");
 }
 
 function buildUrl(route, input) {
