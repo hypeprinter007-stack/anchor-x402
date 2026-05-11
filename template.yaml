@@ -73,6 +73,11 @@ Parameters:
     Type: String
     Default: us-east-1
     Description: AWS region for Bedrock model invocation (cross-region inference profiles).
+  BaseApiKey:
+    Type: String
+    NoEcho: true
+    Default: ""
+    Description: base.dev API key (bdev_...). Authenticates server-to-Base calls (notifications, attribution analytics). Stored in Secrets Manager.
 
 Conditions:
   HasAlarmEmail: !Not [!Equals [!Ref AlarmEmail, ""]]
@@ -159,7 +164,8 @@ Resources:
         {
           "treasury_evm_key": "${TreasuryPrivateKey}",
           "treasury_solana_key": "${SolanaTreasuryKey}",
-          "cdp_api_key_secret": "${CdpApiKeySecret}"
+          "cdp_api_key_secret": "${CdpApiKeySecret}",
+          "base_api_key": "${BaseApiKey}"
         }
 
   AlarmTopic:
