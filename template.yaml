@@ -82,6 +82,8 @@ Conditions:
 Resources:
   AnchorFunction:
     Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
     Properties:
       CodeUri: ./
       Handler: app.handler
