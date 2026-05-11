@@ -283,6 +283,45 @@
   .btn.ghost { background: transparent; }
   .btn.small { padding: 8px 12px; min-height: 36px; font-size: 13px; }
 
+  /* Demo CTA — appears after a demo result */
+  .demo-cta {
+    margin: 4px auto 14px 0;
+    max-width: 88%;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .demo-cta-note { color: var(--muted); font-size: 13px; margin-bottom: 8px; line-height: 1.45; }
+  .demo-cta .demo-try { width: 100%; }
+
+  /* "Try something else" row after each result */
+  .next-row {
+    margin: 6px 0 14px;
+    max-width: 100%;
+  }
+  .next-row .next-label {
+    color: var(--muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+  }
+  .next-row .next-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .chip.next {
+    flex: 0 0 auto;
+    min-height: 38px;
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  .chip.next .head { font-size: 13px; }
+  .chip.next .sub { font-size: 10px; }
+
   /* Tool result card */
   .result {
     margin: 14px auto 14px 0;
@@ -584,13 +623,15 @@ const state = {
 };
 
 // ====================== service catalog ======================
+// Prompt chips prefill the input, place the cursor at the end, and toast a
+// brief edit hint. They do NOT auto-send — user always edits + taps Send.
 const PROMPTS = [
-  { head: "🔥 Roast my Twitter bio", sub: "$0.05", text: 'roast my twitter bio: "professional yapper, web3 maxi, parents disappointed"' },
-  { head: "✨ Aura read a wallet", sub: "$0.01", text: "aura check 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045" },
-  { head: "🔮 Ask the oracle", sub: "$0.05 + on-chain receipt", text: "oracle: will Bitcoin hit $200K in 2026?" },
-  { head: "🚨 Sanctions check a wallet", sub: "$0.001", text: "is 0x8589427373d6d84e98730d7795d8f6f8731fda16 sanctioned?" },
-  { head: "🎓 Grade an idea", sub: "$0.01", text: 'grade this startup idea: "uber but for sourdough starters"' },
-  { head: "📝 TLDR a URL", sub: "$0.01", text: "tldr https://anchor-x402.com" },
+  { head: "🔥 Roast", sub: "$0.05 · roast anything", text: 'roast this: ', placeholder: "a tweet, an idea, a wallet, your last commit message…" },
+  { head: "✨ Aura read", sub: "$0.01 · vibe check", text: 'aura check: ', placeholder: "wallet address, person, project, meme…" },
+  { head: "🔮 Oracle", sub: "$0.05 · yes/no + receipt", text: 'oracle: ', placeholder: "a yes/no question — e.g. will I ship today?" },
+  { head: "🚨 Sanctions check", sub: "$0.001", text: 'is this wallet sanctioned: ', placeholder: "0x… or solana base58 address" },
+  { head: "🎓 Grade", sub: "$0.01 · A+ to F", text: 'grade: ', placeholder: "your pitch, your code, your idea…" },
+  { head: "📝 TLDR", sub: "$0.01 · summarize", text: 'tldr: ', placeholder: "paste a URL or some text" },
 ];
 
 const ALL_SERVICES = [
@@ -714,9 +755,19 @@ function renderChips() {
     b.querySelector(".head").textContent = p.head;
     b.querySelector(".sub").textContent = p.sub;
     b.addEventListener("click", () => {
-      dismissWelcome();
       inputEl.value = p.text;
-      sendUserMessage();
+      inputEl.placeholder = p.placeholder || "type your input then tap Send";
+      inputEl.focus();
+      // Put the cursor at the end so user types right after the colon
+      try { inputEl.setSelectionRange(inputEl.value.length, inputEl.value.length); } catch {}
+      // Trigger auto-grow
+      inputEl.dispatchEvent(new Event("input"));
+      toast(`Type your input after "${p.text.trim()}" then tap Send`, "ok");
+      // Visually nudge the send button
+      const sb = $("send-btn");
+      sb.style.transition = "transform 0.3s";
+      sb.style.transform = "scale(1.06)";
+      setTimeout(() => { sb.style.transform = ""; }, 350);
     });
     promptC.appendChild(b);
   });
@@ -740,6 +791,12 @@ function renderChips() {
   });
 }
 
+// Map demo key -> matching prompt template so "Try this for real" can prefill.
+const DEMO_TO_PROMPT = {
+  aura: "aura check: ", roast: "roast this: ", oracle: "oracle: ",
+  screen: "is this wallet sanctioned: ", grade: "grade: ", tldr: "tldr: ",
+};
+
 function playDemo(key) {
   dismissWelcome();
   const d = DEMOS[key];
@@ -757,10 +814,24 @@ function playDemo(key) {
   result.querySelector("pre").textContent = JSON.stringify(d.output, null, 2);
   appendNode(result);
 
-  const note = document.createElement("div");
-  note.className = "msg system";
-  note.innerHTML = `<div class="bubble">↑ that's what <strong>${key}</strong> returns. Type your own to run it for real (${d.price}).</div>`;
-  appendNode(note);
+  const cta = document.createElement("div");
+  cta.className = "demo-cta";
+  cta.innerHTML = `
+    <div class="demo-cta-note">↑ that's what <strong>${key}</strong> returns. Try it on your own input (${d.price}):</div>
+    <button class="btn primary small demo-try" type="button">Try ${key} on my own input →</button>
+  `;
+  cta.querySelector(".demo-try").addEventListener("click", () => {
+    const prefix = DEMO_TO_PROMPT[key];
+    const p = PROMPTS.find((x) => x.text === prefix);
+    if (!p) return;
+    inputEl.value = p.text;
+    inputEl.placeholder = p.placeholder || "";
+    inputEl.focus();
+    try { inputEl.setSelectionRange(inputEl.value.length, inputEl.value.length); } catch {}
+    inputEl.dispatchEvent(new Event("input"));
+    inputEl.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+  appendNode(cta);
 }
 
 // ====================== chat with /v1/chat ======================
@@ -911,6 +982,43 @@ function renderResult(name, obj, isErr, label) {
   div.innerHTML = `<div class="head"><span>${name}</span><span class="${isErr ? "bad" : "ok"}">${label || (isErr ? "error" : "ok")}</span></div><pre></pre>`;
   div.querySelector("pre").textContent = JSON.stringify(obj, null, 2);
   appendNode(div);
+  if (!isErr && !obj.skipped) renderNextChips(name);
+}
+
+function renderNextChips(justRan) {
+  // Suggest 3 other services so the user always has a next step.
+  const NEXT_BANK = PROMPTS.filter((p) => !p.text.startsWith(justRanGuess(justRan))).slice(0, 3);
+  if (NEXT_BANK.length === 0) return;
+
+  const wrap = document.createElement("div");
+  wrap.className = "next-row";
+  wrap.innerHTML = `<div class="next-label">Try something else</div><div class="next-chips"></div>`;
+  const c = wrap.querySelector(".next-chips");
+  NEXT_BANK.forEach((p) => {
+    const b = document.createElement("button");
+    b.className = "chip next";
+    b.type = "button";
+    b.innerHTML = `<div class="head"></div><div class="sub"></div>`;
+    b.querySelector(".head").textContent = p.head;
+    b.querySelector(".sub").textContent = p.sub;
+    b.addEventListener("click", () => {
+      inputEl.value = p.text;
+      inputEl.placeholder = p.placeholder || "";
+      inputEl.focus();
+      try { inputEl.setSelectionRange(inputEl.value.length, inputEl.value.length); } catch {}
+      inputEl.dispatchEvent(new Event("input"));
+      // Scroll input into view on mobile
+      $("user-input").scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    c.appendChild(b);
+  });
+  appendNode(wrap);
+}
+
+function justRanGuess(toolName) {
+  // Map tool name back to its likely prompt prefix to filter from next-chips.
+  const map = { roast: "roast ", aura: "aura ", oracle: "oracle:", screen_wallet: "is this wallet", grade: "grade:", tldr: "tldr" };
+  return map[toolName] || "";
 }
 
 function resetWalletState(reason) {
