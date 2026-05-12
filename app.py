@@ -992,10 +992,18 @@ def agentverse_status():
 
 @app.post("/agentverse/chat")
 async def agentverse_chat(request: Request):
+    import json as _json
+    from uuid import uuid4 as _uuid4
     from uagents_core.identity import Identity
     from uagents_core.envelope import Envelope
-    from uagents_core.contrib.protocols.chat import ChatMessage, TextContent
-    from uagents_core.utils.messages import parse_envelope, send_message_to_agent
+    from uagents_core.models import Model
+    from uagents_core.contrib.protocols.chat import (
+        ChatMessage, TextContent, chat_protocol_spec,
+    )
+    from uagents_core.utils.messages import (
+        parse_envelope, generate_message_envelope, send_message,
+    )
+    from uagents_core.utils.resolver import AlmanacResolver
     from services import secrets as _secrets
 
     body = await request.json()
@@ -1008,13 +1016,40 @@ async def agentverse_chat(request: Request):
     msg = parse_envelope(env, ChatMessage)
     user_text = "".join(c.text for c in getattr(msg, "content", []) if isinstance(c, TextContent))
 
-    reply = _agentverse_investigator_reply(user_text)
-    send_message_to_agent(
+    reply_text = _agentverse_investigator_reply(user_text)
+    reply_msg = ChatMessage(content=[TextContent(type="text", text=reply_text)])
+    proto_digest = chat_protocol_spec.digest
+
+    # Resolve where to send the reply (Agentverse's mailbox or the sender's endpoint)
+    resolver = AlmanacResolver(max_endpoints=1)
+    endpoints = resolver.sync_resolve(env.sender)
+    if not endpoints:
+        print(f"agentverse_reply no_endpoints for sender={env.sender}")
+        return {"status": "no_endpoints"}
+
+    reply_env = generate_message_envelope(
         destination=env.sender,
-        msg=ChatMessage(content=[TextContent(type="text", text=reply)]),
+        message_schema_digest=Model.build_schema_digest(reply_msg),
+        message_body=_json.loads(reply_msg.model_dump_json()),
         sender=identity,
+        session_id=env.session or _uuid4(),
+        protocol_digest=proto_digest,
     )
-    return {"status": "sent"}
+
+    delivered = False
+    last_err: str | None = None
+    for endpoint in endpoints:
+        try:
+            send_message(endpoint, reply_env, timeout=15)
+            delivered = True
+            print(f"agentverse_reply sent endpoint={endpoint} session={reply_env.session}")
+            break
+        except Exception as e:
+            last_err = f"{type(e).__name__}: {e}"
+            print(f"agentverse_reply failed endpoint={endpoint} err={last_err}")
+            continue
+
+    return {"status": "ok" if delivered else "failed", "error": last_err}
 
 
 @app.get("/chat")
