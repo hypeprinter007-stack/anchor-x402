@@ -78,6 +78,11 @@ Parameters:
     NoEcho: true
     Default: ""
     Description: base.dev API key (bdev_...). Authenticates server-to-Base calls (notifications, attribution analytics). Stored in Secrets Manager.
+  AgentSeedPhrase:
+    Type: String
+    NoEcho: true
+    Default: ""
+    Description: Stable seed for the Agentverse agent identity (any random hex/string). Same seed = same Fetch.ai address. Stored in Secrets Manager.
 
 Conditions:
   HasAlarmEmail: !Not [!Equals [!Ref AlarmEmail, ""]]
@@ -165,7 +170,8 @@ Resources:
           "treasury_evm_key": "${TreasuryPrivateKey}",
           "treasury_solana_key": "${SolanaTreasuryKey}",
           "cdp_api_key_secret": "${CdpApiKeySecret}",
-          "base_api_key": "${BaseApiKey}"
+          "base_api_key": "${BaseApiKey}",
+          "agent_seed_phrase": "${AgentSeedPhrase}"
         }
 
   AlarmTopic:

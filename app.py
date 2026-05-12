@@ -942,6 +942,56 @@ def root(request: Request):
     return RedirectResponse(url="/docs")
 
 
+# --- Agentverse FastAPI adapter ----------------------------------------------
+# Implements Fetch.ai's Chat Protocol so anchor-x402 is discoverable + invokable
+# from Agentverse and ASI:One. Receives signed envelopes from Agentverse, sends
+# the reply back via Agentverse's mailbox API.
+
+@app.get("/agentverse/status")
+def agentverse_status():
+    return {"status": "ok", "agent": "anchor-x402"}
+
+
+@app.post("/agentverse/chat")
+async def agentverse_chat(request: Request):
+    from uagents_core.identity import Identity
+    from uagents_core.envelope import Envelope
+    from uagents_core.contrib.protocols.chat import ChatMessage, TextContent
+    from uagents_core.utils.messages import parse_envelope, send_message_to_agent
+    from services import secrets as _secrets
+
+    body = await request.json()
+    env = Envelope(**body)
+    seed = _secrets.get("agent_seed_phrase", env_fallback="AGENT_SEED_PHRASE")
+    if not seed:
+        raise HTTPException(500, "agent identity not configured")
+    identity = Identity.from_seed(seed, 0)
+
+    msg = parse_envelope(env, ChatMessage)
+    user_text = "".join(c.text for c in getattr(msg, "content", []) if isinstance(c, TextContent))
+
+    reply = (
+        "anchor-x402 — 15 paid x402 services on Base + Solana mainnet. "
+        "Pay-per-call USDC, no accounts, no API keys.\n\n"
+        "Highlights:\n"
+        "• $7.77 — risk investigator (POST /v1/investigate, multi-step due diligence)\n"
+        "• $0.005 — wallet intel bundle (GET /v1/intel/wallet)\n"
+        "• $0.001 — sanctions/AML screen (GET /v1/screen)\n"
+        "• $0.005 — dual-chain hash anchor (POST /v1/anchor, Base + Solana)\n"
+        "• $0.01–$0.05 — LLM endpoints: roast, oracle (anchored verdict), tldr, aura, grade\n\n"
+        f"You asked: {user_text[:200]}\n\n"
+        "Hosted chat agent (no setup needed): https://chat.anchor-x402.com\n"
+        "OpenAPI spec: https://api.anchor-x402.com/openapi.json\n"
+        "MCP server: `npx anchor-x402-mcp`"
+    )
+    send_message_to_agent(
+        destination=env.sender,
+        msg=ChatMessage(content=[TextContent(type="text", text=reply)]),
+        sender=identity,
+    )
+    return {"status": "sent"}
+
+
 @app.get("/chat")
 def chat_ui():
     return _serve_chat_html()
