@@ -26,7 +26,7 @@ import os
 import sys
 
 try:
-    from uagents_core.crypto import Identity
+    from uagents_core.identity import Identity
     from fetchai.registration import register_with_agentverse
 except ImportError:
     sys.stderr.write("missing deps. run: pip install fetchai\n")
@@ -44,7 +44,7 @@ if not AGENT_SECRET_KEY:
     sys.exit(1)
 
 
-NAME = "anchor-x402 — 15 paid wallet tools on Base + Solana"
+NAME = "anchor-x402"
 
 # FastAPI Chat Protocol adapter endpoint — receives signed Agentverse envelopes,
 # parses the user query, replies via Agentverse mailbox.
