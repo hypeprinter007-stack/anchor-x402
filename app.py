@@ -947,6 +947,97 @@ def root(request: Request):
 # from Agentverse and ASI:One. Receives signed envelopes from Agentverse, sends
 # the reply back via Agentverse's mailbox API.
 
+import re as _re
+
+_RE_EVM = _re.compile(r"0x[a-fA-F0-9]{40}\b")
+_RE_TX  = _re.compile(r"0x[a-fA-F0-9]{64}\b")
+_RE_ENS = _re.compile(r"\b[a-zA-Z0-9-]+\.(eth|sol)\b")
+
+
+def _agentverse_catalog() -> str:
+    return (
+        "anchor-x402 — 15 paid x402 services on Base + Solana mainnet. "
+        "Pay-per-call USDC, no accounts, no API keys.\n\n"
+        "Try me — paste any of:\n"
+        "• an EVM address (0x...) → free sanctions screen\n"
+        "• a tx hash (0x... 64 chars) → free decode\n"
+        "• an ENS or SNS name (vitalik.eth, bonfida.sol) → free resolve\n\n"
+        "Full catalog:\n"
+        "• $7.77 — risk investigator (multi-step due diligence)\n"
+        "• $0.005 — wallet intel bundle (balances + activity + identity)\n"
+        "• $0.001 — sanctions/AML screen\n"
+        "• $0.005 — dual-chain hash anchor (Base + Solana)\n"
+        "• $0.01–$0.05 — roast, oracle, tldr, aura, grade\n\n"
+        "Hosted chat: https://chat.anchor-x402.com\n"
+        "MCP: npx anchor-x402-mcp"
+    )
+
+
+def _agentverse_dispatch(user_text: str) -> str:
+    """Parse the chat message + run the matching tool inline.
+    Free for Agentverse discovery — read-only tools only, no LLM-priced ones."""
+    if not user_text.strip():
+        return _agentverse_catalog()
+
+    # tx hash → decode_tx (try base first; user can re-query with chain hint via paid endpoint)
+    if m := _RE_TX.search(user_text):
+        tx_hash = m.group(0)
+        last_err: Exception | None = None
+        for chain in ("base", "ethereum"):
+            try:
+                result = tx_decode_svc.decode(chain, tx_hash)
+                return (
+                    f"decode_tx ({chain}) — {tx_hash[:16]}…\n\n"
+                    f"from: {result.get('from', '?')}\n"
+                    f"to: {result.get('to', '?')}\n"
+                    f"value: {result.get('value', '?')}\n"
+                    f"method: {result.get('method', '?')}\n\n"
+                    "Full structured decode (logs, calldata params, status) via "
+                    "/v1/decode/tx ($0.001 USDC). Add ?chain=solana for SVM."
+                )
+            except Exception as e:
+                last_err = e
+                continue
+        return f"decode_tx failed on Base + Ethereum: {last_err}\nFor Solana: /v1/decode/tx?chain=solana"
+
+    # EVM address → screen
+    if m := _RE_EVM.search(user_text):
+        addr = m.group(0)
+        try:
+            v = screen_svc.screen(addr)
+            tier = v.get("risk_tier") or v.get("risk_level") or "unknown"
+            sanctioned = v.get("sanctioned") if "sanctioned" in v else v.get("sanctions_match")
+            sources = v.get("sources") or v.get("sanctioned_lists") or []
+            badge = "🟢 clean" if not sanctioned else "🔴 sanctioned"
+            return (
+                f"screen_wallet — {addr}\n\n"
+                f"{badge}\n"
+                f"risk tier: {tier}\n"
+                f"sources checked: {', '.join(sources) if sources else 'OFAC, Chainalysis, TRM'}\n\n"
+                "Want the full intel bundle (balances + activity + identity + risk score)?\n"
+                "GET /v1/intel/wallet?wallet=… — $0.005 USDC via x402."
+            )
+        except Exception as e:
+            return f"screen failed: {e}\nTry the paid endpoint: GET /v1/screen?wallet={addr}"
+
+    # ENS / SNS → resolve_name
+    if m := _RE_ENS.search(user_text):
+        name = m.group(0)
+        try:
+            r = name_resolve_svc.resolve(name)
+            return (
+                f"resolve_name — {name}\n\n"
+                f"chain: {r.get('chain', '?')}\n"
+                f"address: {r.get('address', '?')}\n\n"
+                f"Now paste the address back to me for a free sanctions screen, "
+                f"or run the full intel bundle via /v1/intel/wallet ($0.005)."
+            )
+        except Exception as e:
+            return f"resolve failed: {e}\nTry the paid endpoint: GET /v1/resolve/name?name={name}"
+
+    return _agentverse_catalog()
+
+
 @app.get("/agentverse/status")
 def agentverse_status():
     return {"status": "ok", "agent": "anchor-x402"}
@@ -970,20 +1061,7 @@ async def agentverse_chat(request: Request):
     msg = parse_envelope(env, ChatMessage)
     user_text = "".join(c.text for c in getattr(msg, "content", []) if isinstance(c, TextContent))
 
-    reply = (
-        "anchor-x402 — 15 paid x402 services on Base + Solana mainnet. "
-        "Pay-per-call USDC, no accounts, no API keys.\n\n"
-        "Highlights:\n"
-        "• $7.77 — risk investigator (POST /v1/investigate, multi-step due diligence)\n"
-        "• $0.005 — wallet intel bundle (GET /v1/intel/wallet)\n"
-        "• $0.001 — sanctions/AML screen (GET /v1/screen)\n"
-        "• $0.005 — dual-chain hash anchor (POST /v1/anchor, Base + Solana)\n"
-        "• $0.01–$0.05 — LLM endpoints: roast, oracle (anchored verdict), tldr, aura, grade\n\n"
-        f"You asked: {user_text[:200]}\n\n"
-        "Hosted chat agent (no setup needed): https://chat.anchor-x402.com\n"
-        "OpenAPI spec: https://api.anchor-x402.com/openapi.json\n"
-        "MCP server: `npx anchor-x402-mcp`"
-    )
+    reply = _agentverse_dispatch(user_text)
     send_message_to_agent(
         destination=env.sender,
         msg=ChatMessage(content=[TextContent(type="text", text=reply)]),
