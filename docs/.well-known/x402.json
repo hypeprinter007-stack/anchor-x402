@@ -1,7 +1,7 @@
 {
   "version": "2.0",
   "name": "anchor-x402",
-  "description": "Fifteen x402-paid services for AI agents on Base + Solana mainnet: nine commodity primitives (dual-chain hash anchoring, OFAC sanctions screening, signed decision attestation, mainnet tx decode, ENS/SNS resolution, USD spot price, EVM calldata decode, freeform datetime parsing, bundled wallet intelligence), one async due-diligence investigator ($7.77), and five universal LLM endpoints (roast, oracle with on-chain anchored verdict, TL;DR, aura, grade). Plus a hosted chatbot at chat.anchor-x402.com. Pay-per-call USDC, no API keys, no accounts.",
+  "description": "Sixteen x402-paid services for AI agents on Base + Solana mainnet: nine commodity primitives (dual-chain hash anchoring, OFAC sanctions screening, signed decision attestation, mainnet tx decode, ENS/SNS resolution, USD spot price, EVM calldata decode, freeform datetime parsing, bundled wallet intelligence), one async due-diligence investigator ($7.77), one verifiable signed RNG (drop-in VRF for game studios), and five universal LLM endpoints (roast, oracle with on-chain anchored verdict, TL;DR, aura, grade). Plus a hosted chatbot at chat.anchor-x402.com. Pay-per-call USDC, no API keys, no accounts.",
   "operator": "anchor-x402",
   "homepage": "https://anchor-x402.com",
   "trust_portal": "https://anchor-x402.com/trust/",
@@ -28,7 +28,7 @@
   ],
   "free_endpoints": [
     {"path": "/health", "method": "GET", "description": "Liveness probe — returns {status,service}"},
-    {"path": "/openapi.json", "method": "GET", "description": "Full OpenAPI 3 spec for all 9 paid services"},
+    {"path": "/openapi.json", "method": "GET", "description": "Full OpenAPI 3 spec for all 16 paid services"},
     {"path": "/docs", "method": "GET", "description": "Swagger UI for interactive exploration"}
   ],
   "routes": [
@@ -171,6 +171,122 @@
         "wallet": {"type": "string", "required": true, "description": "EVM 0x… or Solana base58 pubkey"}
       },
       "tags": ["wallet-intel", "balances", "kyb", "counterparty", "aggregator"]
+    },
+    {
+      "path": "/v1/investigate",
+      "method": "POST",
+      "price_usd": 7.77,
+      "price": "$7.77",
+      "category": "security",
+      "description": "Agent-driven wallet due diligence. Multi-step LLM investigation: sanctions screen, on-chain history, identity correlation, counterparty graph. Delivered as signed markdown report + JSON sidecar with dual-chain anchor proof on Base + Solana. Async — returns job_id, poll /v1/investigate/status/{job_id}. ETA 5-10 min.",
+      "input_schema": {
+        "type": "object",
+        "required": ["address"],
+        "properties": {
+          "address": {"type": "string", "description": "EVM 0x… or Solana base58 pubkey to investigate"}
+        }
+      },
+      "tags": ["due-diligence", "kyb", "compliance", "agent", "async", "anchored-report"]
+    },
+    {
+      "path": "/v1/roast",
+      "method": "POST",
+      "price_usd": 0.05,
+      "price": "$0.05",
+      "category": "ai_ml",
+      "description": "Witty roast of any target — wallet, tweet, idea, code, anything. Powered by Claude on AWS Bedrock. Universal text input.",
+      "input_schema": {
+        "type": "object",
+        "required": ["target"],
+        "properties": {
+          "target": {"type": "string", "maxLength": 8000, "description": "Anything to roast"}
+        }
+      },
+      "tags": ["roast", "llm", "viral", "shareable", "agent-flair"]
+    },
+    {
+      "path": "/v1/oracle",
+      "method": "POST",
+      "price_usd": 0.05,
+      "price": "$0.05",
+      "category": "ai_ml",
+      "description": "Yes/no oracle with dual-chain anchored verdict on Base + Solana. Returns MAYBE/YES/NO + explanation + on-chain proof (merkle_root, base_tx, solana_tx).",
+      "input_schema": {
+        "type": "object",
+        "required": ["question"],
+        "properties": {
+          "question": {"type": "string", "maxLength": 1000, "description": "A yes/no question"}
+        }
+      },
+      "tags": ["oracle", "llm", "anchored-verdict", "dual-chain", "decision"]
+    },
+    {
+      "path": "/v1/tldr",
+      "method": "POST",
+      "price_usd": 0.01,
+      "price": "$0.01",
+      "category": "ai_ml",
+      "description": "Summarize a URL (fetched server-side) or pasted text into 3-5 concise bullets. Powered by Claude on AWS Bedrock.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "text": {"type": "string", "description": "Pasted text to summarize. Provide either text or url."},
+          "url":  {"type": "string", "description": "URL to fetch and summarize. Provide either text or url."}
+        }
+      },
+      "tags": ["tldr", "summarization", "llm", "url-fetch"]
+    },
+    {
+      "path": "/v1/aura",
+      "method": "POST",
+      "price_usd": 0.01,
+      "price": "$0.01",
+      "category": "ai_ml",
+      "description": "Aura read of any target. Returns color (free-form), tier (S/A/B/C/D/F), score (0-9999), description. Screenshot-friendly viral output.",
+      "input_schema": {
+        "type": "object",
+        "required": ["target"],
+        "properties": {
+          "target": {"type": "string", "maxLength": 4000, "description": "Anything to read the aura of"}
+        }
+      },
+      "tags": ["aura", "llm", "viral", "shareable", "vibe-check"]
+    },
+    {
+      "path": "/v1/grade",
+      "method": "POST",
+      "price_usd": 0.01,
+      "price": "$0.01",
+      "category": "ai_ml",
+      "description": "Academic letter grade with red-pen marginalia for anything. Returns letter_grade (A-F), marginalia bullets, summary.",
+      "input_schema": {
+        "type": "object",
+        "required": ["target"],
+        "properties": {
+          "target": {"type": "string", "maxLength": 6000, "description": "Anything to grade"}
+        }
+      },
+      "tags": ["grade", "llm", "critique", "feedback"]
+    },
+    {
+      "path": "/v1/roll",
+      "method": "POST",
+      "price_usd": 0.001,
+      "price": "$0.001",
+      "category": "security",
+      "description": "Cryptographically-random integer(s) over a caller-chosen range, signed by the treasury EOA (EIP-191). Drop-in VRF for game studios, raffles, DAO voter selection, NFT mint reveals. Optional 32-byte pre-commitment binds inputs into the signed payload to close front-running windows.",
+      "input_schema": {
+        "type": "object",
+        "required": ["low", "high"],
+        "properties": {
+          "low":        {"type": "integer", "description": "Inclusive low bound"},
+          "high":       {"type": "integer", "description": "Inclusive high bound. Must be >= low."},
+          "count":      {"type": "integer", "minimum": 1, "maximum": 100, "default": 1, "description": "How many integers to sample. 1-100."},
+          "commitment": {"type": "string", "description": "Optional 32-byte hex pre-commitment included in the signed payload."},
+          "label":      {"type": "string", "maxLength": 200, "description": "Optional caller tag included in the signed payload."}
+        }
+      },
+      "tags": ["vrf", "rng", "randomness", "gaming", "raffle", "signed", "verifiable"]
     }
   ],
   "discovery": {

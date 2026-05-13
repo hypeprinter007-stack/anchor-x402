@@ -83,11 +83,25 @@ Parameters:
     NoEcho: true
     Default: ""
     Description: Stable seed for the Agentverse agent identity (any random hex/string). Same seed = same Fetch.ai address. Stored in Secrets Manager.
+  InternalAuthSecret:
+    Type: String
+    NoEcho: true
+    Default: ""
+    Description: Shared secret used by the gateway-shim (Circle Gateway facade Lambda) to bypass x402 when proxying upstream to the anchor Lambda. 64-char hex. Stored in Secrets Manager.
+  GatewayCustomDomain:
+    Type: String
+    Default: ""
+    Description: Optional custom domain for the Circle Gateway shim (e.g. gateway.anchor-x402.com). Leave empty to skip.
+  GatewayCustomDomainCertArn:
+    Type: String
+    Default: ""
+    Description: ACM certificate ARN for GatewayCustomDomain (this region). Required when GatewayCustomDomain is set.
 
 Conditions:
   HasAlarmEmail: !Not [!Equals [!Ref AlarmEmail, ""]]
   HasCustomDomain: !Not [!Equals [!Ref ApiCustomDomain, ""]]
   HasChatCustomDomain: !Not [!Equals [!Ref ChatCustomDomain, ""]]
+  HasGatewayCustomDomain: !Not [!Equals [!Ref GatewayCustomDomain, ""]]
 
 Resources:
   AnchorFunction:
@@ -152,6 +166,43 @@ Resources:
                 - !Sub "arn:aws:bedrock:*::foundation-model/anthropic.claude-*"
                 - !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.anthropic.claude-*"
 
+  # ---------------------------------------------------------------------
+  # Gateway shim: Node Lambda that terminates Circle Gateway x402 payments
+  # and forwards to api.anchor-x402.com with an internal-auth header that
+  # bypasses standard x402. Lets us list one service on agents.circle.com
+  # while keeping all business logic in the Python upstream.
+  # ---------------------------------------------------------------------
+  GatewayHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowMethods: ["*"]
+        AllowHeaders: ["*"]
+        AllowOrigins: ["*"]
+
+  GatewayShimFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      CodeUri: ./gateway-shim
+      Handler: handler.handler
+      Runtime: nodejs22.x
+      MemorySize: 512
+      Timeout: 30
+      Environment:
+        Variables:
+          UPSTREAM_URL: !Sub "https://${ApiCustomDomain}"
+          SELLER_ADDRESS: !Ref TreasuryAddress
+          INTERNAL_AUTH_SECRET: !Ref InternalAuthSecret
+      Events:
+        ApiEvent:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref GatewayHttpApi
+            Path: /{proxy+}
+            Method: ANY
+
   # Composite runtime secret. Seeded from CloudFormation parameters on
   # first deploy; rotate independently afterward via:
   #   aws secretsmanager update-secret --secret-id <arn> \
@@ -171,7 +222,8 @@ Resources:
           "treasury_solana_key": "${SolanaTreasuryKey}",
           "cdp_api_key_secret": "${CdpApiKeySecret}",
           "base_api_key": "${BaseApiKey}",
-          "agent_seed_phrase": "${AgentSeedPhrase}"
+          "agent_seed_phrase": "${AgentSeedPhrase}",
+          "internal_auth_secret": "${InternalAuthSecret}"
         }
 
   AlarmTopic:
@@ -315,6 +367,24 @@ Resources:
       ApiId: !Ref ServerlessHttpApi
       Stage: $default
 
+  GatewayCustomDomainName:
+    Type: AWS::ApiGatewayV2::DomainName
+    Condition: HasGatewayCustomDomain
+    Properties:
+      DomainName: !Ref GatewayCustomDomain
+      DomainNameConfigurations:
+        - CertificateArn: !Ref GatewayCustomDomainCertArn
+          EndpointType: REGIONAL
+          SecurityPolicy: TLS_1_2
+
+  GatewayCustomDomainMapping:
+    Type: AWS::ApiGatewayV2::ApiMapping
+    Condition: HasGatewayCustomDomain
+    Properties:
+      DomainName: !Ref GatewayCustomDomainName
+      ApiId: !Ref GatewayHttpApi
+      Stage: $default
+
 Outputs:
   ApiUrl:
     Value: !Sub 'https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com'
@@ -327,3 +397,10 @@ Outputs:
     Condition: HasChatCustomDomain
     Value: !GetAtt ChatCustomDomainName.RegionalDomainName
     Description: Set this as the CNAME target for ChatCustomDomain at your DNS registrar
+  GatewayUrl:
+    Value: !Sub 'https://${GatewayHttpApi}.execute-api.${AWS::Region}.amazonaws.com'
+    Description: Circle Gateway shim public URL (AWS direct). Point gateway.anchor-x402.com here once tested.
+  GatewayCustomDomainTarget:
+    Condition: HasGatewayCustomDomain
+    Value: !GetAtt GatewayCustomDomainName.RegionalDomainName
+    Description: Set this as the CNAME target for GatewayCustomDomain at your DNS registrar

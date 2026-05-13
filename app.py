@@ -58,6 +58,8 @@ from models import (
     OracleResponse,
     RoastRequest,
     RoastResponse,
+    RollRequest,
+    RollResponse,
     ScreenResponse,
     TldrRequest,
     TldrResponse,
@@ -76,6 +78,7 @@ from services import intel_wallet as intel_wallet_svc
 from services import name_resolve as name_resolve_svc
 from services import oracle as oracle_svc
 from services import roast as roast_svc
+from services import roll as roll_svc
 from services import screen as screen_svc
 from services import tldr as tldr_svc
 from services import token_price as token_price_svc
@@ -410,6 +413,36 @@ _aura_bazaar_ext = declare_discovery_extension(
     }),
 )
 
+_roll_bazaar_ext = declare_discovery_extension(
+    input={"low": 1, "high": 100, "count": 1, "label": "treasure_drop_42"},
+    input_schema={
+        "properties": {
+            "low": {"type": "integer", "description": "Inclusive low bound of the integer range."},
+            "high": {"type": "integer", "description": "Inclusive high bound. Must be >= low."},
+            "count": {"type": "integer", "description": "How many integers to sample. 1-100.", "minimum": 1, "maximum": 100, "default": 1},
+            "commitment": {"type": "string", "description": "Optional 32-byte hex pre-commitment from the caller."},
+            "label": {"type": "string", "description": "Optional caller tag, included in the signed payload.", "maxLength": 200},
+        },
+        "required": ["low", "high"],
+    },
+    body_type="json",
+    output=OutputConfig(example={
+        "range": [1, 100],
+        "count": 1,
+        "commitment": None,
+        "label": "treasure_drop_42",
+        "result": [47],
+        "input_hash": "f4a1c5e3b9d8a2e0c7b4f6d9e1a3c8b5f7d2e4a9c1b6e8f3d5a7c2b4e9f1d6a8",
+        "result_hash": "8a6d1f9e4b2c7a3e5f0c9b8a4d2f6e1c3b7a5f9d2e8c4b6a1f3e7d5c9b2a4f6e",
+        "signature": "0x6b3e2a7c…",
+        "signer": "0x127462e296fAc1A7F5cF33bA57bB2f0FFf5cD0B6",
+        "scheme": "eip191",
+        "domain": "anchor-x402/roll/v1",
+    }),
+)
+_roll_bazaar_ext["bazaar"]["discoverable"] = True
+_roll_bazaar_ext["bazaar"]["category"] = "gaming"
+
 _grade_bazaar_ext = declare_discovery_extension(
     input={"target": "def add(a, b): return a - b  # surely this is correct"},
     input_schema={
@@ -525,6 +558,11 @@ x402_routes = {
         description="Academic letter grade with red-pen marginalia for anything. $0.01 USDC.",
         extensions={**_grade_bazaar_ext},
     ),
+    "POST /v1/roll": RouteConfig(
+        accepts=_accepts_at("$0.001"),
+        description="Verifiable RNG — cryptographically-random integer(s) signed by the treasury key. Drop-in VRF for game studios. $0.001 USDC.",
+        extensions={**_roll_bazaar_ext},
+    ),
     # GET wrappers for function-like callers (Virtuals ACP, etc.) — same price, no
     # bazaar extensions to avoid duplicate listings (POST is the canonical entry).
     "GET /v1/anchor": RouteConfig(
@@ -547,11 +585,65 @@ x402_routes = {
         accepts=_accepts_at("$0.001"),
         description="Parse any freeform datetime string into a structured form (GET wrapper) — $0.001 USDC",
     ),
+    "GET /v1/roll": RouteConfig(
+        accepts=_accepts_at("$0.001"),
+        description="Verifiable RNG (GET wrapper) — $0.001 USDC. Query params: low, high, count, commitment, label.",
+    ),
+    # POST wrappers for GET-only endpoints — every crawler probe now reaches
+    # the 402 challenge instead of bouncing on 405 method-mismatch.
+    "POST /v1/screen": RouteConfig(
+        accepts=_accepts_at("$0.001"),
+        description="Sanctions + AML screening (POST wrapper, body: {wallet}) — $0.001 USDC",
+    ),
+    "POST /v1/resolve/name": RouteConfig(
+        accepts=_accepts_at("$0.001"),
+        description="Cross-chain name resolver (POST wrapper, body: {name}) — $0.001 USDC",
+    ),
+    "POST /v1/price/token": RouteConfig(
+        accepts=_accepts_at("$0.001"),
+        description="USD token price (POST wrapper, body: {symbol} or {chain, contract}) — $0.001 USDC",
+    ),
+    "POST /v1/intel/wallet": RouteConfig(
+        accepts=_accepts_at("$0.005"),
+        description="Unified wallet intelligence (POST wrapper, body: {wallet}) — $0.005 USDC",
+    ),
+    # GET wrappers for POST-only endpoints (LLM + investigate). Same price, no
+    # bazaar extensions to avoid duplicate listings.
+    "GET /v1/investigate": RouteConfig(
+        accepts=_accepts_at("$7.77"),
+        description="Agent-driven wallet due diligence (GET wrapper, query: address) — $7.77 USDC",
+    ),
+    "GET /v1/roast": RouteConfig(
+        accepts=_accepts_at("$0.05"),
+        description="Witty roast (GET wrapper, query: target) — $0.05 USDC",
+    ),
+    "GET /v1/oracle": RouteConfig(
+        accepts=_accepts_at("$0.05"),
+        description="Yes/no oracle with anchored verdict (GET wrapper, query: question) — $0.05 USDC",
+    ),
+    "GET /v1/tldr": RouteConfig(
+        accepts=_accepts_at("$0.01"),
+        description="Summarize URL or text (GET wrapper, query: url or text) — $0.01 USDC",
+    ),
+    "GET /v1/aura": RouteConfig(
+        accepts=_accepts_at("$0.01"),
+        description="Aura of anything (GET wrapper, query: target) — $0.01 USDC",
+    ),
+    "GET /v1/grade": RouteConfig(
+        accepts=_accepts_at("$0.01"),
+        description="Letter grade + marginalia (GET wrapper, query: target) — $0.01 USDC",
+    ),
 }
+
+
+from services import secrets as _secrets_mod
+_INTERNAL_AUTH = _secrets_mod.get("internal_auth_secret", env_fallback="INTERNAL_AUTH_SECRET")
 
 
 @app.middleware("http")
 async def x402_mw(request, call_next):
+    if _INTERNAL_AUTH and request.headers.get("x-internal-auth") == _INTERNAL_AUTH:
+        return await call_next(request)
     return await payment_middleware(x402_routes, x402_server)(request, call_next)
 
 
@@ -702,6 +794,46 @@ def parse_datetime(req: DatetimeParseRequest) -> DatetimeParseResponse:
 @app.get("/v1/intel/wallet", response_model=IntelWalletResponse)
 def intel_wallet(wallet: str) -> IntelWalletResponse:
     return IntelWalletResponse(**intel_wallet_svc.fetch(wallet))
+
+
+# POST wrappers for GET-only endpoints — discovery-aware crawlers probe with
+# POST first; without these we bounce them at 405 before x402 can introduce
+# itself. Now every probe reaches the 402 challenge.
+from pydantic import BaseModel as _BM
+
+
+class _WalletBody(_BM):
+    wallet: str
+
+
+class _NameBody(_BM):
+    name: str
+
+
+class _TokenPriceBody(_BM):
+    symbol: str | None = None
+    chain: str | None = None
+    contract: str | None = None
+
+
+@app.post("/v1/screen", response_model=ScreenResponse)
+def screen_post(req: _WalletBody) -> ScreenResponse:
+    return screen(req.wallet)
+
+
+@app.post("/v1/resolve/name", response_model=NameResolveResponse)
+def resolve_name_post(req: _NameBody) -> NameResolveResponse:
+    return resolve_name(req.name)
+
+
+@app.post("/v1/price/token", response_model=TokenPriceResponse)
+def token_price_post(req: _TokenPriceBody) -> TokenPriceResponse:
+    return token_price(symbol=req.symbol, chain=req.chain, contract=req.contract)
+
+
+@app.post("/v1/intel/wallet", response_model=IntelWalletResponse)
+def intel_wallet_post(req: _WalletBody) -> IntelWalletResponse:
+    return intel_wallet(req.wallet)
 
 
 # GET wrappers for the 5 POST endpoints — for function-like callers (Virtuals ACP
@@ -914,6 +1046,72 @@ def grade(req: GradeRequest) -> GradeResponse:
     return GradeResponse(**result)
 
 
+# GET wrappers for the LLM endpoints + investigate. Same x402 pricing,
+# same response shape; accepts inputs via query string so crawler probes
+# reach the 402 challenge regardless of method preference.
+
+@app.get("/v1/investigate", response_model=InvestigateAcceptedResponse)
+def investigate_dispatch_get(address: str) -> InvestigateAcceptedResponse:
+    return investigate_dispatch(InvestigateRequest(address=address))
+
+
+@app.get("/v1/roast", response_model=RoastResponse)
+def roast_get(target: str) -> RoastResponse:
+    return roast(RoastRequest(target=target))
+
+
+@app.get("/v1/oracle", response_model=OracleResponse)
+def oracle_get(question: str) -> OracleResponse:
+    return oracle(OracleRequest(question=question))
+
+
+@app.get("/v1/tldr", response_model=TldrResponse)
+def tldr_get(text: str | None = None, url: str | None = None) -> TldrResponse:
+    return tldr(TldrRequest(text=text, url=url))
+
+
+@app.get("/v1/aura", response_model=AuraResponse)
+def aura_get(target: str) -> AuraResponse:
+    return aura(AuraRequest(target=target))
+
+
+@app.get("/v1/grade", response_model=GradeResponse)
+def grade_get(target: str) -> GradeResponse:
+    return grade(GradeRequest(target=target))
+
+
+@app.post("/v1/roll", response_model=RollResponse)
+def roll(req: RollRequest) -> RollResponse:
+    try:
+        result = roll_svc.generate(
+            low=req.low, high=req.high, count=req.count,
+            commitment=req.commitment, label=req.label,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logging.getLogger("roll").exception("roll failed")
+        raise HTTPException(status_code=502, detail=f"roll failed: {type(e).__name__}: {e}")
+    return RollResponse(**result)
+
+
+@app.get("/v1/roll", response_model=RollResponse)
+def roll_get(
+    low: int, high: int, count: int = 1,
+    commitment: str | None = None, label: str | None = None,
+) -> RollResponse:
+    try:
+        result = roll_svc.generate(
+            low=low, high=high, count=count, commitment=commitment, label=label,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logging.getLogger("roll").exception("roll failed")
+        raise HTTPException(status_code=502, detail=f"roll failed: {type(e).__name__}: {e}")
+    return RollResponse(**result)
+
+
 # --- /v1/chat (FREE, not in x402_routes) ------------------------------------
 
 
@@ -1064,6 +1262,60 @@ def farcaster_manifest():
         path,
         media_type="application/json",
         headers={"Cache-Control": "public, max-age=300"},
+    )
+
+
+_X402_DISCOVERY_PATH = os.path.join(
+    os.path.dirname(__file__), "docs", ".well-known", "x402.json"
+)
+
+
+def _serve_x402_discovery() -> FileResponse:
+    """x402 discovery doc — same content the apex site serves at /.well-known/x402.json.
+    Lives on the API host too so origin-scoped crawlers (Bazaar, x402.direct) find it."""
+    if not os.path.exists(_X402_DISCOVERY_PATH):
+        raise HTTPException(status_code=404, detail="x402 discovery doc not bundled")
+    return FileResponse(
+        _X402_DISCOVERY_PATH,
+        media_type="application/json",
+        headers={"Cache-Control": "public, max-age=300"},
+    )
+
+
+@app.get("/.well-known/x402")
+def x402_discovery():
+    return _serve_x402_discovery()
+
+
+@app.get("/.well-known/x402.json")
+def x402_discovery_json():
+    return _serve_x402_discovery()
+
+
+_DOCS_DIR = os.path.join(os.path.dirname(__file__), "docs")
+
+
+@app.get("/robots.txt")
+def robots_txt():
+    path = os.path.join(_DOCS_DIR, "robots.txt")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="robots.txt not bundled")
+    return FileResponse(
+        path,
+        media_type="text/plain",
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
+
+
+@app.get("/llms.txt")
+def llms_txt():
+    path = os.path.join(_DOCS_DIR, "llms.txt")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="llms.txt not bundled")
+    return FileResponse(
+        path,
+        media_type="text/plain",
+        headers={"Cache-Control": "public, max-age=3600"},
     )
 
 

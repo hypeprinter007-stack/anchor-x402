@@ -34,6 +34,13 @@ build-AnchorFunction:
 	cp -r services "$(ARTIFACTS_DIR)/"
 	mkdir -p "$(ARTIFACTS_DIR)/static"
 	cp static/chat.html static/chat.bundle.js.gz static/farcaster.json static/icon.png static/splash.png static/s.png "$(ARTIFACTS_DIR)/static/"
+	# Ship the .well-known/x402.json discovery doc + robots.txt + llms.txt
+	# from docs/ at their canonical paths so the Lambda and the GitHub Pages
+	# site read the same source files (single source of truth).
+	mkdir -p "$(ARTIFACTS_DIR)/docs/.well-known"
+	cp docs/.well-known/x402.json "$(ARTIFACTS_DIR)/docs/.well-known/x402.json"
+	cp docs/robots.txt "$(ARTIFACTS_DIR)/docs/robots.txt"
+	cp docs/llms.txt   "$(ARTIFACTS_DIR)/docs/llms.txt"
 	# Strip files Lambda doesn't need (size: 250 MB unzipped limit)
 	#  - boto3/botocore: provided by the Lambda Python runtime
 	#  - __pycache__, *.dist-info, tests: dev-time only

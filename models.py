@@ -378,6 +378,37 @@ class GradeResponse(BaseModel):
     summary: str
 
 
+# --- /v1/roll ---
+
+
+class RollRequest(BaseModel):
+    low: int = Field(description="Inclusive low bound of the integer range.")
+    high: int = Field(description="Inclusive high bound. Must be >= low.")
+    count: int = Field(default=1, ge=1, le=100, description="How many integers to sample. 1-100.")
+    commitment: str | None = Field(
+        default=None,
+        description="Optional 32-byte hex pre-commitment from the caller. Included in the signed payload, so the server cannot have chosen the result after seeing the caller's downstream intent.",
+    )
+    label: str | None = Field(
+        default=None, max_length=200,
+        description="Optional caller-defined tag (e.g. 'treasure_drop_42'). Included verbatim in the signed payload.",
+    )
+
+
+class RollResponse(BaseModel):
+    range: list[int]
+    count: int
+    commitment: str | None
+    label: str | None
+    result: list[int]
+    input_hash: str
+    result_hash: str
+    signature: str
+    signer: str
+    scheme: Literal["eip191"]
+    domain: Literal["anchor-x402/roll/v1"]
+
+
 # --- /v1/chat (free) ---
 
 
