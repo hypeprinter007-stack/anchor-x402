@@ -41,6 +41,10 @@ permalink: /demo/
 
 Each paid call is its own EIP-3009 signature for a single amount to a single address — there is no standing approval, no "agent burns through your wallet while you sleep" failure mode.
 
+## Want to see the rest?
+
+[Five demos, one per endpoint →](/demos/) — aura, sanctions screen, dual-chain anchor, verifiable RNG, and the $7.77 wallet due-diligence investigator with its 90-second async flow.
+
 ## 15 services in this same flow
 
 `aura` ($0.01) is one of fifteen. Same approval pattern works for:

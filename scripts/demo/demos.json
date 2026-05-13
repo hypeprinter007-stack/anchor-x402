@@ -1,0 +1,98 @@
+[
+  {
+    "key": "aura",
+    "endpoint": "POST /v1/aura",
+    "price": "0.010",
+    "duration_s": 30,
+    "user_text": "aura check vitalik.eth",
+    "agent_quote": "I'll run aura on vitalik.eth — $0.010 USDC to call POST /v1/aura. Approve?",
+    "approval_body": "{\n  \"target\": \"vitalik.eth\"\n}",
+    "result_title": "aura · result",
+    "pretty_rows": [
+      ["aura",  "molten gold with copper veins"],
+      ["tier",  "S",            "ok"],
+      ["score", "8845 / 9999"],
+      ["vibe",  "Old-money aura. Quietly architecting things the rest of crypto twitter doesn't yet have words for."]
+    ]
+  },
+  {
+    "key": "screen",
+    "endpoint": "GET /v1/screen",
+    "price": "0.001",
+    "duration_s": 30,
+    "user_text": "is 0x8589427373d6d84e98730d7795d8f6f8731fda16 sanctioned?",
+    "agent_quote": "Sanctions + AML screen for that address — $0.001 USDC to call GET /v1/screen. Approve?",
+    "approval_body": "{\n  \"wallet\": \"0x8589427373d6d84e98730d7795d8f6f8731fda16\"\n}",
+    "result_title": "screen_wallet · result",
+    "pretty_rows": [
+      ["wallet",     "0x8589…fda16",                  "mono"],
+      ["sanctioned", "true",                          "err"],
+      ["risk tier",  "high",                          "err"],
+      ["programs",   "OFAC SDN, Tornado Cash"],
+      ["checked",    "2026-05-11 17:13 UTC"]
+    ]
+  },
+  {
+    "key": "anchor",
+    "endpoint": "POST /v1/anchor",
+    "price": "0.005",
+    "duration_s": 30,
+    "user_text": "anchor sha256 of \"vendor approval batch 2026-Q2\" to base + solana",
+    "agent_quote": "I'll anchor that hash to Base + Solana mainnet — $0.005 USDC to call POST /v1/anchor. Approve?",
+    "approval_body": "{\n  \"hash\": \"ab0898397c86fbf97c99c6f8b29e55ab697315705777ee1d106e2dcb9bd686b3\",\n  \"note\": \"vendor approval batch 2026-Q2\"\n}",
+    "result_title": "anchor · result",
+    "pretty_rows": [
+      ["merkle root", "ab0898…686b3",  "mono"],
+      ["base tx",     "0x7fb4…4e96 ↗", "mono"],
+      ["solana tx",   "u8rqU4…PKW2 ↗", "mono"],
+      ["anchored",    "2026-05-11 17:13 UTC"],
+      ["note",        "vendor approval batch 2026-Q2"]
+    ]
+  },
+  {
+    "key": "roll",
+    "endpoint": "POST /v1/roll",
+    "price": "0.001",
+    "duration_s": 30,
+    "user_text": "roll a verifiable d100 for treasure_drop_42",
+    "agent_quote": "I'll generate a signed random integer in [1,100] — $0.001 USDC to call POST /v1/roll. Approve?",
+    "approval_body": "{\n  \"low\": 1,\n  \"high\": 100,\n  \"count\": 1,\n  \"label\": \"treasure_drop_42\"\n}",
+    "result_title": "roll · result",
+    "pretty_rows": [
+      ["range",     "1 – 100"],
+      ["result",    "47",                  "ok"],
+      ["label",     "treasure_drop_42"],
+      ["signer",    "0x1274…D0B6",         "mono"],
+      ["scheme",    "eip191"],
+      ["signature", "0x6b3e…2f6e (verified)", "mono"]
+    ]
+  },
+  {
+    "key": "investigate",
+    "endpoint": "POST /v1/investigate",
+    "price": "7.770",
+    "duration_s": 90,
+    "user_text": "investigate 0x8589427373d6d84e98730d7795d8f6f8731fda16",
+    "agent_quote": "Full multi-step due diligence on that wallet — $7.770 USDC to call POST /v1/investigate. ETA 5-10 min. Approve?",
+    "approval_body": "{\n  \"address\": \"0x8589427373d6d84e98730d7795d8f6f8731fda16\"\n}",
+    "poll_steps": [
+      "step 1/8: sanctions screen — OFAC SDN match",
+      "step 2/8: balance + activity timeline (Base + Solana)",
+      "step 3/8: identity correlation (ENS, basenames, SNS)",
+      "step 4/8: counterparty graph",
+      "step 5/8: mixer + sanctioned-chain exposure",
+      "step 6/8: clustering analysis",
+      "step 7/8: final verdict + score",
+      "step 8/8: dual-chain anchor"
+    ],
+    "result_title": "investigate · final report",
+    "pretty_rows": [
+      ["verdict",      "HIGH RISK — DO NOT TRANSACT", "err"],
+      ["score",        "92 / 100",                    "err"],
+      ["summary",      "OFAC SDN match. Direct interactions with 3 sanctioned mixers in last 90 days (47.2 ETH). Counterparty graph: 12 hops to Lazarus-attributed cluster."],
+      ["base anchor",  "0x7fb4…4e96 ↗", "mono"],
+      ["solana anchor","u8rqU4…PKW2 ↗", "mono"],
+      ["full report",  "api.anchor-x402.com/v1/investigate/status/1be3bd50… ↗", "mono"]
+    ]
+  }
+]
