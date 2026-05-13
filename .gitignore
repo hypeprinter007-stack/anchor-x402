@@ -24,3 +24,6 @@ packaged.yaml
 skills-lock.json
 # Node toolchain for the chat UI bundle (output is committed to static/chat.bundle.js)
 node_modules/
+
+# Runtime logs (e.g. uagents_core writes uagents_core.log on registration error paths)
+*.log
