@@ -1,0 +1,14 @@
+{
+  "name": "anchor-x402-agent-example",
+  "private": true,
+  "type": "module",
+  "description": "Minimal anchor-x402 agent — pays $0.006 USDC to screen a wallet and dual-chain anchor the verdict.",
+  "scripts": {
+    "start": "node agent.mjs"
+  },
+  "dependencies": {
+    "@x402/evm": "^2.11.0",
+    "@x402/fetch": "^2.11.0",
+    "viem": "^2.21.0"
+  }
+}
