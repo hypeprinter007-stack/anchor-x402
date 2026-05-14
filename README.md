@@ -24,7 +24,7 @@
 | `/v1/parse/datetime` | POST | $0.001 | Freeform datetime string → structured ISO 8601 |
 | `/v1/intel/wallet` | GET | $0.005 | Bundled wallet intelligence: balances + activity + identity + sanctions |
 
-All endpoints accept payment on **Base** or **Solana** mainnet. All return v2 `PaymentRequired` with `extensions.bazaar` so they're auto-indexed by the CDP facilitator on settlement.
+All endpoints accept payment on **Base** or **Solana** mainnet in USDC, and — when a Polygon treasury is configured — in **JPYC** on Polygon (Japan's first FSA-licensed yen stablecoin, settled via an in-process EIP-3009 facilitator; `/v1/anchor` is priced at ¥1 per call on this rail). All return v2 `PaymentRequired` with `extensions.bazaar` so they're auto-indexed by the CDP facilitator on settlement.
 
 ## Why
 

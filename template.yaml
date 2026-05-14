@@ -26,6 +26,19 @@ Parameters:
     NoEcho: true
     Default: ""
     Description: Solana treasury keypair (base58). Consumed at deploy-time only to seed the runtime secret.
+  PolygonTreasuryAddress:
+    Type: String
+    Default: ""
+    Description: Polygon address that receives JPYC x402 payments. Leave empty to disable the JPYC rail.
+  PolygonRelayerKey:
+    Type: String
+    NoEcho: true
+    Default: ""
+    Description: Polygon EOA private key that gas-pays JPYC transferWithAuthorization settles. Holds MATIC, not JPYC. Consumed at deploy-time only to seed the runtime secret.
+  PolygonRpcUrl:
+    Type: String
+    Default: https://polygon-rpc.com
+    Description: Polygon JSON-RPC endpoint. Override with an Alchemy/Infura/QuickNode URL if the public node rate-limits.
   CdpApiKeyId:
     Type: String
     Description: CDP API key id (non-sensitive)
@@ -115,6 +128,8 @@ Resources:
         Variables:
           TREASURY_ADDRESS: !Ref TreasuryAddress
           SOLANA_TREASURY_ADDRESS: !Ref SolanaTreasuryAddress
+          POLYGON_TREASURY_ADDRESS: !Ref PolygonTreasuryAddress
+          POLYGON_RPC_URL: !Ref PolygonRpcUrl
           CDP_API_KEY_ID: !Ref CdpApiKeyId
           BASE_RPC_URL: https://mainnet.base.org
           SOLANA_RPC_URL: https://api.mainnet-beta.solana.com
@@ -220,6 +235,7 @@ Resources:
         {
           "treasury_evm_key": "${TreasuryPrivateKey}",
           "treasury_solana_key": "${SolanaTreasuryKey}",
+          "polygon_relayer_key": "${PolygonRelayerKey}",
           "cdp_api_key_secret": "${CdpApiKeySecret}",
           "base_api_key": "${BaseApiKey}",
           "agent_seed_phrase": "${AgentSeedPhrase}",

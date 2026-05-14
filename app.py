@@ -25,6 +25,7 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
 )
 
+from x402 import AssetAmount
 from x402.http.middleware.fastapi import payment_middleware, RouteConfig
 from x402.http import HTTPFacilitatorClient, FacilitatorConfig, PaymentOption
 from x402.server import x402ResourceServer
@@ -84,9 +85,18 @@ from services import tldr as tldr_svc
 from services import token_price as token_price_svc
 from services import tx_decode as tx_decode_svc
 from services.cdp_auth import build_cdp_auth_provider
+from services.jpyc_facilitator import (
+    JPYC_EIP712_NAME,
+    JPYC_EIP712_VERSION,
+    JPYC_POLYGON_ADDRESS,
+    build_jpyc_facilitator,
+)
 
 TREASURY = os.getenv("TREASURY_ADDRESS", "")
 SOLANA_TREASURY = os.getenv("SOLANA_TREASURY_ADDRESS", "")
+# Polygon treasury falls back to the Base treasury — same EVM address works
+# on every EVM chain. Override only when running a dedicated Polygon EOA.
+POLYGON_TREASURY = os.getenv("POLYGON_TREASURY_ADDRESS", "") or TREASURY
 SOLANA_MAINNET_CAIP2 = "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"
 
 app = FastAPI(
@@ -120,15 +130,24 @@ async def _access_log(request, call_next):
     print(f"access host={host} method={request.method} path={request.url.path} status={response.status_code}")
     return response
 
-facilitator = HTTPFacilitatorClient(
+cdp_facilitator = HTTPFacilitatorClient(
     FacilitatorConfig(
         url="https://api.cdp.coinbase.com/platform/v2/x402",
         auth_provider=build_cdp_auth_provider(),
     )
 )
 
-x402_server = x402ResourceServer(facilitator_clients=facilitator)
+# In-process JPYC facilitator on Polygon — None when relayer key/RPC unset.
+jpyc_facilitator = build_jpyc_facilitator()
+
+_facilitator_clients = [cdp_facilitator]
+if jpyc_facilitator is not None:
+    _facilitator_clients.append(jpyc_facilitator)
+
+x402_server = x402ResourceServer(facilitator_clients=_facilitator_clients)
 x402_server.register("eip155:8453", ExactEvmServerScheme())
+if jpyc_facilitator is not None:
+    x402_server.register("eip155:137", ExactEvmServerScheme())
 register_exact_svm_server(x402_server, networks=SOLANA_MAINNET_CAIP2)
 x402_server.register_extension(bazaar_resource_server_extension)
 
@@ -161,12 +180,35 @@ _anchor_bazaar_ext = declare_discovery_extension(
 _anchor_bazaar_ext["bazaar"]["discoverable"] = True
 _anchor_bazaar_ext["bazaar"]["category"] = "security"
 
+# USD → JPYC (18-decimal atomic). Snapped to clean yen amounts; a small
+# premium absorbs USDC↔JPYC FX volatility. ¥1 is the "pay 1 yen per call" hook.
+_JPYC_TIERS_ATOMIC: dict[str, int] = {
+    "$0.001":  10**17,         # ¥0.1
+    "$0.005":  10**18,         # ¥1
+    "$0.01":   2 * 10**18,     # ¥2
+    "$0.05":   10 * 10**18,    # ¥10
+    "$5.00":   1000 * 10**18,  # ¥1000
+    "$7.77":   1500 * 10**18,  # ¥1500
+}
+
+
 def _accepts_at(price: str) -> list[PaymentOption]:
     out: list[PaymentOption] = []
     if TREASURY:
         out.append(PaymentOption(scheme="exact", pay_to=TREASURY, price=price, network="eip155:8453"))
     if SOLANA_TREASURY:
         out.append(PaymentOption(scheme="exact", pay_to=SOLANA_TREASURY, price=price, network=SOLANA_MAINNET_CAIP2))
+    if POLYGON_TREASURY and jpyc_facilitator is not None and price in _JPYC_TIERS_ATOMIC:
+        out.append(PaymentOption(
+            scheme="exact",
+            pay_to=POLYGON_TREASURY,
+            price=AssetAmount(
+                amount=str(_JPYC_TIERS_ATOMIC[price]),
+                asset=JPYC_POLYGON_ADDRESS,
+                extra={"name": JPYC_EIP712_NAME, "version": JPYC_EIP712_VERSION},
+            ),
+            network="eip155:137",
+        ))
     return out
 
 
