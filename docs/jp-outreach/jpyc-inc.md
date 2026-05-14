@@ -1,6 +1,17 @@
 # JPYC Inc. — outreach email
 
-**To:** `support@jpyc.jp` (or LinkedIn DM to Noritaka Okabe, CEO)
+**Domain note:** JPYC's corporate domain is `jpyc.co.jp`, not `jpyc.jp`. No
+public catch-all email is exposed. Three real paths:
+
+1. Contact form: https://corporate.jpyc.co.jp/contact — primary intake.
+   Paste the body below into the message field; name/email/subject are
+   separate fields.
+2. LinkedIn DM to **Noritaka Okabe** (CEO). Email pattern is `n***@jpyc.co.jp`
+   but full handle isn't public — LinkedIn beats guessing. Use the
+   trimmed variant: drop the honest-scoping paragraph to one line.
+3. X/Twitter DM to **@jpyc_official** — public/press channel; will route
+   internally.
+
 **Subject:** `First x402 service accepting JPYC — agent-payments distribution`
 
 Bilingual: JP prefix establishes context for a JP team, EN body carries the
