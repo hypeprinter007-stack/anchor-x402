@@ -29,29 +29,40 @@ node agent.mjs 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045   # vitalik.eth, expec
 node agent.mjs 0x8589427373d6d84e98730d7795d8f6f8731fda16   # tornado-cash address, expected: sanctioned
 ```
 
-Output (truncated):
+Real captured output (run 2026-05-13 against vitalik.eth, with the test agent EOA elided):
 
 ```
-agent 0xAGENT… → screen(0xd8dA…6045)  ~$0.001
+agent 0xAGENT… → screen(0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045)  ~$0.001
 {
-  "wallet": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+  "wallet": "0xd8da6bf26964af9d7eed9e03e53415d37aa96045",
   "chain_inferred": "ethereum",
   "sanctions_match": false,
-  "risk_level": "low",
   "sanctioned_lists": [],
-  …
+  "risk_level": "low",
+  "notes": "No matches against the active sanctions corpus. Note: list is refreshed from public sources only; institutional users should pair with proprietary AML data for residual coverage.",
+  "checked_at": 1778716046
 }
 
-agent 0xAGENT… → anchor(7c4f8a3…)  ~$0.005
+agent 0xAGENT… → anchor(13db67d0…)  ~$0.005
 {
-  "merkle_root": "7c4f8a3…",
-  "base":   { "tx": "0x7fb4…4e96", "explorer_url": "https://basescan.org/tx/0x7fb4…4e96" },
-  "solana": { "tx": "u8rqU4…PKW2", "explorer_url": "https://solscan.io/tx/u8rqU4…PKW2" }
+  "merkle_root": "13db67d09ebb4705cf7011696a756415edaa4c617995c0fa73a8331b874ce735",
+  "base": {
+    "tx": "0x35a9cec2ec1d16ca332a21d1a52103e7c338b60fe76a1e6add3d6c3f59ec9e6e",
+    "explorer_url": "https://basescan.org/tx/0x35a9cec2ec1d16ca332a21d1a52103e7c338b60fe76a1e6add3d6c3f59ec9e6e"
+  },
+  "solana": {
+    "tx": "3tdLus9Q9qXKECWhfaG4To7Xak8ns9rCeMPwTNgPywrvswWPJeREvH8UV3ysFYzvM5xsw627xGfxN8BE53LBMdbX",
+    "explorer_url": "https://solscan.io/tx/3tdLus9Q9qXKECWhfaG4To7Xak8ns9rCeMPwTNgPywrvswWPJeREvH8UV3ysFYzvM5xsw627xGfxN8BE53LBMdbX"
+  },
+  "anchored_at": 1778716047,
+  "note": "screen verdict for 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
 }
 
-done — proof on Base: https://basescan.org/tx/0x7fb4…4e96
-       proof on Solana: https://solscan.io/tx/u8rqU4…PKW2
+done — proof on Base: https://basescan.org/tx/0x35a9cec2ec1d16ca332a21d1a52103e7c338b60fe76a1e6add3d6c3f59ec9e6e
+        proof on Solana: https://solscan.io/tx/3tdLus9Q9qXKECWhfaG4To7Xak8ns9rCeMPwTNgPywrvswWPJeREvH8UV3ysFYzvM5xsw627xGfxN8BE53LBMdbX
 ```
+
+Both explorer URLs above are real and clickable — anyone can verify the hash actually landed on-chain.
 
 ## What's happening under the hood
 
