@@ -1,56 +1,107 @@
-# JPYC Inc. — outreach email
+# JPYC Inc. — outreach
 
 **Domain note:** JPYC's corporate domain is `jpyc.co.jp`, not `jpyc.jp`. No
-public catch-all email is exposed. Three real paths:
-
-1. Contact form: https://corporate.jpyc.co.jp/contact — primary intake.
-   Paste the body below into the message field; name/email/subject are
-   separate fields.
-2. LinkedIn DM to **Noritaka Okabe** (CEO). Email pattern is `n***@jpyc.co.jp`
-   but full handle isn't public — LinkedIn beats guessing. Use the
-   trimmed variant: drop the honest-scoping paragraph to one line.
-3. X/Twitter DM to **@jpyc_official** — public/press channel; will route
-   internally.
-
-**Subject:** `First x402 service accepting JPYC — agent-payments distribution`
-
-Bilingual: JP prefix establishes context for a JP team, EN body carries the
-specifics. If LinkedIn-DM-ing Okabe directly, swap "Hi JPYC team" →
-"Okabe-san," and trim the honest-scoping paragraph to one line.
+public catch-all email is exposed. Three real intake channels, each with
+its own body variant below.
 
 ---
 
-突然のご連絡を失礼いたします。anchor-x402 を一人で開発しております Christopher Ferjo と申します。
+## Path A — Corporate inquiry form (recommended, primary)
 
-このたび、おそらく世界で初めてとなる「JPYC で決済される x402 サービス」を立ち上げました。x402（Coinbase と Cloudflare が推進する HTTP 402 ベースの支払い規格）は、AI エージェントが API を呼び出すたびに自動でステーブルコイン決済を行う新しい標準です。これまで世界中の x402 サービスはすべて USDC 決済のみで、日本円ステーブルコインで支払う手段は存在しませんでした。anchor-x402 では Polygon 上の JPYC を USDC と並ぶ第 3 のレールとして組み込み、`/v1/anchor` は **1 回 1 円** で呼び出せます。日本円ネイティブなエージェント経済への入口として、メディアにも訴求しやすい仕様と考えております。
+URL: https://corporate.jpyc.co.jp/contact
 
-以下、英文にて、ご相談したい 3 点も含めて詳細をまとめております。ご一読いただけますと幸いです。
+The form is explicitly for **協業・業務提携、広報、メディア出演・講演依頼**
+(collaborations / partnerships / PR / media). Header text reminds readers
+that general JPYC use does NOT require permission, so the body must read
+as a partnership/PR proposal — not a "can I use JPYC?" question.
 
----
+Recipient is JP corporate BD; JP-dominant body lands best.
 
-Hi JPYC team,
+### Form fields
 
-Christopher Ferjo here, solo builder behind anchor-x402.
+| Field | Value |
+|---|---|
+| お名前 | `Christopher Ferjo`（クリストファー・ファージョ） |
+| 会社名 | `anchor-x402` |
+| メール | `cferjo@gmail.com` |
+| Inquiry category (if dropdown) | 協業・業務提携 |
 
-I just shipped what's — as best I can tell — the first x402 service that settles in JPYC. x402 (Coinbase + Cloudflare-backed) is the emerging HTTP 402 standard for AI agents paying APIs per call. To date, every x402 service on the internet has settled exclusively in USDC. anchor-x402 now accepts JPYC on Polygon alongside USDC, with /v1/anchor priced at ¥1 per call — a press-friendly entry point into the agentic API economy.
+### Message body (JP, paste into お問い合わせ内容)
 
-Honest scoping: anchor-x402 is the 67th caller of JPYC v2's transferWithAuthorization. The prior 66 are 16 distinct addresses making test-pattern transfers over the past 7 months — none was wired to a paying service. anchor-x402 is the first production service rail, not the first transfer.
+```
+はじめまして。anchor-x402 を一人で開発しております Christopher Ferjo（クリストファー・ファージョ）と申します。本件は「協業・業務提携・広報」のご相談としてご連絡差し上げております。
 
-Live: https://api.anchor-x402.com
-Example settle: https://polygonscan.com/tx/0x8c465c282e336bb389a992b47fe9370ba6b5d68d51e73705706f09b096b24a14
-Repo: https://github.com/hypeprinter007-stack/anchor-x402
+このたび、おそらく世界で初めてとなる「JPYC で決済される x402 サービス」を立ち上げました。x402（Coinbase と Cloudflare が推進する HTTP 402 ベースの支払い規格）は、AI エージェントが API を呼び出すたびに自動でステーブルコイン決済を行う新しい標準です。これまで世界中の x402 サービスはすべて USDC 決済のみで、日本円ステーブルコインで支払う手段は存在しませんでした。
 
-I want to make it easy for any JPYC holder to spend on AI agents — and easy for JPYC to point at a live integration when JP fintech press calls. Three things from you would help:
+anchor-x402 では Polygon 上の JPYC を USDC と並ぶ第 3 の決済レールとして組み込み、/v1/anchor は 1 回 1 円 で呼び出せます。日本円ネイティブなエージェント経済への入口として、メディアにも訴求しやすい仕様と考えております。
 
-1. An intro to your BD / marketing / partnerships team — the people who care about JPYC adoption stories.
-2. Your preferred framing — how you'd like this kind of integration described in your channels (or in mine).
-3. A short conversation about a JPYC-priced endpoint catalog you'd want to feature. I can adjust pricing tiers or add JP-relevant endpoints quickly.
+【誠実な前提】anchor-x402 は JPYC v2 の transferWithAuthorization を呼び出した 67 番目のサービスです。過去 66 件は 16 アドレスからの単発的なテスト送金で、API 課金サービスとして 402 経由で運用されているのは anchor-x402 が初めてです。「最初の送金」ではなく「最初のプロダクションサービスレール」が正確な表現です。
 
-Self-funded, not raising. Happy to do a 5-minute live demo: Claude Desktop paying anchor-x402 ¥1 over MCP — brings the agent-payments + stablecoin story together on one screen.
+▼ ライブ環境
+- API: https://api.anchor-x402.com
+- 決済例: https://polygonscan.com/tx/0x8c465c282e336bb389a992b47fe9370ba6b5d68d51e73705706f09b096b24a14
+- リポジトリ: https://github.com/hypeprinter007-stack/anchor-x402
 
-Thanks for considering,
+ご相談したい点は次の 3 つです。
 
-Chris Ferjo
+1. JPYC 様の事業開発・広報・パートナーシップ担当の方をご紹介いただきたく存じます。JPYC を「エージェント経済での採用事例」として活用いただける方々と直接お話したい意図です。
+2. 御社の発信における望ましいフレーミング(表現方法・タイトル付け)をご教示いただけますと幸いです。当方の発信でも整合性を取りたいと考えております。
+3. 日本市場で訴求しやすい価格帯・エンドポイント構成についてご意見をいただきたいです。価格や対応エンドポイントは柔軟に調整可能です。
+
+なお、本件は資金調達の話ではなく、自己資金で運用しているサービスのパートナーシップ提案です。MCP 経由で Claude Desktop が anchor-x402 に 1 円を支払う 5 分間のデモも、ご希望あればすぐお見せできます。
+
+何卒よろしくお願い申し上げます。
+
+Christopher Ferjo
 cferjo@gmail.com
-anchor-x402.com
+https://anchor-x402.com
 Twitter: @hypeprinter
+```
+
+---
+
+## Path B — LinkedIn DM to Noritaka Okabe (CEO)
+
+Use if Path A doesn't get a response in ~5 business days. ZoomInfo confirms
+his email pattern is `n***@jpyc.co.jp` but full handle isn't public — LinkedIn
+beats guessing.
+
+LinkedIn caps practical DM length at ~2 screens. Open in JP, switch to EN
+for the asks since DM is informal:
+
+```
+岡部様
+
+突然のご連絡を失礼いたします。anchor-x402 を一人で開発している Christopher Ferjo と申します。
+
+このたび、おそらく世界で初めてとなる「JPYC で決済される x402 サービス」を立ち上げました。x402 は AI エージェントが API 呼び出しごとに支払う HTTP 402 ベースの新しい標準（Coinbase・Cloudflare 後押し）です。/v1/anchor は 1 回 1 円。決済例: https://polygonscan.com/tx/0x8c465c282e336bb389a992b47fe9370ba6b5d68d51e73705706f09b096b24a14
+
+Honest scoping: 67th caller of JPYC v2's transferWithAuthorization, but first production service rail. The prior 66 were test transfers.
+
+Self-funded, not raising. Three asks: (1) intro to your BD/PR team; (2) preferred framing for this kind of integration; (3) JPYC-priced endpoint catalog you'd want featured. 5-min live demo available.
+
+何卒よろしくお願いいたします。
+Chris
+cferjo@gmail.com · anchor-x402.com
+```
+
+---
+
+## Path C — X DM to @jpyc_official
+
+Short, in JP. They run public-facing comms; will route to internal team.
+
+```
+はじめまして。「JPYC で決済される x402 サービス」を立ち上げました（anchor-x402）。AI エージェントが /v1/anchor を 1 円で呼び出せます。
+ライブ: https://api.anchor-x402.com
+決済例: https://polygonscan.com/tx/0x8c465c282e336bb389a992b47fe9370ba6b5d68d51e73705706f09b096b24a14
+広報・BD 担当の方をご紹介いただくことは可能でしょうか？
+```
+
+---
+
+## Native-speaker review notes (apply before sending)
+
+- 「世界で初めてとなる」 — strong claim. Native eye may soften to 「私の知る限り初の」 (first to my knowledge).
+- 「メディアにも訴求しやすい仕様」 — signals you understand JPYC cares about press. May want more humble phrasing.
+- Personal name in カタカナ: included Christopher Ferjo（クリストファー・ファージョ） for readability. Confirm phonetic preference.
