@@ -139,7 +139,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=False,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["content-type", "x-payment", "authorization"],
     expose_headers=["payment-response", "x-payment-response", "payment-required"],
     max_age=86400,
