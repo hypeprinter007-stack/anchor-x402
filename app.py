@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from mangum import Mangum
 
@@ -129,6 +130,20 @@ async def _access_log(request, call_next):
     host = request.headers.get("host", "").split(":")[0]
     print(f"access host={host} method={request.method} path={request.url.path} status={response.status_code}")
     return response
+
+# CORS for browser-based x402 clients (Claude Desktop wallets, chat.anchor-x402.com,
+# any in-browser agent). Allow * origin — payment auth via X-PAYMENT replaces
+# origin-based security; no cookies are involved. Expose the x402 response headers
+# so JS can read 402 challenges + settle confirmations.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["content-type", "x-payment", "authorization"],
+    expose_headers=["payment-response", "x-payment-response", "payment-required"],
+    max_age=86400,
+)
 
 cdp_facilitator = HTTPFacilitatorClient(
     FacilitatorConfig(
@@ -676,6 +691,22 @@ x402_routes = {
         description="Letter grade + marginalia (GET wrapper, query: target) — $0.01 USDC",
     ),
 }
+
+
+# Per-accept resource binding — echo the resource URL into each accepts[].extra
+# so agents verifying signatures see the exact URL they're authorizing for each
+# (network, asset) option. The top-level resource.url is already set by the
+# middleware, but redundant per-accept echo helps multi-rail offerings where a
+# client may sign across several networks in one challenge.
+_RESOURCE_BASE = os.environ.get("PUBLIC_BASE_URL", "https://api.anchor-x402.com")
+for _route_key, _cfg in x402_routes.items():
+    _method, _path = _route_key.split(" ", 1)
+    _resource_url = f"{_RESOURCE_BASE}{_path}"
+    _accepts = _cfg.accepts if isinstance(_cfg.accepts, list) else [_cfg.accepts]
+    for _opt in _accepts:
+        if _opt.extra is None:
+            _opt.extra = {}
+        _opt.extra["resource"] = _resource_url
 
 
 from services import secrets as _secrets_mod
