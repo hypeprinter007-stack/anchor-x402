@@ -131,20 +131,6 @@ async def _access_log(request, call_next):
     print(f"access host={host} method={request.method} path={request.url.path} status={response.status_code}")
     return response
 
-# CORS for browser-based x402 clients (Claude Desktop wallets, chat.anchor-x402.com,
-# any in-browser agent). Allow * origin — payment auth via X-PAYMENT replaces
-# origin-based security; no cookies are involved. Expose the x402 response headers
-# so JS can read 402 challenges + settle confirmations.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["content-type", "x-payment", "authorization"],
-    expose_headers=["payment-response", "x-payment-response", "payment-required"],
-    max_age=86400,
-)
-
 cdp_facilitator = HTTPFacilitatorClient(
     FacilitatorConfig(
         url="https://api.cdp.coinbase.com/platform/v2/x402",
@@ -718,6 +704,22 @@ async def x402_mw(request, call_next):
     if _INTERNAL_AUTH and request.headers.get("x-internal-auth") == _INTERNAL_AUTH:
         return await call_next(request)
     return await payment_middleware(x402_routes, x402_server)(request, call_next)
+
+
+# CORS registered LAST so it ends up outermost in the Starlette stack — must
+# wrap x402_mw so that short-circuited 402 responses still receive ACAO +
+# expose-headers. Allow * origin (payment auth via X-PAYMENT replaces origin-
+# based security; no cookies involved). Expose the x402 response headers so
+# browser-resident agents can read 402 challenges + settle confirmations.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["content-type", "x-payment", "authorization"],
+    expose_headers=["payment-response", "x-payment-response", "payment-required"],
+    max_age=86400,
+)
 
 
 @app.get("/health")
