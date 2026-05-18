@@ -1221,9 +1221,15 @@ def _serve_chat_html() -> FileResponse:
     )
 
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 def root(request: Request):
-    """Root: chat UI on the chat.* subdomain, docs redirect on the api.* one."""
+    """Root: chat UI on the chat.* subdomain, docs redirect on the api.* one.
+
+    HEAD is accepted because the Facebook / Twitter / Slack / Discord link-
+    preview scrapers do HEAD as a preflight before GET; if HEAD 405s they
+    report the URL as unreachable and drop the preview card entirely.
+    Starlette auto-strips the body for HEAD responses.
+    """
     host = request.headers.get("host", "")
     if host.startswith("chat."):
         return _serve_chat_html()
