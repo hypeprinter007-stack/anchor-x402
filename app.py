@@ -8,6 +8,7 @@ Pay-per-call: $0.005 USDC, settle on Base or Solana.
 """
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import os
@@ -699,11 +700,34 @@ from services import secrets as _secrets_mod
 _INTERNAL_AUTH = _secrets_mod.get("internal_auth_secret", env_fallback="INTERNAL_AUTH_SECRET")
 
 
+def _inject_402_challenge_body(response):
+    """The x402 Python SDK defaults to header-only 402 challenges: the full
+    PaymentRequired JSON lands in the `payment-required` response header
+    (base64-encoded) and the body is `{}`. The canonical x402 spec — and
+    strict third-party tools like x402trace — expect the challenge JSON in
+    the response body too. Decode the header and inject it as the JSON body
+    so anchor-x402 is compatible with both surface styles.
+    """
+    pr_header = response.headers.get("payment-required")
+    if not pr_header:
+        return response
+    try:
+        challenge = json.loads(base64.b64decode(pr_header))
+    except Exception:
+        return response
+    from fastapi.responses import JSONResponse as _JSONResponse
+    new_headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
+    return _JSONResponse(content=challenge, status_code=402, headers=new_headers)
+
+
 @app.middleware("http")
 async def x402_mw(request, call_next):
     if _INTERNAL_AUTH and request.headers.get("x-internal-auth") == _INTERNAL_AUTH:
         return await call_next(request)
-    return await payment_middleware(x402_routes, x402_server)(request, call_next)
+    response = await payment_middleware(x402_routes, x402_server)(request, call_next)
+    if response.status_code == 402:
+        response = _inject_402_challenge_body(response)
+    return response
 
 
 # CORS registered LAST so it ends up outermost in the Starlette stack — must
