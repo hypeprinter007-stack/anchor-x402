@@ -208,6 +208,8 @@ _PRICES = {
 
 
 def _check_caps(messages: list[dict]) -> None:
+    if not messages:
+        raise ValueError("messages: at least one message required")
     if len(messages) > _MAX_CONVERSATION_MESSAGES:
         raise ValueError(f"conversation too long ({len(messages)} > {_MAX_CONVERSATION_MESSAGES})")
     for m in messages:
