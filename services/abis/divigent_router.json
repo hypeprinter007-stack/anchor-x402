@@ -1,0 +1,172 @@
+[
+  {
+    "type": "function",
+    "name": "initialize",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setOperator",
+    "inputs": [
+      {"name": "operator", "type": "address"},
+      {"name": "approved", "type": "bool"}
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "deposit",
+    "inputs": [
+      {"name": "amount", "type": "uint256"},
+      {"name": "wallet", "type": "address"},
+      {"name": "minSharesOut", "type": "uint256"}
+    ],
+    "outputs": [{"name": "dvUsdcMinted", "type": "uint256"}],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "withdraw",
+    "inputs": [
+      {"name": "shares", "type": "uint256"},
+      {"name": "wallet", "type": "address"},
+      {"name": "minUsdcOut", "type": "uint256"}
+    ],
+    "outputs": [{"name": "usdcReturned", "type": "uint256"}],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "previewDeposit",
+    "inputs": [{"name": "assets", "type": "uint256"}],
+    "outputs": [{"name": "dvUsdcOut", "type": "uint256"}],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "previewWithdrawNet",
+    "inputs": [
+      {"name": "desiredNetUSDC", "type": "uint256"},
+      {"name": "wallet", "type": "address"}
+    ],
+    "outputs": [{"name": "dvUsdcShares", "type": "uint256"}],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getPosition",
+    "inputs": [{"name": "wallet", "type": "address"}],
+    "outputs": [
+      {"name": "depositedUSDC", "type": "uint256"},
+      {"name": "currentValue", "type": "uint256"},
+      {"name": "accruedYield", "type": "uint256"}
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "withdrawCapacity",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "components": [
+          {"name": "aaveAssetsHeld", "type": "uint256"},
+          {"name": "aaveIdleLiquidity", "type": "uint256"},
+          {"name": "aaveWithdrawCap", "type": "uint256"},
+          {"name": "morphoAssetsHeld", "type": "uint256"},
+          {"name": "morphoWithdrawCap", "type": "uint256"},
+          {"name": "morphoReachable", "type": "bool"},
+          {"name": "totalWithdrawCap", "type": "uint256"}
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "oracleStatus",
+    "inputs": [],
+    "outputs": [
+      {"name": "lastObservationTime_", "type": "uint256"},
+      {"name": "fresh", "type": "bool"}
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "depositsPaused",
+    "inputs": [],
+    "outputs": [{"name": "", "type": "bool"}],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "MIN_DEPOSIT",
+    "inputs": [],
+    "outputs": [{"name": "", "type": "uint256"}],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "currentTVLCap",
+    "inputs": [],
+    "outputs": [{"name": "", "type": "uint256"}],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "authorizedWallets",
+    "inputs": [{"name": "", "type": "address"}],
+    "outputs": [{"name": "", "type": "bool"}],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isOperator",
+    "inputs": [
+      {"name": "", "type": "address"},
+      {"name": "", "type": "address"}
+    ],
+    "outputs": [{"name": "", "type": "bool"}],
+    "stateMutability": "view"
+  },
+  {"type": "error", "name": "DepositsPausedError", "inputs": []},
+  {"type": "error", "name": "InsufficientPermitAllowance", "inputs": [
+    {"name": "currentAllowance", "type": "uint256"},
+    {"name": "required", "type": "uint256"}
+  ]},
+  {"type": "error", "name": "InsufficientShares", "inputs": [
+    {"name": "requested", "type": "uint256"},
+    {"name": "available", "type": "uint256"}
+  ]},
+  {"type": "error", "name": "InsufficientVaultLiquidity", "inputs": [
+    {"name": "requested", "type": "uint256"},
+    {"name": "available", "type": "uint256"}
+  ]},
+  {"type": "error", "name": "InvalidAmount", "inputs": []},
+  {"type": "error", "name": "MorphoUnreachable", "inputs": []},
+  {"type": "error", "name": "NoPositionToWithdraw", "inputs": []},
+  {"type": "error", "name": "NoSafeRoute", "inputs": [{"name": "amount", "type": "uint256"}]},
+  {"type": "error", "name": "NotAuthorised", "inputs": []},
+  {"type": "error", "name": "PositionRoundsToZero", "inputs": []},
+  {"type": "error", "name": "SlippageExceeded", "inputs": [
+    {"name": "received", "type": "uint256"},
+    {"name": "minExpected", "type": "uint256"}
+  ]},
+  {"type": "error", "name": "StaleOracle", "inputs": []},
+  {"type": "error", "name": "TVLCapExceeded", "inputs": [
+    {"name": "requested", "type": "uint256"},
+    {"name": "cap", "type": "uint256"}
+  ]},
+  {"type": "error", "name": "UnserviceableNet", "inputs": [
+    {"name": "desiredNetUSDC", "type": "uint256"},
+    {"name": "maxDeliverable", "type": "uint256"}
+  ]},
+  {"type": "error", "name": "WalletAlreadyAuthorised", "inputs": []},
+  {"type": "error", "name": "ZeroAmount", "inputs": []}
+]

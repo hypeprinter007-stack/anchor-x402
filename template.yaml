@@ -109,6 +109,16 @@ Parameters:
     Type: String
     Default: ""
     Description: ACM certificate ARN for GatewayCustomDomain (this region). Required when GatewayCustomDomain is set.
+  DivigentEnabled:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: Set to 'true' to enable the Divigent yield integration. When false the cron Lambdas short-circuit and do nothing.
+  DivigentOperatorPrivateKey:
+    Type: String
+    NoEcho: true
+    Default: ""
+    Description: Lambda-held operator wallet private key (0x-prefixed). Authorized via TreasuryAddress.setOperator() to call deposit/withdraw on Divigent on the treasury's behalf. Stored in Secrets Manager.
 
 Conditions:
   HasAlarmEmail: !Not [!Equals [!Ref AlarmEmail, ""]]
@@ -218,6 +228,70 @@ Resources:
             Path: /{proxy+}
             Method: ANY
 
+  # ---------------------------------------------------------------------
+  # Divigent yield integration — Lambda-native sidecar pattern.
+  # Two scheduled Lambdas: a 5-min idle-USDC sweeper and a 1-hour oracle
+  # freshness keeper. Counterpart to signalfuse-divigent-router, which runs
+  # the same protocol from a long-running Node sidecar. Both functions
+  # short-circuit when DivigentEnabled=false, so they're safe to deploy
+  # before the operator wallet is funded + authorized.
+  # ---------------------------------------------------------------------
+  DivigentSweepFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      CodeUri: ./
+      Handler: services.divigent_cron.sweep_handler
+      Timeout: 120
+      MemorySize: 512
+      Environment:
+        Variables:
+          TREASURY_ADDRESS: !Ref TreasuryAddress
+          BASE_RPC_URL: https://mainnet.base.org
+          ANCHOR_SECRET_ARN: !Ref AnchorRuntimeSecret
+          DIVIGENT_ENABLED: !Ref DivigentEnabled
+      Events:
+        SweepSchedule:
+          Type: Schedule
+          Properties:
+            Schedule: rate(5 minutes)
+            Description: Periodic Divigent idle-USDC sweep
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: !Ref AnchorRuntimeSecret
+
+  DivigentOracleKeeperFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      CodeUri: ./
+      Handler: services.divigent_cron.oracle_keeper_handler
+      Timeout: 60
+      MemorySize: 512
+      Environment:
+        Variables:
+          TREASURY_ADDRESS: !Ref TreasuryAddress
+          BASE_RPC_URL: https://mainnet.base.org
+          ANCHOR_SECRET_ARN: !Ref AnchorRuntimeSecret
+          DIVIGENT_ENABLED: !Ref DivigentEnabled
+      Events:
+        OracleKeeperSchedule:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 hour)
+            Description: Divigent oracle freshness keeper
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: !Ref AnchorRuntimeSecret
+
   # Composite runtime secret. Seeded from CloudFormation parameters on
   # first deploy; rotate independently afterward via:
   #   aws secretsmanager update-secret --secret-id <arn> \
@@ -239,7 +313,8 @@ Resources:
           "cdp_api_key_secret": "${CdpApiKeySecret}",
           "base_api_key": "${BaseApiKey}",
           "agent_seed_phrase": "${AgentSeedPhrase}",
-          "internal_auth_secret": "${InternalAuthSecret}"
+          "internal_auth_secret": "${InternalAuthSecret}",
+          "divigent_operator_key": "${DivigentOperatorPrivateKey}"
         }
 
   AlarmTopic:

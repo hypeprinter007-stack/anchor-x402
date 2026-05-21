@@ -17,7 +17,7 @@ import time
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from mangum import Mangum
@@ -76,6 +76,7 @@ from services import aura as aura_svc
 from services import calldata_decode as calldata_decode_svc
 from services import chat as chat_svc
 from services import datetime_parse as datetime_parse_svc
+from services import divigent as divigent_svc
 from services import grade as grade_svc
 from services import intel_wallet as intel_wallet_svc
 from services import name_resolve as name_resolve_svc
@@ -1353,6 +1354,35 @@ async def agentverse_chat(request: Request):
             continue
 
     return {"status": "ok" if delivered else "failed", "error": last_err}
+
+
+# ── Divigent yield integration ─────────────────────────────────────────
+# Lambda-native counterpart to signalfuse-divigent-router (which runs as a
+# long-running Node sidecar). See services/divigent.py + services/divigent_cron.py.
+# The /event/* receivers mirror SignalFuse's contract so the same dashboard
+# pattern works against either integration shape.
+
+@app.get("/divigent/dashboard")
+def divigent_dashboard():
+    """Read-only snapshot of seller's Divigent position + idle USDC."""
+    return divigent_svc.get_dashboard_snapshot()
+
+
+@app.post("/divigent/event/{event_type}")
+async def divigent_event(event_type: str, request: Request):
+    """Lifecycle event sink. Accepts JSON bodies from any sidecar/cron
+    that posts to /divigent/event/<snapshot|idle-deposit|manual-deposit|
+    manual-withdraw|sweep-failure|non-fatal-error>. Logs and returns 204."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
+    logging.getLogger("divigent.events").info(
+        "divigent_event type=%s body=%s",
+        event_type,
+        json.dumps(body) if body is not None else "{}",
+    )
+    return Response(status_code=204)
 
 
 @app.get("/chat")

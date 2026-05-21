@@ -18,8 +18,9 @@ build: bundle
 
 # Invoked by SAM (BuildMethod: makefile). Lambda only needs the runtime files —
 # excluding node_modules, .venv, docs, tests, etc. keeps the unzipped artifact
-# under Lambda's 250 MB limit.
-build-AnchorFunction:
+# under Lambda's 250 MB limit. All three Lambdas share the same codebase
+# (AnchorFunction = FastAPI handler; the Divigent crons reuse services/*).
+build-AnchorFunction build-DivigentSweepFunction build-DivigentOracleKeeperFunction:
 	# Cross-compile from macOS arm64 to Lambda's Linux x86_64. Native modules
 	# (pydantic_core, cryptography, solders, ...) need the right wheel.
 	python3 -m pip install \
