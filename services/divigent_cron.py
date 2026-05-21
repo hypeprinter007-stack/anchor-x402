@@ -12,6 +12,11 @@ from __future__ import annotations
 
 import logging
 
+# Lambda's Python runtime installs a CloudWatch handler on the root logger,
+# but doesn't set a level. Without this line, INFO/DEBUG messages from this
+# module and services/divigent.py never reach CloudWatch.
+logging.getLogger().setLevel(logging.INFO)
+
 from services import divigent
 
 log = logging.getLogger("divigent.cron")
