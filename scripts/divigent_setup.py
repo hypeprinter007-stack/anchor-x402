@@ -148,6 +148,83 @@ def cmd_treasury_ops(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_bootstrap_treasury(args: argparse.Namespace) -> int:
+    """Sign + broadcast the 3 treasury bootstrap txs using the treasury key
+    from Secrets Manager / .env. Use this when the treasury key is already
+    available in this runtime; otherwise use `treasury-ops` to emit calldata
+    for an external signer."""
+    from services import secrets as _secrets
+    from web3 import Web3
+
+    operator = Web3.to_checksum_address(args.operator)
+    key = _secrets.get("treasury_evm_key", env_fallback="TREASURY_PRIVATE_KEY")
+    if not key:
+        print("treasury_evm_key not available — set TREASURY_PRIVATE_KEY in .env or ANCHOR_SECRET_ARN.", file=sys.stderr)
+        return 1
+
+    w3 = divigent._w3()
+    acct = w3.eth.account.from_key(key)
+    r = divigent._router(w3)
+    u = divigent._usdc(w3)
+
+    print(f"Treasury wallet:  {acct.address}")
+    print(f"Operator wallet:  {operator}")
+    print(f"Network:          base mainnet (chainId 8453)")
+    print()
+
+    # Skip steps that are already done — initialize() reverts on re-call;
+    # setOperator/approve are idempotent but cost gas needlessly.
+    plan = []
+    if not r.functions.authorizedWallets(acct.address).call():
+        plan.append(("initialize", r.functions.initialize()))
+    else:
+        print("✓ treasury already authorized (skipping initialize)")
+    if not r.functions.isOperator(acct.address, operator).call():
+        plan.append(("setOperator", r.functions.setOperator(operator, True)))
+    else:
+        print("✓ operator already approved (skipping setOperator)")
+    current_allowance = u.functions.allowance(
+        acct.address, Web3.to_checksum_address(divigent.ROUTER_ADDRESS)
+    ).call()
+    if current_allowance < 10**24:  # 1M USDC headroom — re-approve if dust
+        plan.append(("approve", u.functions.approve(
+            Web3.to_checksum_address(divigent.ROUTER_ADDRESS), MAX_UINT256,
+        )))
+    else:
+        print(f"✓ USDC allowance already set ({current_allowance} atomic, skipping approve)")
+
+    if not plan:
+        print("\nNothing to do. Run `status` to confirm.")
+        return 0
+
+    print(f"\nWill broadcast {len(plan)} transaction(s):")
+    for name, _ in plan:
+        print(f"  • {name}")
+    print()
+
+    nonce = w3.eth.get_transaction_count(acct.address)
+    for name, fn in plan:
+        tx = fn.build_transaction({
+            "from": acct.address,
+            "nonce": nonce,
+            "chainId": 8453,
+            "maxFeePerGas": w3.eth.gas_price,
+            "maxPriorityFeePerGas": w3.to_wei(0.001, "gwei"),
+        })
+        tx["gas"] = w3.eth.estimate_gas(tx)
+        signed = w3.eth.account.sign_transaction(tx, key)
+        h = w3.eth.send_raw_transaction(signed.raw_transaction)
+        tx_hex = "0x" + h.hex()
+        print(f"{name}: {tx_hex} — waiting for receipt…", flush=True)
+        receipt = w3.eth.wait_for_transaction_receipt(h, timeout=120)
+        status = "✓ confirmed" if receipt.status == 1 else "✗ reverted"
+        print(f"  {status} (block {receipt.blockNumber}, gas used {receipt.gasUsed})")
+        nonce += 1
+
+    print("\nDone. Verify with: python scripts/divigent_setup.py status")
+    return 0
+
+
 def cmd_record_oracle(_args: argparse.Namespace) -> int:
     result = divigent.record_oracle_observation()
     print(result)
@@ -160,8 +237,10 @@ def main() -> int:
 
     sub.add_parser("status", help="show live state of the integration")
     sub.add_parser("generate-operator", help="generate a fresh operator wallet")
-    t = sub.add_parser("treasury-ops", help="emit calldata for the 3 treasury bootstrap txs")
+    t = sub.add_parser("treasury-ops", help="emit calldata for the 3 treasury bootstrap txs (external signing)")
     t.add_argument("operator", help="0x-prefixed operator address (from generate-operator)")
+    bt = sub.add_parser("bootstrap-treasury", help="sign + broadcast the 3 treasury bootstrap txs using the treasury key")
+    bt.add_argument("operator", help="0x-prefixed operator address (from generate-operator)")
     sub.add_parser("record-oracle", help="manually trigger oracle.recordObservation()")
 
     args = p.parse_args()
@@ -169,6 +248,7 @@ def main() -> int:
         "status": cmd_status,
         "generate-operator": cmd_generate_operator,
         "treasury-ops": cmd_treasury_ops,
+        "bootstrap-treasury": cmd_bootstrap_treasury,
         "record-oracle": cmd_record_oracle,
     }[args.cmd](args)
 
