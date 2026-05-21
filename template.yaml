@@ -119,6 +119,10 @@ Parameters:
     NoEcho: true
     Default: ""
     Description: Lambda-held operator wallet private key (0x-prefixed). Authorized via TreasuryAddress.setOperator() to call deposit/withdraw on Divigent on the treasury's behalf. Stored in Secrets Manager.
+  BaseRpcUrl:
+    Type: String
+    Default: https://mainnet.base.org
+    Description: Base mainnet JSON-RPC URL. Default is the public node which rate-limits sustained tickers — override with a paid endpoint (Alchemy, QuickNode, CDP, dRPC). The key portion lives only in the CloudFormation parameter, not in source.
 
 Conditions:
   HasAlarmEmail: !Not [!Equals [!Ref AlarmEmail, ""]]
@@ -141,7 +145,7 @@ Resources:
           POLYGON_TREASURY_ADDRESS: !Ref PolygonTreasuryAddress
           POLYGON_RPC_URL: !Ref PolygonRpcUrl
           CDP_API_KEY_ID: !Ref CdpApiKeyId
-          BASE_RPC_URL: https://mainnet.base.org
+          BASE_RPC_URL: !Ref BaseRpcUrl
           SOLANA_RPC_URL: https://api.mainnet-beta.solana.com
           # Sensitive runtime values (treasury keys, CDP secret) are NOT
           # in env vars — they live in Secrets Manager and are fetched
@@ -248,7 +252,7 @@ Resources:
       Environment:
         Variables:
           TREASURY_ADDRESS: !Ref TreasuryAddress
-          BASE_RPC_URL: https://mainnet.base.org
+          BASE_RPC_URL: !Ref BaseRpcUrl
           ANCHOR_SECRET_ARN: !Ref AnchorRuntimeSecret
           DIVIGENT_ENABLED: !Ref DivigentEnabled
       Events:
@@ -276,7 +280,7 @@ Resources:
       Environment:
         Variables:
           TREASURY_ADDRESS: !Ref TreasuryAddress
-          BASE_RPC_URL: https://mainnet.base.org
+          BASE_RPC_URL: !Ref BaseRpcUrl
           ANCHOR_SECRET_ARN: !Ref AnchorRuntimeSecret
           DIVIGENT_ENABLED: !Ref DivigentEnabled
       Events:
