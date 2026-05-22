@@ -123,6 +123,25 @@ Parameters:
     Type: String
     Default: https://mainnet.base.org
     Description: Base mainnet JSON-RPC URL. Default is the public node which rate-limits sustained tickers — override with a paid endpoint (Alchemy, QuickNode, CDP, dRPC). The key portion lives only in the CloudFormation parameter, not in source.
+  DivigentMinOperatingBalance:
+    Type: String
+    Default: "5000000"
+    Description: Hard reserve floor in USDC atomic units (6 decimals). 5000000 = 5 USDC. Passed to assessLiquidity() as policyContext.minOperatingBalance.
+  DivigentUpcomingPayouts:
+    Type: String
+    Default: "0"
+    Description: Sum of known upcoming USDC outflows in atomic units. Anchor has none — leave 0.
+  DivigentMaxDeployablePercent:
+    Type: Number
+    Default: 95
+    MinValue: 0
+    MaxValue: 100
+    Description: Max share of current wallet USDC that may be deployed. Anchor has only gas outflows so this can be aggressive.
+  DivigentRiskPreference:
+    Type: String
+    Default: "conservative"
+    AllowedValues: ["conservative", "balanced", "capital-efficient"]
+    Description: Liquidity posture preset for assessLiquidity(). Conservative for first production runs; can bump to balanced/capital-efficient via stack update.
 
 Conditions:
   HasAlarmEmail: !Not [!Equals [!Ref AlarmEmail, ""]]
@@ -234,12 +253,35 @@ Resources:
 
   # ---------------------------------------------------------------------
   # Divigent yield integration — Lambda-native sidecar pattern.
-  # Two scheduled Lambdas: a 5-min idle-USDC sweeper and a 1-hour oracle
-  # freshness keeper. Counterpart to signalfuse-divigent-router, which runs
-  # the same protocol from a long-running Node sidecar. Both functions
-  # short-circuit when DivigentEnabled=false, so they're safe to deploy
-  # before the operator wallet is funded + authorized.
+  #
+  # Three Lambdas:
+  #   DivigentIntelligenceFunction (Node 22) — wraps @divigent/sdk's read-only
+  #     assessLiquidity(). Returns JSON decisions; never signs or broadcasts.
+  #     The SDK's intelligence math stays compiled inside this Lambda.
+  #   DivigentSweepFunction (Python) — every 5 min asks the intelligence Lambda
+  #     what to do, then executes (deposit / withdraw) via operator-delegated
+  #     signing. Treasury key never enters Lambda.
+  #   DivigentOracleKeeperFunction (Python) — every hour pings the Divigent
+  #     oracle to dodge `StaleOracle()` reverts.
+  #
+  # Counterpart to signalfuse-divigent-router (long-running Node sidecar).
+  # All functions short-circuit when DivigentEnabled=false.
   # ---------------------------------------------------------------------
+
+  DivigentIntelligenceFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      CodeUri: ./services/divigent-intelligence
+      Handler: index.handler
+      Runtime: nodejs22.x
+      Timeout: 30
+      MemorySize: 512
+      Environment:
+        Variables:
+          BASE_RPC_URL: !Ref BaseRpcUrl
+
   DivigentSweepFunction:
     Type: AWS::Serverless::Function
     Metadata:
@@ -255,18 +297,27 @@ Resources:
           BASE_RPC_URL: !Ref BaseRpcUrl
           ANCHOR_SECRET_ARN: !Ref AnchorRuntimeSecret
           DIVIGENT_ENABLED: !Ref DivigentEnabled
+          DIVIGENT_INTELLIGENCE_FUNCTION: !Ref DivigentIntelligenceFunction
+          DIVIGENT_MIN_OPERATING_BALANCE: !Ref DivigentMinOperatingBalance
+          DIVIGENT_UPCOMING_PAYOUTS: !Ref DivigentUpcomingPayouts
+          DIVIGENT_MAX_DEPLOYABLE_PERCENT: !Ref DivigentMaxDeployablePercent
+          DIVIGENT_RISK_PREFERENCE: !Ref DivigentRiskPreference
       Events:
         SweepSchedule:
           Type: Schedule
           Properties:
             Schedule: rate(5 minutes)
-            Description: Periodic Divigent idle-USDC sweep
+            Description: Divigent assess-and-act cycle (intelligence-driven deposit/recall)
       Policies:
         - Statement:
             - Effect: Allow
               Action:
                 - secretsmanager:GetSecretValue
               Resource: !Ref AnchorRuntimeSecret
+            - Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource: !GetAtt DivigentIntelligenceFunction.Arn
 
   DivigentOracleKeeperFunction:
     Type: AWS::Serverless::Function

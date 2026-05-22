@@ -1,16 +1,21 @@
 """Divigent yield router integration — serverless Python pattern.
 
-Wraps Divigent's vault router (Base mainnet) so anchor-x402 can route idle
-treasury USDC into Divigent yield without a long-running sidecar process.
+Two-layer architecture for the v1.0.3+ liquidity intelligence flow:
 
-Pattern: operator delegation. The treasury wallet (cold) calls
-`router.setOperator(operatorAddr, true)` once at setup. Thereafter, a
-Lambda-held operator wallet signs deposit/withdraw transactions on the
-treasury's behalf via `deposit(amount, treasury, minSharesOut)`. The
-treasury private key never enters a Lambda execution environment.
+  Intelligence layer (Node Lambda, services/divigent-intelligence/):
+    Wraps @divigent/sdk's `assessLiquidity()`. Returns JSON decisions —
+    `recommendedAction` (none/deploy/recall), amounts, reserve targets,
+    venue health. Reads only; no signing. Keeps Divigent's intelligence
+    math compiled inside the SDK rather than ported into this codebase.
+
+  Execution layer (this module + services/divigent_cron.py):
+    Holds the operator key (Secrets Manager) and signs the deposit /
+    withdraw transactions Divigent recommended, on behalf of the cold
+    treasury wallet via operator delegation (`router.setOperator()`).
+    The treasury private key never enters Lambda.
 
 Companion to https://github.com/hypeprinter007-stack/signalfuse-divigent-router
-(which uses the same protocol from a long-running Node sidecar instead).
+(same protocol from a long-running Node sidecar).
 """
 from __future__ import annotations
 
@@ -18,6 +23,8 @@ import json
 import logging
 import os
 from pathlib import Path
+
+import boto3
 
 from services import secrets
 
@@ -39,6 +46,16 @@ MIN_HOT_USDC_ATOMIC = int(float(os.getenv("DIVIGENT_MIN_HOT_USDC", "5")) * 1_000
 SLIPPAGE_BPS = int(os.getenv("DIVIGENT_SLIPPAGE_BPS", "50"))
 
 DIVIGENT_ENABLED = os.getenv("DIVIGENT_ENABLED", "false").lower() == "true"
+
+# Intelligence-layer policy. Defaults are anchor-treasury-shaped: $5 floor
+# (existing reserve floor), no scheduled outflows, deploy aggressively,
+# conservative posture for the first production runs.
+POLICY_MIN_OPERATING_BALANCE = int(os.getenv("DIVIGENT_MIN_OPERATING_BALANCE", str(MIN_HOT_USDC_ATOMIC)))
+POLICY_UPCOMING_PAYOUTS      = int(os.getenv("DIVIGENT_UPCOMING_PAYOUTS", "0"))
+POLICY_MAX_DEPLOYABLE_PCT    = int(os.getenv("DIVIGENT_MAX_DEPLOYABLE_PERCENT", "95"))
+POLICY_RISK_PREFERENCE       = os.getenv("DIVIGENT_RISK_PREFERENCE", "conservative")
+
+INTELLIGENCE_FUNCTION_NAME = os.getenv("DIVIGENT_INTELLIGENCE_FUNCTION", "")
 
 _ROUTER_ABI = json.loads((Path(__file__).parent / "abis" / "divigent_router.json").read_text())
 
@@ -151,62 +168,140 @@ def _build_and_send(w3, op_key: str, fn) -> str:
     return "0x" + tx_hash.hex()
 
 
-def sweep_idle(seller: str | None = None) -> dict:
-    """Deposit (idle - MIN_HOT_USDC) into Divigent on behalf of seller.
+_lambda_client = None
 
-    Returns {swept: bool, ...}. Idempotent in the sense that a re-invocation
-    with no fresh idle will return swept=false with a reason.
+
+def _lambda():
+    global _lambda_client
+    if _lambda_client is None:
+        _lambda_client = boto3.client("lambda", region_name=os.getenv("AWS_REGION", "us-east-1"))
+    return _lambda_client
+
+
+def assess_liquidity(seller: str, pending_payment_atomic: int = 0) -> dict:
+    """Synchronously invoke the Divigent intelligence Lambda.
+
+    Returns the parsed `LiquidityAssessment` dict (bigint fields as
+    decimal strings — caller converts to int as needed). Raises
+    RuntimeError on any non-ok response.
+    """
+    if not INTELLIGENCE_FUNCTION_NAME:
+        raise RuntimeError("DIVIGENT_INTELLIGENCE_FUNCTION not set")
+
+    payload = {
+        "action": "assessLiquidity",
+        "wallet": seller,
+        "pendingPaymentAmount": str(pending_payment_atomic) if pending_payment_atomic else None,
+        "policyContext": {
+            "minOperatingBalance": str(POLICY_MIN_OPERATING_BALANCE),
+            "upcomingKnownPayouts": str(POLICY_UPCOMING_PAYOUTS),
+            "maxDeployablePercent": POLICY_MAX_DEPLOYABLE_PCT,
+            "riskPreference": POLICY_RISK_PREFERENCE,
+        },
+        "includeVenueHealth": True,
+    }
+    resp = _lambda().invoke(
+        FunctionName=INTELLIGENCE_FUNCTION_NAME,
+        InvocationType="RequestResponse",
+        Payload=json.dumps(payload).encode(),
+    )
+    body = json.loads(resp["Payload"].read())
+    if not body.get("ok"):
+        raise RuntimeError(f"intelligence_lambda_failed: {body}")
+    return body["assessment"]
+
+
+def assess_and_act(seller: str | None = None) -> dict:
+    """v2 sweep — ask Divigent's intelligence layer what to do, then execute.
+
+    Replaces the static `idle - 5 USDC` formula. `recommendedAction` from
+    `assessLiquidity()` drives one of {none, deploy, recall}; the
+    execution layer (this function) signs + broadcasts via the operator
+    wallet.
     """
     from web3 import Web3
     if not DIVIGENT_ENABLED:
-        return {"swept": False, "reason": "divigent_disabled"}
+        return {"acted": False, "reason": "divigent_disabled"}
 
     seller = seller or _treasury_address()
     if not seller:
-        return {"swept": False, "reason": "treasury_address_unset"}
+        return {"acted": False, "reason": "treasury_address_unset"}
 
     op_key = _operator_key()
     if not op_key:
-        return {"swept": False, "reason": "operator_key_unset"}
+        return {"acted": False, "reason": "operator_key_unset"}
 
     w3 = _w3()
     seller_cs = Web3.to_checksum_address(seller)
     operator_cs = w3.eth.account.from_key(op_key).address
 
     r = _router(w3)
-    u = _usdc(w3)
-
     if r.functions.depositsPaused().call():
-        return {"swept": False, "reason": "deposits_paused"}
+        return {"acted": False, "reason": "deposits_paused"}
     if not r.functions.authorizedWallets(seller_cs).call():
-        return {"swept": False, "reason": "seller_not_initialized"}
+        return {"acted": False, "reason": "seller_not_initialized"}
     if not r.functions.isOperator(seller_cs, operator_cs).call():
-        return {"swept": False, "reason": "operator_not_authorized"}
+        return {"acted": False, "reason": "operator_not_authorized"}
 
-    idle = u.functions.balanceOf(seller_cs).call()
-    min_deposit = r.functions.MIN_DEPOSIT().call()
-    sweep_amount = max(0, idle - MIN_HOT_USDC_ATOMIC)
-    if sweep_amount < min_deposit:
+    assessment = assess_liquidity(seller_cs)
+    action = assessment.get("recommendedAction")
+    log.info("divigent assessment: action=%s status=%s wallet_balance=%s required_reserve=%s",
+             action, assessment.get("liquidityStatus"),
+             assessment.get("walletBalance"), assessment.get("requiredReserve"))
+
+    base_result = {"action": action, "assessment_summary": {
+        "liquidityStatus": assessment.get("liquidityStatus"),
+        "walletBalance": assessment.get("walletBalance"),
+        "requiredReserve": assessment.get("requiredReserve"),
+        "positionCurrentValue": assessment.get("positionCurrentValue"),
+    }}
+
+    if action == "none":
+        return {**base_result, "acted": False, "reason": "no_action_recommended"}
+
+    if action == "insufficient_liquidity":
         return {
-            "swept": False, "reason": "below_min_deposit",
-            "idle": idle, "min_deposit": min_deposit,
+            **base_result, "acted": False,
+            "reason": "insufficient_liquidity",
+            "recall_unavailable_code": assessment.get("recallUnavailableCode"),
+            "recall_unavailable_reason": assessment.get("recallUnavailableReason"),
         }
 
-    expected_shares = r.functions.previewDeposit(sweep_amount).call()
-    min_shares_out = expected_shares * (10_000 - SLIPPAGE_BPS) // 10_000
+    if action == "deploy":
+        amount = int(assessment.get("recommendedDeploymentAmount", "0"))
+        if amount <= 0:
+            return {**base_result, "acted": False, "reason": "deploy_amount_zero"}
+        expected_shares = r.functions.previewDeposit(amount).call()
+        min_shares_out = expected_shares * (10_000 - SLIPPAGE_BPS) // 10_000
+        tx_hex = _build_and_send(
+            w3, op_key,
+            r.functions.deposit(amount, seller_cs, min_shares_out),
+        )
+        log.info("divigent deploy: %d atomic USDC, tx=%s", amount, tx_hex)
+        return {
+            **base_result, "acted": True, "tx_hash": tx_hex,
+            "amount": amount, "expected_shares": expected_shares,
+            "min_shares_out": min_shares_out,
+        }
 
-    tx_hex = _build_and_send(
-        w3, op_key,
-        r.functions.deposit(sweep_amount, seller_cs, min_shares_out),
-    )
-    log.info("divigent sweep: %d atomic USDC, tx=%s", sweep_amount, tx_hex)
-    return {
-        "swept": True,
-        "tx_hash": tx_hex,
-        "amount": sweep_amount,
-        "expected_shares": expected_shares,
-        "min_shares_out": min_shares_out,
-    }
+    if action == "recall":
+        shares = int(assessment.get("recommendedRecallShares", "0") or "0")
+        amount = int(assessment.get("recommendedRecallAmount", "0"))
+        if shares <= 0 or amount <= 0:
+            return {**base_result, "acted": False, "reason": "recall_amount_zero"}
+        min_usdc_out = amount * (10_000 - SLIPPAGE_BPS) // 10_000
+        tx_hex = _build_and_send(
+            w3, op_key,
+            r.functions.withdraw(shares, seller_cs, min_usdc_out),
+        )
+        log.info("divigent recall: %d shares for %d atomic USDC, tx=%s", shares, amount, tx_hex)
+        return {
+            **base_result, "acted": True, "tx_hash": tx_hex,
+            "shares_burned": shares, "expected_amount": amount,
+            "min_usdc_out": min_usdc_out,
+        }
+
+    return {**base_result, "acted": False, "reason": "unknown_action"}
 
 
 def withdraw_net_usdc(seller: str, desired_net_usdc_atomic: int) -> dict:

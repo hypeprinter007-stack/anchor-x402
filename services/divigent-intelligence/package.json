@@ -1,0 +1,18 @@
+{
+  "name": "anchor-x402-divigent-intelligence",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Internal Lambda that wraps @divigent/sdk's read-only intelligence API (assessLiquidity). Returns JSON decisions to the Python sweep Lambda; never signs or broadcasts.",
+  "type": "module",
+  "main": "index.mjs",
+  "scripts": {
+    "lint": "node --check index.mjs"
+  },
+  "dependencies": {
+    "@divigent/sdk": "^1.0.3",
+    "viem": "^2.21.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

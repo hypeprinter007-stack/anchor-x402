@@ -2,7 +2,9 @@
 
 Two scheduled handlers:
 
-  sweep_handler           — every N minutes; runs services.divigent.sweep_idle().
+  sweep_handler           — every N minutes; runs services.divigent.assess_and_act().
+                            Asks the intelligence Lambda for a decision, executes
+                            it via operator-delegated signing.
   oracle_keeper_handler   — every hour; pings oracle.recordObservation().
 
 Both are intentionally thin. The bulk of the logic lives in services/divigent.py
@@ -23,13 +25,17 @@ log = logging.getLogger("divigent.cron")
 
 
 def sweep_handler(event, context):
-    """EventBridge target for the sweep schedule."""
+    """EventBridge target for the sweep schedule.
+
+    Renamed semantically — this is no longer a "sweep" in the static sense.
+    It's an assess-and-act cycle: ask Divigent what to do, then do it.
+    """
     try:
-        result = divigent.sweep_idle()
+        result = divigent.assess_and_act()
     except Exception as e:
-        log.exception("divigent sweep failed")
-        return {"swept": False, "reason": "exception", "error": f"{type(e).__name__}: {e}"}
-    log.info("divigent sweep result: %s", result)
+        log.exception("divigent assess_and_act failed")
+        return {"acted": False, "reason": "exception", "error": f"{type(e).__name__}: {e}"}
+    log.info("divigent assess_and_act result: %s", result)
     return result
 
 
