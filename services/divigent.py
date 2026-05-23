@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 
 import boto3
@@ -29,6 +30,28 @@ import boto3
 from services import secrets
 
 log = logging.getLogger("divigent")
+
+# Separate logger for structured metric events. CloudWatch Insights can
+# filter on the `DIVIGENT_EVENT` prefix to pull only telemetry lines,
+# leaving human-readable INFO logs as a separate stream for debugging.
+log_metrics = logging.getLogger("divigent.metrics")
+
+
+def _emit_event(event_type: str, **fields) -> None:
+    """Emit a structured JSON line for the Phase 3 metrics pipeline.
+
+    Prefixed with `DIVIGENT_EVENT ` so CloudWatch Insights filters can
+    cheaply isolate telemetry lines from the rest of the log volume.
+    """
+    payload = {
+        "event_type": event_type,
+        "ts": datetime.now(timezone.utc).isoformat(),
+        **fields,
+    }
+    try:
+        log_metrics.info("DIVIGENT_EVENT %s", json.dumps(payload, default=str))
+    except Exception:
+        pass  # telemetry must never break the cron
 
 # ── Divigent Base mainnet contracts ─────────────────────────────────
 # Source: https://github.com/Divigent/divigent-sdk/blob/main/src/core/chains.ts
@@ -212,6 +235,37 @@ def assess_liquidity(seller: str, pending_payment_atomic: int = 0) -> dict:
 
 
 def assess_and_act(seller: str | None = None) -> dict:
+    """Wrapper that emits a structured metrics event for Phase 3 telemetry.
+
+    See `_assess_and_act_impl` for the actual flow.
+    """
+    import time
+    t0 = time.monotonic()
+    result = _assess_and_act_impl(seller)
+    dur_ms = int((time.monotonic() - t0) * 1000)
+
+    # Pull the assessment summary back out for the event payload.
+    summary = result.get("assessment_summary") or {}
+    _emit_event(
+        "divigent.seller.cycle",
+        role="seller",
+        wallet=seller or _treasury_address(),
+        action=result.get("action") or "skipped",
+        acted=bool(result.get("acted")),
+        reason=result.get("reason"),
+        tx_hash=result.get("tx_hash"),
+        amount_atomic=result.get("amount") or result.get("expected_amount"),
+        risk_preference=POLICY_RISK_PREFERENCE,
+        liquidity_status=summary.get("liquidityStatus"),
+        wallet_balance_atomic=summary.get("walletBalance"),
+        position_current_value_atomic=summary.get("positionCurrentValue"),
+        required_reserve_atomic=summary.get("requiredReserve"),
+        duration_ms=dur_ms,
+    )
+    return result
+
+
+def _assess_and_act_impl(seller: str | None = None) -> dict:
     """v2 sweep — ask Divigent's intelligence layer what to do, then execute.
 
     Replaces the static `idle - 5 USDC` formula. `recommendedAction` from
@@ -335,10 +389,21 @@ def record_oracle_observation() -> dict:
     """Keeper call to refresh the oracle. Any address can call; gas paid by
     the operator wallet. Costs roughly $0.50/month if run hourly on Base."""
     if not DIVIGENT_ENABLED:
-        return {"recorded": False, "reason": "divigent_disabled"}
-    op_key = _operator_key()
-    if not op_key:
-        return {"recorded": False, "reason": "operator_key_unset"}
-    w3 = _w3()
-    tx_hex = _build_and_send(w3, op_key, _oracle(w3).functions.recordObservation())
-    return {"recorded": True, "tx_hash": tx_hex}
+        result = {"recorded": False, "reason": "divigent_disabled"}
+    else:
+        op_key = _operator_key()
+        if not op_key:
+            result = {"recorded": False, "reason": "operator_key_unset"}
+        else:
+            w3 = _w3()
+            tx_hex = _build_and_send(w3, op_key, _oracle(w3).functions.recordObservation())
+            result = {"recorded": True, "tx_hash": tx_hex}
+
+    _emit_event(
+        "divigent.keeper.cycle",
+        role="keeper",
+        recorded=bool(result.get("recorded")),
+        reason=result.get("reason"),
+        tx_hash=result.get("tx_hash"),
+    )
+    return result
