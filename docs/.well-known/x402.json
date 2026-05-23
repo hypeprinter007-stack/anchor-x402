@@ -1,7 +1,7 @@
 {
   "version": "2.0",
   "name": "anchor-x402",
-  "description": "Sixteen x402-paid services for AI agents on Base + Solana mainnet: nine commodity primitives (dual-chain hash anchoring, OFAC sanctions screening, signed decision attestation, mainnet tx decode, ENS/SNS resolution, USD spot price, EVM calldata decode, freeform datetime parsing, bundled wallet intelligence), one async due-diligence investigator ($7.77), one verifiable signed RNG (drop-in VRF for game studios), and five universal LLM endpoints (roast, oracle with on-chain anchored verdict, TL;DR, aura, grade). Plus a hosted chatbot at chat.anchor-x402.com. Pay-per-call USDC, no API keys, no accounts.",
+  "description": "Sixteen x402-paid services for AI agents on Base + Solana mainnet: nine commodity primitives (dual-chain hash anchoring, OFAC sanctions screening, signed decision attestation, mainnet tx decode, ENS/SNS resolution, USD spot price, EVM calldata decode, freeform datetime parsing, bundled wallet intelligence), one async due-diligence investigator ($1.77), one verifiable signed RNG (drop-in VRF for game studios), and five universal LLM endpoints (roast, oracle with on-chain anchored verdict, TL;DR, aura, grade). Plus a hosted chatbot at chat.anchor-x402.com. Pay-per-call USDC, no API keys, no accounts.",
   "operator": "anchor-x402",
   "homepage": "https://anchor-x402.com",
   "trust_portal": "https://anchor-x402.com/trust/",
@@ -175,8 +175,8 @@
     {
       "path": "/v1/investigate",
       "method": "POST",
-      "price_usd": 7.77,
-      "price": "$7.77",
+      "price_usd": 1.77,
+      "price": "$1.77",
       "category": "security",
       "description": "Agent-driven wallet due diligence. Multi-step LLM investigation: sanctions screen, on-chain history, identity correlation, counterparty graph. Delivered as signed markdown report + JSON sidecar with dual-chain anchor proof on Base + Solana. Async — returns job_id, poll /v1/investigate/status/{job_id}. ETA 5-10 min.",
       "input_schema": {

@@ -270,7 +270,7 @@ anchor-x402 is the public-utility commodity tier. An **institutional tier** with
 | **CDP Bazaar** | x402 service registry | auto-indexed via `extensions.bazaar` in 402 response | 15 services live |
 | **agentic.market** | x402 service search API | [api.agentic.market/v1/services/search?q=api.anchor-x402.com](https://api.agentic.market/v1/services/search?q=api.anchor-x402.com) | 15 services live |
 | **Agent Arena** | ERC-8004 on-chain agent registry (Base) | [agentarena.site/api/agent/8453/47261](https://agentarena.site/api/agent/8453/47261) | live (agentId 47261, full bundle) |
-| **Virtuals ACP** | Agent Commerce Protocol | smart wallet `0x68847…75a51` on Base; 9 GET resource offerings + 1 Job offering (`investigateWallet`, $7.77) | resources registered; Job offering pending import |
+| **Virtuals ACP** | Agent Commerce Protocol | smart wallet `0x68847…75a51` on Base; 9 GET resource offerings + 1 Job offering (`investigateWallet`, $1.77) | resources registered; Job offering pending import |
 | **Official MCP Registry** | Anthropic-maintained MCP server registry | [registry.modelcontextprotocol.io/v0/servers?search=anchor-x402](https://registry.modelcontextprotocol.io/v0/servers?search=anchor-x402) | published as `io.github.hypeprinter007-stack/anchor-x402` |
 | **Glama** | MCP server marketplace | [glama.ai/mcp/servers/hypeprinter007-stack/anchor-x402-mcp](https://glama.ai/mcp/servers/hypeprinter007-stack/anchor-x402-mcp) | License A / Quality A |
 | **mcp.so** | MCP server directory | [mcp.so/server/anchor-x402-mcp](https://mcp.so/server/anchor-x402-mcp) | live |

@@ -2,7 +2,7 @@
 
 > Fifteen x402-paid services for AI agents on Base + Solana mainnet, plus a hosted chatbot at chat.anchor-x402.com. Pay-per-call USDC, no API keys, no accounts, no subscriptions.
 
-anchor-x402 exposes 15 stateless services on AWS Lambda + FastAPI. Each endpoint returns an x402 v2 PaymentRequired challenge with `extensions.bazaar`; clients pay $0.001–$7.77 USDC per call from any Base or Solana wallet via EIP-3009 transferWithAuthorization. Settlement via Coinbase's CDP facilitator. Live at https://api.anchor-x402.com.
+anchor-x402 exposes 15 stateless services on AWS Lambda + FastAPI. Each endpoint returns an x402 v2 PaymentRequired challenge with `extensions.bazaar`; clients pay $0.001–$1.77 USDC per call from any Base or Solana wallet via EIP-3009 transferWithAuthorization. Settlement via Coinbase's CDP facilitator. Live at https://api.anchor-x402.com.
 
 ## Discovery (machine-readable)
 
@@ -30,7 +30,7 @@ anchor-x402 exposes 15 stateless services on AWS Lambda + FastAPI. Each endpoint
 ### Due diligence (1, async)
 | Endpoint | Price | What it does |
 |---|---|---|
-| POST /v1/investigate | $7.77 | Agent-driven multi-step wallet due diligence — signed markdown report + JSON sidecar + dual-chain anchor proof. ETA 5–10 min. Returns job_id; poll /v1/investigate/status/{job_id} |
+| POST /v1/investigate | $1.77 | Agent-driven multi-step wallet due diligence — signed markdown report + JSON sidecar + dual-chain anchor proof. ETA 5–10 min. Returns job_id; poll /v1/investigate/status/{job_id} |
 
 ### Universal LLM endpoints (5)
 | Endpoint | Price | What it does |

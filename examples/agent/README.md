@@ -77,7 +77,7 @@ No standing approval. No agent-burns-through-your-wallet failure mode. Each paid
 `agent.mjs` is 30 lines on purpose. To turn this into something useful:
 
 - **Sanctions webhook**: HTTP server that screens + anchors any address posted to it. Useful as a pre-flight for fund managers.
-- **Multi-step due diligence**: replace the simple `screen` with the bigger `/v1/investigate` ($7.77, async, signed markdown report).
+- **Multi-step due diligence**: replace the simple `screen` with the bigger `/v1/investigate` ($1.77, async, signed markdown report).
 - **CSV bulk-screen**: read a list of addresses, screen + anchor each, append results to a file. ~$0.006 per address.
 - **Compose with other x402 services**: the [`anchor-x402-mcp`](https://www.npmjs.com/package/anchor-x402-mcp) package exposes all 16 endpoints as MCP tools for Claude Desktop / Cursor / Codex / any MCP client. Same auth model; one Base wallet pays for everything.
 

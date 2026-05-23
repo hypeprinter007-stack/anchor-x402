@@ -63,7 +63,7 @@
     { "@type": "Offer", "price": "0.005", "priceCurrency": "USD", "name": "Wallet intelligence bundle, dual-chain hash anchor" },
     { "@type": "Offer", "price": "0.01",  "priceCurrency": "USD", "name": "Aura, grade, TL;DR, signed attestation" },
     { "@type": "Offer", "price": "0.05",  "priceCurrency": "USD", "name": "Roast, yes/no oracle (with dual-chain anchored verdict)" },
-    { "@type": "Offer", "price": "7.77",  "priceCurrency": "USD", "name": "Agent-driven wallet due-diligence investigation, async 5-10 min" }
+    { "@type": "Offer", "price": "1.77",  "priceCurrency": "USD", "name": "Agent-driven wallet due-diligence investigation, async 5-10 min" }
   ]
 }
 </script>
@@ -389,7 +389,7 @@ const ALL_SERVICES = [
   { name: "token price",     price: 0.001, what: "USD price for any major token" },
   { name: "parse datetime",  price: 0.001, what: "Freeform datetime → ISO 8601" },
   { name: "wallet intel",    price: 0.005, what: "Bundled wallet intelligence" },
-  { name: "investigate",     price: 7.770, what: "Multi-step due diligence (async, 5–10 min)" },
+  { name: "investigate",     price: 1.770, what: "Multi-step due diligence (async, 5–10 min)" },
   { name: "roast",           price: 0.050, what: "Witty roast of anything" },
   { name: "oracle",          price: 0.050, what: "Yes/no oracle with anchored verdict" },
   { name: "tldr",            price: 0.010, what: "Summarize URL or text" },
@@ -651,7 +651,7 @@ const TOOL_ROUTES = {
   token_price:        { method: "GET",  path: "/v1/price/token",     price: 0.001, query: ["symbol"] },
   parse_datetime:     { method: "POST", path: "/v1/parse/datetime",  price: 0.001 },
   wallet_intel:       { method: "GET",  path: "/v1/intel/wallet",    price: 0.005, query: ["wallet"] },
-  investigate_wallet: { method: "POST", path: "/v1/investigate",     price: 7.770, async: true },
+  investigate_wallet: { method: "POST", path: "/v1/investigate",     price: 1.770, async: true },
   roast:              { method: "POST", path: "/v1/roast",           price: 0.050 },
   oracle:             { method: "POST", path: "/v1/oracle",          price: 0.050 },
   tldr:               { method: "POST", path: "/v1/tldr",            price: 0.010 },

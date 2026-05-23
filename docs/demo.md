@@ -43,13 +43,13 @@ Each paid call is its own EIP-3009 signature for a single amount to a single add
 
 ## Want to see the rest?
 
-[Five demos, one per endpoint →](/demos/) — aura, sanctions screen, dual-chain anchor, verifiable RNG, and the $7.77 wallet due-diligence investigator with its 90-second async flow.
+[Five demos, one per endpoint →](/demos/) — aura, sanctions screen, dual-chain anchor, verifiable RNG, and the $1.77 wallet due-diligence investigator with its 90-second async flow.
 
 ## 15 services in this same flow
 
 `aura` ($0.01) is one of fifteen. Same approval pattern works for:
 
-- **Compliance** — OFAC sanctions screen ($0.001), bundled wallet intel ($0.005), full async due-diligence investigator ($7.77)
+- **Compliance** — OFAC sanctions screen ($0.001), bundled wallet intel ($0.005), full async due-diligence investigator ($1.77)
 - **Chain utilities** — dual-chain hash anchoring ($0.005), signed decision attestations ($0.01), tx decode, calldata decode, ENS / SNS resolution, token price, datetime parsing ($0.001 each)
 - **Fun / shareable** — roast ($0.05), oracle with on-chain anchored verdict ($0.05), tldr ($0.01), aura ($0.01), grade ($0.01)
 

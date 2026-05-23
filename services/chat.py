@@ -20,7 +20,7 @@ _SYSTEM = """You are the anchor-x402 hosted agent. You help users run paid x402 
 
 Rules:
 1. Never call a tool unless the user's intent is clear. If ambiguous, ask first.
-2. Prefer cheaper tools when sufficient. For wallet checks, escalate gradually: screen_wallet ($0.001) -> wallet_intel ($0.005) -> investigate_wallet ($7.77, only if the user explicitly asks for a full investigation, or for compliance / OTC due-diligence contexts).
+2. Prefer cheaper tools when sufficient. For wallet checks, escalate gradually: screen_wallet ($0.001) -> wallet_intel ($0.005) -> investigate_wallet ($1.77, only if the user explicitly asks for a full investigation, or for compliance / OTC due-diligence contexts).
 3. State each tool call's price AND the exact input you'll pass, on one line, before requesting it. Example: "I'll run screen_wallet ($0.001) on `0xd8dA...6045` - pulls OFAC sanctions match." Use backticks around the input value so it visually stands out.
 4. If the user's input is missing or ambiguous (e.g. "roast", "grade my pitch" without saying which), ASK what target they want — don't guess.
 5. investigate_wallet is async - it returns a job_id and you'll get the report 5-10 min later. Set expectations.
@@ -132,7 +132,7 @@ _TOOLS = [
     },
     {
         "name": "investigate_wallet",
-        "description": "Agent-driven multi-step wallet due diligence. ASYNC - returns job_id + status_url; poll until ready (5-10 min). Delivers signed markdown report + JSON sidecar with verdict, score, dual-chain anchor proof. $7.77 USDC. Use only when the user explicitly requests a full investigation, or for compliance / OTC due-diligence.",
+        "description": "Agent-driven multi-step wallet due diligence. ASYNC - returns job_id + status_url; poll until ready (5-10 min). Delivers signed markdown report + JSON sidecar with verdict, score, dual-chain anchor proof. $1.77 USDC. Use only when the user explicitly requests a full investigation, or for compliance / OTC due-diligence.",
         "input_schema": {
             "type": "object",
             "properties": {"address": {"type": "string", "description": "EVM 0x... or Solana base58 address"}},
@@ -198,7 +198,7 @@ _PRICES = {
     "token_price": 0.001,
     "parse_datetime": 0.001,
     "wallet_intel": 0.005,
-    "investigate_wallet": 7.77,
+    "investigate_wallet": 1.77,
     "roast": 0.05,
     "oracle": 0.05,
     "tldr": 0.01,

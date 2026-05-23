@@ -1,7 +1,7 @@
 ---
 layout: default
 title: anchor-x402 demos — five paid endpoints, end-to-end
-description: "30-second walkthroughs of five anchor-x402 endpoints — aura, sanctions screen, dual-chain anchor, verifiable RNG, and the $7.77 wallet due-diligence investigator. See the chat → approve → sign → result loop with the real Coinbase Smart Wallet signing view."
+description: "30-second walkthroughs of five anchor-x402 endpoints — aura, sanctions screen, dual-chain anchor, verifiable RNG, and the $1.77 wallet due-diligence investigator. See the chat → approve → sign → result loop with the real Coinbase Smart Wallet signing view."
 permalink: /demos/
 ---
 
@@ -51,7 +51,7 @@ Each demo is the same five-beat flow: chat free, agent quotes a price, approval 
 <video controls playsinline preload="metadata" poster="/og.png" style="width:100%; border-radius:6px; background:#0c0d10;">
   <source src="/demos/investigate.mp4" type="video/mp4">
 </video>
-<h3 style="margin:14px 0 6px;">investigate — $7.77 <span style="color:#9ea3b0; font-weight:400;">· 90 s</span></h3>
+<h3 style="margin:14px 0 6px;">investigate — $1.77 <span style="color:#9ea3b0; font-weight:400;">· 90 s</span></h3>
 <p style="margin:0 0 8px; color:#cfd2da; font-size:14px;">Multi-step wallet due-diligence. Agent runs 4–6 anchor-x402 sub-calls (sanctions, intel, name resolve, tx decode), synthesizes a verdict via Claude on AWS Bedrock, signs the deliverable, and anchors the report hash on Base + Solana. Async 5–10 min in production; this demo compresses the polling.</p>
 <p style="margin:0; font-size:13px;"><code>POST /v1/investigate {address}</code></p>
 </div>

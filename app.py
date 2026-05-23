@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import time
+from typing import Any
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -191,7 +192,7 @@ _JPYC_TIERS_ATOMIC: dict[str, int] = {
     "$0.01":   2 * 10**18,     # ¥2
     "$0.05":   10 * 10**18,    # ¥10
     "$5.00":   1000 * 10**18,  # ¥1000
-    "$7.77":   1500 * 10**18,  # ¥1500
+    "$1.77":   350 * 10**18,   # ¥350 (~$1.77 USD at ¥200/USD with FX buffer)
 }
 
 
@@ -574,8 +575,8 @@ x402_routes = {
         extensions={**_intel_wallet_bazaar_ext},
     ),
     "POST /v1/investigate": RouteConfig(
-        accepts=_accepts_at("$7.77"),
-        description="Agent-driven wallet due diligence — multi-step investigation, signed markdown report + JSON sidecar, dual-chain anchored. Async — returns job_id; poll /v1/investigate/status/{job_id} for the deliverable. ETA 5-10 min. $7.77 USDC.",
+        accepts=_accepts_at("$1.77"),
+        description="Agent-driven wallet due diligence — multi-step investigation, signed markdown report + JSON sidecar, dual-chain anchored. Async — returns job_id; poll /v1/investigate/status/{job_id} for the deliverable. ETA 5-10 min. $1.77 USDC.",
         extensions={**_investigate_bazaar_ext},
     ),
     "POST /v1/roast": RouteConfig(
@@ -655,8 +656,8 @@ x402_routes = {
     # GET wrappers for POST-only endpoints (LLM + investigate). Same price, no
     # bazaar extensions to avoid duplicate listings.
     "GET /v1/investigate": RouteConfig(
-        accepts=_accepts_at("$7.77"),
-        description="Agent-driven wallet due diligence (GET wrapper, query: address) — $7.77 USDC",
+        accepts=_accepts_at("$1.77"),
+        description="Agent-driven wallet due diligence (GET wrapper, query: address) — $1.77 USDC",
     ),
     "GET /v1/roast": RouteConfig(
         accepts=_accepts_at("$0.05"),
@@ -701,6 +702,96 @@ from services import secrets as _secrets_mod
 _INTERNAL_AUTH = _secrets_mod.get("internal_auth_secret", env_fallback="INTERNAL_AUTH_SECRET")
 
 
+# Bazaar service metadata. Lives on resource.{serviceName,tags,iconUrl} per
+# x402-foundation/x402#2200 (merged 2026-05-06). The Python SDK landed the
+# ResourceInfo schema fields in 2.11.0 but RouteConfig still has no wiring
+# for them, so we inject into the challenge JSON in _inject_402_challenge_body
+# below until upstream plumbs RouteConfig → ResourceInfo.
+_ICON_URL = "https://anchor-x402.com/icon.png"
+_RESOURCE_METADATA: dict[str, dict[str, Any]] = {
+    "/v1/anchor": {
+        "serviceName": "Anchor",
+        "tags": ["anchor", "attestation", "merkle", "evm", "solana"],
+        "iconUrl": _ICON_URL,
+    },
+    "/v1/screen": {
+        "serviceName": "Wallet Screen",
+        "tags": ["sanctions", "aml", "compliance", "wallet"],
+        "iconUrl": _ICON_URL,
+    },
+    "/v1/attest": {
+        "serviceName": "Attest",
+        "tags": ["attestation", "signature", "verify", "anchor"],
+        "iconUrl": _ICON_URL,
+    },
+    "/v1/decode/tx": {
+        "serviceName": "Tx Decode",
+        "tags": ["tx", "decode", "evm", "solana", "explorer"],
+        "iconUrl": _ICON_URL,
+    },
+    "/v1/resolve/name": {
+        "serviceName": "Name Resolve",
+        "tags": ["ens", "sns", "resolver", "naming"],
+        "iconUrl": _ICON_URL,
+    },
+    "/v1/price/token": {
+        "serviceName": "Token Price",
+        "tags": ["price", "token", "usd", "market"],
+        "iconUrl": _ICON_URL,
+    },
+    "/v1/decode/calldata": {
+        "serviceName": "Calldata Decode",
+        "tags": ["calldata", "decode", "abi", "evm"],
+        "iconUrl": _ICON_URL,
+    },
+    "/v1/parse/datetime": {
+        "serviceName": "Datetime Parse",
+        "tags": ["datetime", "parse", "nlp", "iso8601"],
+        "iconUrl": _ICON_URL,
+    },
+    "/v1/intel/wallet": {
+        "serviceName": "Wallet Intel",
+        "tags": ["wallet", "intel", "balance", "identity", "sanctions"],
+        "iconUrl": _ICON_URL,
+    },
+    "/v1/investigate": {
+        "serviceName": "Wallet Investigate",
+        "tags": ["wallet", "investigation", "due-diligence", "agent", "report"],
+        "iconUrl": _ICON_URL,
+    },
+    "/v1/roast": {
+        "serviceName": "Roast",
+        "tags": ["roast", "humor", "comedy", "social"],
+        "iconUrl": _ICON_URL,
+    },
+    "/v1/oracle": {
+        "serviceName": "Oracle",
+        "tags": ["oracle", "verdict", "anchor", "yes-no"],
+        "iconUrl": _ICON_URL,
+    },
+    "/v1/tldr": {
+        "serviceName": "TLDR",
+        "tags": ["summary", "tldr", "url", "text", "brief"],
+        "iconUrl": _ICON_URL,
+    },
+    "/v1/aura": {
+        "serviceName": "Aura",
+        "tags": ["aura", "tier", "score", "fun"],
+        "iconUrl": _ICON_URL,
+    },
+    "/v1/grade": {
+        "serviceName": "Grade",
+        "tags": ["grade", "score", "feedback", "editor"],
+        "iconUrl": _ICON_URL,
+    },
+    "/v1/roll": {
+        "serviceName": "Roll",
+        "tags": ["rng", "vrf", "random", "gaming", "signed"],
+        "iconUrl": _ICON_URL,
+    },
+}
+
+
 def _inject_402_challenge_body(response):
     """The x402 Python SDK defaults to header-only 402 challenges: the full
     PaymentRequired JSON lands in the `payment-required` response header
@@ -716,8 +807,15 @@ def _inject_402_challenge_body(response):
         challenge = json.loads(base64.b64decode(pr_header))
     except Exception:
         return response
+    from urllib.parse import urlparse
+    path = urlparse((challenge.get("resource") or {}).get("url", "")).path
+    meta = _RESOURCE_METADATA.get(path)
+    if meta:
+        challenge.setdefault("resource", {}).update(meta)
     from fastapi.responses import JSONResponse as _JSONResponse
     new_headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
+    if meta:
+        new_headers["payment-required"] = base64.b64encode(json.dumps(challenge).encode()).decode()
     return _JSONResponse(content=challenge, status_code=402, headers=new_headers)
 
 
@@ -991,7 +1089,7 @@ def parse_datetime_get(
 #
 # The orchestrator lives in a private repo (github.com/hypeprinter007-stack/
 # risk-investigator) and runs on AWS Bedrock AgentCore Runtime. This shim
-# accepts $7.77 USDC, writes job_id to DynamoDB, async-invokes the worker
+# accepts $1.77 USDC, writes job_id to DynamoDB, async-invokes the worker
 # Lambda, and returns the job_id immediately. Buyer polls /status until ready.
 
 from uuid import uuid4
@@ -1267,10 +1365,10 @@ def root(request: Request):
 # the reply back via Agentverse's mailbox API.
 
 def _agentverse_investigator_reply(user_text: str) -> str:
-    """This Agentverse listing IS the $7.77 risk investigator. No free previews —
+    """This Agentverse listing IS the $1.77 risk investigator. No free previews —
     the agent quotes the investigation cost + tells the caller how to invoke it."""
     return (
-        "anchor-x402 risk investigator — $7.77 USDC per run.\n\n"
+        "anchor-x402 risk investigator — $1.77 USDC per run.\n\n"
         "Multi-step wallet due diligence:\n"
         "• sanctions/AML screen across OFAC, Chainalysis, TRM\n"
         "• balance + activity timeline (Base + Solana mainnet)\n"
@@ -1280,7 +1378,7 @@ def _agentverse_investigator_reply(user_text: str) -> str:
         "How to run:\n"
         "1. POST https://api.anchor-x402.com/v1/investigate\n"
         "   Body: { \"wallet\": \"<address>\" }\n"
-        "   x402 USDC payment ($7.77) required\n"
+        "   x402 USDC payment ($1.77) required\n"
         "2. Returns a job_id — poll GET /v1/jobs/{job_id} (~5–10 min)\n"
         "3. Final response includes the verdict + on-chain anchor tx\n\n"
         "Don't have an x402 client? Use the hosted chat agent that runs this tool "
