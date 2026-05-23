@@ -73,14 +73,11 @@ build-DivigentSweepFunction build-DivigentOracleKeeperFunction:
 	touch "$(ARTIFACTS_DIR)/services/__init__.py"
 	cp services/divigent.py services/divigent_cron.py services/secrets.py "$(ARTIFACTS_DIR)/services/"
 	cp services/abis/divigent_router.json "$(ARTIFACTS_DIR)/services/abis/"
-	# Strip Lambda-runtime-provided + dev-time files.
+	# Strip Lambda-runtime-provided + dev-time files only.
+	# Top-level package strips (ens/websockets) were tried — both auto-import
+	# during `import web3`, so removing them breaks the cron at runtime.
+	# Keep the conservative strip set; the 47 MB artifact is acceptable.
 	rm -rf "$(ARTIFACTS_DIR)/boto3" "$(ARTIFACTS_DIR)/botocore" "$(ARTIFACTS_DIR)/s3transfer" "$(ARTIFACTS_DIR)/jmespath"
-	# Strip web3 subpackages we don't use on the cron path:
-	#  - ens: ENS resolver, never called from divigent.py
-	#  - websockets: we use HTTPProvider only
-	#  - test directories: shipped inside packages, dev-time only
-	rm -rf "$(ARTIFACTS_DIR)/ens" "$(ARTIFACTS_DIR)/websockets"
-	find "$(ARTIFACTS_DIR)" -type d \( -name tests -o -name test \) -exec rm -rf {} + 2>/dev/null || true
 	find "$(ARTIFACTS_DIR)" -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null || true
 	find "$(ARTIFACTS_DIR)" -name "*.pyc" -delete 2>/dev/null || true
 
