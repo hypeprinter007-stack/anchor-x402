@@ -100,8 +100,33 @@ _ORACLE_MIN_ABI = [
 ]
 
 
+def _validate_key(key: str) -> str | None:
+    """Return None if `key` is a well-formed 0x-prefixed 64-hex private key,
+    otherwise a short reason string. Used at every operator-key load to
+    fail fast on malformed env / Secrets Manager values rather than
+    silently deriving the wrong address downstream."""
+    if not key:
+        return "empty"
+    s = key.strip()
+    if not s.startswith("0x"):
+        return "missing_0x_prefix"
+    if len(s) != 66:
+        return f"wrong_length_{len(s)}"
+    try:
+        int(s, 16)
+    except ValueError:
+        return "not_hex"
+    return None
+
+
 def _operator_key() -> str:
-    return secrets.get("divigent_operator_key", env_fallback="DIVIGENT_OPERATOR_PRIVATE_KEY")
+    key = secrets.get("divigent_operator_key", env_fallback="DIVIGENT_OPERATOR_PRIVATE_KEY")
+    if key:
+        err = _validate_key(key)
+        if err:
+            log.error("invalid operator key format: %s", err)
+            return ""
+    return key
 
 
 def _treasury_address() -> str:
@@ -177,18 +202,36 @@ def get_dashboard_snapshot(wallet: str | None = None) -> dict:
 # ── Mutating calls (operator-signed) ────────────────────────────────
 
 def _build_and_send(w3, op_key: str, fn) -> str:
+    """Sign + broadcast `fn` via the operator wallet, wait for receipt.
+
+    EIP-1559 fees derived from the latest block (base_fee × 2 + priority of
+    0.01 gwei — Base-tuned). Raises RuntimeError if the tx reverts; returns
+    the tx hash on receipt timeout (assume pending, next cron will reconcile).
+    """
     op = w3.eth.account.from_key(op_key)
+    block = w3.eth.get_block("latest")
+    base_fee = block["baseFeePerGas"]
+    priority = w3.to_wei(0.01, "gwei")
     tx = fn.build_transaction({
         "from": op.address,
         "nonce": w3.eth.get_transaction_count(op.address),
         "chainId": BASE_CHAIN_ID,
-        "maxFeePerGas": w3.eth.gas_price,
-        "maxPriorityFeePerGas": w3.to_wei(0.001, "gwei"),
+        "maxFeePerGas": base_fee * 2 + priority,
+        "maxPriorityFeePerGas": priority,
     })
     tx["gas"] = w3.eth.estimate_gas(tx)
     signed = w3.eth.account.sign_transaction(tx, op_key)
     tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
-    return "0x" + tx_hash.hex()
+    tx_hex = "0x" + tx_hash.hex()
+    try:
+        receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=60)
+    except Exception as e:
+        # Timeout — tx may still mine, let the next cron reconcile state.
+        log.warning("tx receipt timeout (%s) for %s; treating as pending", type(e).__name__, tx_hex)
+        return tx_hex
+    if receipt.get("status") != 1:
+        raise RuntimeError(f"tx_reverted: {tx_hex}")
+    return tx_hex
 
 
 _lambda_client = None
@@ -356,33 +399,6 @@ def _assess_and_act_impl(seller: str | None = None) -> dict:
         }
 
     return {**base_result, "acted": False, "reason": "unknown_action"}
-
-
-def withdraw_net_usdc(seller: str, desired_net_usdc_atomic: int) -> dict:
-    """Burn enough shares to deliver desired_net_usdc_atomic to seller."""
-    from web3 import Web3
-    if not DIVIGENT_ENABLED:
-        return {"withdrawn": False, "reason": "divigent_disabled"}
-    op_key = _operator_key()
-    if not op_key:
-        raise RuntimeError("operator_key_unset")
-    w3 = _w3()
-    seller_cs = Web3.to_checksum_address(seller)
-    r = _router(w3)
-
-    shares_needed = r.functions.previewWithdrawNet(desired_net_usdc_atomic, seller_cs).call()
-    min_usdc_out = desired_net_usdc_atomic * (10_000 - SLIPPAGE_BPS) // 10_000
-
-    tx_hex = _build_and_send(
-        w3, op_key,
-        r.functions.withdraw(shares_needed, seller_cs, min_usdc_out),
-    )
-    return {
-        "withdrawn": True,
-        "tx_hash": tx_hex,
-        "shares_burned": shares_needed,
-        "min_usdc_out": min_usdc_out,
-    }
 
 
 def record_oracle_observation() -> dict:

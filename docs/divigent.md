@@ -99,13 +99,21 @@ Comparison table:
    ```
    Prints a new address + private key. Save the key — Secrets Manager (production) or `.env` (local CLI).
 
-2. **Fund the operator with ETH on Base** (~0.001 ETH covers months of cron gas).
+2. **Fund the operator with ETH on Base** (~0.001 ETH covers months of gas). The operator's ETH is used by the *cron* to sign deposits/withdraws; the bootstrap step below uses the **treasury wallet** to pay its own gas. You can do this fund in parallel with step 3.
 
-3. **Bootstrap the treasury** — sign 3 one-time transactions:
+3. **Bootstrap the treasury** — sign 3 one-time txs (`router.initialize()`, `router.setOperator()`, `usdc.approve()`). All three are signed by the treasury wallet. Pick one option:
+
+   **Option A — external signer / hardware wallet / multisig:**
+   ```bash
+   .venv/bin/python scripts/divigent_setup.py treasury-ops <operator-address>
+   ```
+   Prints the 3 transactions as calldata. Sign + broadcast via Rabby / Frame / Safe / your preferred external flow.
+
+   **Option B — treasury key already in `.env` or Secrets Manager:**
    ```bash
    .venv/bin/python scripts/divigent_setup.py bootstrap-treasury <operator-address>
    ```
-   This calls `router.initialize()`, `router.setOperator()`, and `usdc.approve()` from the treasury key (loaded from `.env` / Secrets Manager). Skips any already done.
+   Signs and broadcasts the same 3 transactions automatically using the treasury key. Idempotent — skips any step already done.
 
 4. **Verify:**
    ```bash

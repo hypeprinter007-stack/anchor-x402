@@ -1,6 +1,6 @@
 # Divigent integration — CloudWatch Insights queries
 
-> Private reference. Share with Divigent under NDA — these queries surface live operating state of anchor-x402's seller + risk-investigator's buyer integration with Divigent.
+> CloudWatch Insights queries for inspecting Divigent integration telemetry. The queries themselves are non-sensitive; the **output** can include live wallet balances and tx hashes — share query outputs (not the queries) under appropriate confidentiality.
 
 All queries filter for the `DIVIGENT_EVENT` prefix, which is emitted by `services/divigent.py` (anchor seller) and `investigator/divigent.py` (risk-investigator buyer).
 
