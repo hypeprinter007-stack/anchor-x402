@@ -105,6 +105,15 @@ def _summarize(events: list[dict], hours: int) -> dict:
     recalled_total = 0
     latest_snapshot = {}
 
+    # Events come back newest-first. Iterate that way and merge each
+    # field into the per-wallet snapshot only if it hasn't been seen yet —
+    # gives us the most recent non-null value for every field, even when
+    # different event types carry different field subsets (e.g. preflight
+    # has balance + status, postflight only has action + tx).
+    snapshot_fields = (
+        "wallet_balance_atomic", "position_current_value_atomic",
+        "required_reserve_atomic", "liquidity_status", "risk_preference",
+    )
     for e in events:
         role = e.get("role", "?")
         action = e.get("action") or e.get("reason") or "?"
@@ -115,15 +124,13 @@ def _summarize(events: list[dict], hours: int) -> dict:
         if action == "recall" and e.get("amount_atomic"):
             recalled_total += int(e["amount_atomic"])
         wallet = e.get("wallet")
-        if wallet and wallet not in latest_snapshot:
-            latest_snapshot[wallet] = {
-                "wallet_balance": e.get("wallet_balance_atomic"),
-                "position_current_value": e.get("position_current_value_atomic"),
-                "required_reserve": e.get("required_reserve_atomic"),
-                "liquidity_status": e.get("liquidity_status"),
-                "risk_preference": e.get("risk_preference"),
-                "ts": e.get("ts"),
-            }
+        if not wallet:
+            continue
+        snap = latest_snapshot.setdefault(wallet, {"ts": e.get("ts")})
+        for f in snapshot_fields:
+            v = e.get(f)
+            if v not in (None, "", "None") and f not in snap:
+                snap[f] = v
 
     return {
         "window_hours": hours,
@@ -180,9 +187,9 @@ def main() -> int:
     for wallet, snap in summary["latest_snapshot_by_wallet"].items():
         print(f"  {wallet}")
         print(f"    status:    {snap.get('liquidity_status')}   ({snap.get('risk_preference')})")
-        print(f"    idle USDC: {_fmt_usdc(snap.get('wallet_balance'))}")
-        print(f"    position:  {_fmt_usdc(snap.get('position_current_value'))}")
-        print(f"    reserve:   {_fmt_usdc(snap.get('required_reserve'))}")
+        print(f"    idle USDC: {_fmt_usdc(snap.get('wallet_balance_atomic'))}")
+        print(f"    position:  {_fmt_usdc(snap.get('position_current_value_atomic'))}")
+        print(f"    reserve:   {_fmt_usdc(snap.get('required_reserve_atomic'))}")
         print(f"    as-of:     {snap.get('ts')}")
     return 0
 
