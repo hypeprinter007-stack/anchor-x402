@@ -829,6 +829,40 @@ async def x402_mw(request, call_next):
     return response
 
 
+# HEAD → GET rewrite. Link-preview scrapers (FB, Twitter, Slack, Discord) and
+# opportunistic indexers HEAD-preflight before GET; a 405 across /v1/* was
+# silently 405'ing ~140 requests/day. Convert HEAD to GET at the ASGI layer
+# and strip the body on the way out. x402_mw still gets to issue 402 challenge
+# headers, so indexers can read prices from the payment-required header without
+# paying. Registered before CORS so CORS remains outermost (see memory:
+# starlette-middleware-order-last-is-outermost).
+class HeadAsGetMiddleware:
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") == "http" and scope.get("method") == "HEAD":
+            scope = {**scope, "method": "GET"}
+            body_sent = False
+
+            async def strip_body(message):
+                nonlocal body_sent
+                if message["type"] == "http.response.body":
+                    if body_sent:
+                        return
+                    body_sent = True
+                    await send({"type": "http.response.body", "body": b"", "more_body": False})
+                    return
+                await send(message)
+
+            await self.app(scope, receive, strip_body)
+            return
+        await self.app(scope, receive, send)
+
+
+app.add_middleware(HeadAsGetMiddleware)
+
+
 # CORS registered LAST so it ends up outermost in the Starlette stack — must
 # wrap x402_mw so that short-circuited 402 responses still receive ACAO +
 # expose-headers. Allow * origin (payment auth via X-PAYMENT replaces origin-
@@ -838,7 +872,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=False,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["GET", "HEAD", "POST", "OPTIONS"],
     allow_headers=["content-type", "x-payment", "authorization"],
     expose_headers=["payment-response", "x-payment-response", "payment-required"],
     max_age=86400,
@@ -1522,6 +1556,19 @@ def x402_discovery():
 
 @app.get("/.well-known/x402.json")
 def x402_discovery_json():
+    return _serve_x402_discovery()
+
+
+# Opportunistic indexer probes — neither path is in the spec, but both are
+# being hit 276×/day each. Alias both to the same catalog content so we get
+# free indexing upside instead of returning 404.
+@app.get("/.well-known/x402-resources")
+def x402_resources_wellknown():
+    return _serve_x402_discovery()
+
+
+@app.get("/x402-resources")
+def x402_resources():
     return _serve_x402_discovery()
 
 
