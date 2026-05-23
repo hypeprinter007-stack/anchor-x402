@@ -353,6 +353,16 @@ def _assess_and_act_impl(seller: str | None = None) -> dict:
     if not r.functions.authorizedWallets(seller_cs).call():
         return {"acted": False, "reason": "seller_not_initialized"}
     if not r.functions.isOperator(seller_cs, operator_cs).call():
+        # Emit a dedicated event so a CloudWatch metric filter / alarm can
+        # target operator-revocation specifically rather than fishing it out
+        # of the generic cycle event's `reason` field.
+        _emit_event(
+            "divigent.operator.revoked",
+            role="seller",
+            treasury=seller_cs,
+            operator=operator_cs,
+            router=ROUTER_ADDRESS,
+        )
         return {"acted": False, "reason": "operator_not_authorized"}
 
     assessment = assess_liquidity(seller_cs)

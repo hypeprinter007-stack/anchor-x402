@@ -82,11 +82,25 @@ fields @timestamp, @message
 | stats avg(duration_ms), max(duration_ms) by event_type
 ```
 
+### 6. Operator-approval revoked (alarm candidate)
+
+Treasury revoked `setOperator(operator, true)` — sweeps will stop until it's reauthorized.
+
+```
+fields @timestamp, @message
+| filter @message like /DIVIGENT_EVENT/
+| filter @message like /divigent.operator.revoked/
+| parse @message /DIVIGENT_EVENT (?<json>\{.*\})/
+| parse json /"treasury"\s*:\s*"(?<treasury>[^"]+)"/
+| parse json /"operator"\s*:\s*"(?<operator>[^"]+)"/
+| sort @timestamp desc
+```
+
 ## Event schema
 
 ```jsonc
 {
-  "event_type": "divigent.seller.cycle" | "divigent.buyer.preflight" | "divigent.buyer.postflight" | "divigent.keeper.cycle",
+  "event_type": "divigent.seller.cycle" | "divigent.buyer.preflight" | "divigent.buyer.postflight" | "divigent.keeper.cycle" | "divigent.operator.revoked",
   "ts": "2026-05-23T00:36:42.272Z",
   "role": "seller" | "buyer" | "keeper",
   "wallet": "0x...",          // wallet being assessed
