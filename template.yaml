@@ -477,6 +477,84 @@ Resources:
       OKActions:
         - !Ref AlarmTopic
 
+  # Operator-revoked alarm. Emitted by services/divigent.py when
+  # router.isOperator(treasury, operator) returns false — i.e. the cold
+  # treasury wallet revoked the Lambda operator. Sweeps stop until
+  # reauthorized; this needs a human response.
+  DivigentOperatorRevokedMetricFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${DivigentSweepFunction}'
+      FilterPattern: '"divigent.operator.revoked"'
+      MetricTransformations:
+        - MetricNamespace: anchor-x402
+          MetricName: DivigentOperatorRevoked
+          MetricValue: '1'
+          DefaultValue: 0
+
+  DivigentOperatorRevokedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-DivigentOperatorRevoked'
+      AlarmDescription: Treasury revoked operator approval on Divigent router — sweeps will not act until reauthorized via setOperator(operator, true)
+      Namespace: anchor-x402
+      MetricName: DivigentOperatorRevoked
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+      OKActions:
+        - !Ref AlarmTopic
+
+  # Cron failure alarms. Threshold 0 because both crons are low-volume —
+  # any uncaught exception is worth surfacing immediately (e.g. the
+  # ens-strip incident on 2026-05-22 would have paged here).
+  DivigentSweepErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-DivigentSweepErrors'
+      AlarmDescription: DivigentSweepFunction errored on a recent cron firing (schedule is every 5 min)
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref DivigentSweepFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+      OKActions:
+        - !Ref AlarmTopic
+
+  DivigentKeeperErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-DivigentKeeperErrors'
+      AlarmDescription: DivigentOracleKeeperFunction errored on a recent cron firing (schedule is hourly)
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref DivigentOracleKeeperFunction
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+      OKActions:
+        - !Ref AlarmTopic
+
   ApiCustomDomainName:
     Type: AWS::ApiGatewayV2::DomainName
     Condition: HasCustomDomain
