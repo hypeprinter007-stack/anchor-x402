@@ -18,9 +18,15 @@ build: bundle
 
 # Invoked by SAM (BuildMethod: makefile). Lambda only needs the runtime files —
 # excluding node_modules, .venv, docs, tests, etc. keeps the unzipped artifact
-# under Lambda's 250 MB limit. All three Lambdas share the same codebase
-# (AnchorFunction = FastAPI handler; the Divigent crons reuse services/*).
-build-AnchorFunction build-DivigentSweepFunction build-DivigentOracleKeeperFunction:
+# under Lambda's 250 MB limit.
+#
+# AnchorFunction is the FastAPI handler — needs the full anchor codebase + deps.
+# DivigentSweep/OracleKeeper are cron Lambdas that only need web3 + eth-account
+# + a tiny subset of services/. Split builds keep their artifacts ~10x smaller
+# (~5-10 MB vs ~64 MB), shaving meaningful cold-start latency off the 5-min
+# sweep schedule.
+
+build-AnchorFunction:
 	# Cross-compile from macOS arm64 to Lambda's Linux x86_64. Native modules
 	# (pydantic_core, cryptography, solders, ...) need the right wheel.
 	python3 -m pip install \
@@ -50,6 +56,33 @@ build-AnchorFunction build-DivigentSweepFunction build-DivigentOracleKeeperFunct
 	find "$(ARTIFACTS_DIR)" -name "*.pyc" -delete 2>/dev/null || true
 	# Note: *.dist-info dirs are kept — some packages query their own metadata
 	# (e.g. email-validator) and importlib.metadata.entry_points needs them.
+
+build-DivigentSweepFunction build-DivigentOracleKeeperFunction:
+	# Minimal cron build — web3 + eth-account only, plus the 4 Python files
+	# the cron path imports. boto3/botocore stripped (provided by Lambda runtime).
+	python3 -m pip install \
+		--platform manylinux2014_x86_64 \
+		--only-binary=:all: \
+		--python-version 3.12 \
+		--implementation cp \
+		--quiet \
+		-r requirements-divigent.txt \
+		-t "$(ARTIFACTS_DIR)"
+	mkdir -p "$(ARTIFACTS_DIR)/services/abis"
+	# services/__init__.py needs to exist for the package import to work.
+	touch "$(ARTIFACTS_DIR)/services/__init__.py"
+	cp services/divigent.py services/divigent_cron.py services/secrets.py "$(ARTIFACTS_DIR)/services/"
+	cp services/abis/divigent_router.json "$(ARTIFACTS_DIR)/services/abis/"
+	# Strip Lambda-runtime-provided + dev-time files.
+	rm -rf "$(ARTIFACTS_DIR)/boto3" "$(ARTIFACTS_DIR)/botocore" "$(ARTIFACTS_DIR)/s3transfer" "$(ARTIFACTS_DIR)/jmespath"
+	# Strip web3 subpackages we don't use on the cron path:
+	#  - ens: ENS resolver, never called from divigent.py
+	#  - websockets: we use HTTPProvider only
+	#  - test directories: shipped inside packages, dev-time only
+	rm -rf "$(ARTIFACTS_DIR)/ens" "$(ARTIFACTS_DIR)/websockets"
+	find "$(ARTIFACTS_DIR)" -type d \( -name tests -o -name test \) -exec rm -rf {} + 2>/dev/null || true
+	find "$(ARTIFACTS_DIR)" -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null || true
+	find "$(ARTIFACTS_DIR)" -name "*.pyc" -delete 2>/dev/null || true
 
 deploy:
 	sam deploy --stack-name anchor-x402 --capabilities CAPABILITY_IAM --resolve-s3 --no-confirm-changeset --no-fail-on-empty-changeset --region us-east-1

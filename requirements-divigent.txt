@@ -1,0 +1,8 @@
+# Minimal deps for the Divigent sweep + oracle keeper Lambdas.
+# Excludes anchor's main-handler deps (fastapi, anthropic, x402, bedrock-agentcore,
+# uagents-core, virtuals-acp, mangum, etc.) — the cron only needs web3 + eth-account.
+# Result: ~10x smaller artifact, faster cold starts.
+#
+# boto3 / botocore: provided by the Lambda Python 3.12 runtime; not pinned here.
+web3>=7.16,<8
+eth-account>=0.13

@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -35,6 +36,20 @@ log = logging.getLogger("divigent")
 # filter on the `DIVIGENT_EVENT` prefix to pull only telemetry lines,
 # leaving human-readable INFO logs as a separate stream for debugging.
 log_metrics = logging.getLogger("divigent.metrics")
+
+
+_PRIVATE_KEY_RE = re.compile(r'0x[0-9a-fA-F]{64}')
+
+
+def _safe_err(exc: Exception, max_len: int = 200) -> str:
+    """Stringify an exception without leaking 0x-prefixed 64-hex values
+    (the shape of an EVM private key). Caps length to avoid log bloat.
+    Used at every log call site that handles a caught exception so a
+    chatty web3 traceback can't smuggle key material into CloudWatch."""
+    msg = _PRIVATE_KEY_RE.sub('[REDACTED_KEY]', str(exc))
+    if len(msg) > max_len:
+        msg = msg[:max_len] + '...'
+    return f"{type(exc).__name__}: {msg}"
 
 
 def _emit_event(event_type: str, **fields) -> None:
