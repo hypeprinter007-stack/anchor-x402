@@ -11,6 +11,7 @@ anchor-x402 exposes 16 stateless services on AWS Lambda + FastAPI. Each endpoint
 - [OpenAPI spec](https://api.anchor-x402.com/openapi.json) — full schema for all 16 services
 - [x402 discovery](https://anchor-x402.com/.well-known/x402.json) — service catalog with prices, schemas, payment networks
 - [A2A AgentCard](https://anchor-x402.com/.well-known/agent-card.json) — Google A2A protocol manifest
+- [Base AI Agent plugin spec](https://anchor-x402.com/plugins/base-mcp.md) — capability catalog formatted for Base MCP's `initiate_x402_request` flow
 - [Status](https://anchor-x402.betteruptime.com) — live uptime
 - [Source code](https://github.com/hypeprinter007-stack/anchor-x402) — MIT licensed
 
