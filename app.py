@@ -9,10 +9,12 @@ Pay-per-call: $0.005 USDC, settle on Base or Solana.
 from __future__ import annotations
 
 import base64
+import hmac
 import json
 import logging
 import os
 import time
+from threading import Lock
 from typing import Any
 
 from dotenv import load_dotenv
@@ -819,9 +821,19 @@ def _inject_402_challenge_body(response):
     return _JSONResponse(content=challenge, status_code=402, headers=new_headers)
 
 
+def _internal_auth_matches(request) -> bool:
+    """Constant-time compare for the internal-auth bypass header. Cheap defense
+    against timing oracles even though they're not practically exploitable across
+    the public internet for a single string compare."""
+    provided = request.headers.get("x-internal-auth", "")
+    if not _INTERNAL_AUTH or not provided:
+        return False
+    return hmac.compare_digest(provided.encode(), _INTERNAL_AUTH.encode())
+
+
 @app.middleware("http")
 async def x402_mw(request, call_next):
-    if _INTERNAL_AUTH and request.headers.get("x-internal-auth") == _INTERNAL_AUTH:
+    if _internal_auth_matches(request):
         return await call_next(request)
     response = await payment_middleware(x402_routes, x402_server)(request, call_next)
     if response.status_code == 402:
@@ -1172,25 +1184,43 @@ def investigate_dispatch(req: InvestigateRequest) -> InvestigateAcceptedResponse
         "requester": "x402",
         "source": "x402",
     }
-    try:
-        _lambda.invoke(
-            FunctionName=_WORKER_FN,
-            InvocationType="Event",
-            Payload=json.dumps(payload).encode(),
-        )
-    except Exception as e:  # noqa: BLE001
-        logging.getLogger("investigate").exception("worker dispatch failed")
+    # Deliver-or-die: the x402 payment is already settled by the time we get
+    # here, so a transient lambda invoke failure must not leave the buyer paid
+    # but undelivered. Retry with exponential backoff before marking FAILED.
+    # Most observed failures are network blips or throttling, both transient.
+    _DISPATCH_BACKOFF_S = [0.5, 1.0, 2.0, 4.0, 8.0]  # 5 attempts, ~15.5s worst case
+    last_err: Exception | None = None
+    for attempt, delay in enumerate(_DISPATCH_BACKOFF_S):
+        try:
+            _lambda.invoke(
+                FunctionName=_WORKER_FN,
+                InvocationType="Event",
+                Payload=json.dumps(payload).encode(),
+            )
+            last_err = None
+            break
+        except Exception as e:  # noqa: BLE001
+            last_err = e
+            logging.getLogger("investigate").warning(
+                "dispatch attempt %d/%d failed: %s — retrying in %.1fs",
+                attempt + 1, len(_DISPATCH_BACKOFF_S), type(e).__name__, delay,
+            )
+            if attempt < len(_DISPATCH_BACKOFF_S) - 1:
+                time.sleep(delay)
+
+    if last_err is not None:
+        logging.getLogger("investigate").exception("worker dispatch exhausted retries")
         # Mark for buyer visibility so /status returns FAILED rather than hanging
         try:
             _ddb.update_item(
                 Key={"job_id": job_id},
                 UpdateExpression="SET #s = :s, error_msg = :e",
                 ExpressionAttributeNames={"#s": "status"},
-                ExpressionAttributeValues={":s": "FAILED", ":e": f"dispatch failed: {type(e).__name__}"},
+                ExpressionAttributeValues={":s": "FAILED", ":e": f"dispatch failed after {len(_DISPATCH_BACKOFF_S)} retries: {type(last_err).__name__}"},
             )
         except Exception:
             pass
-        raise HTTPException(status_code=502, detail=f"dispatch failed: {type(e).__name__}")
+        raise HTTPException(status_code=502, detail=f"dispatch failed: {type(last_err).__name__}")
 
     return InvestigateAcceptedResponse(
         job_id=job_id,
@@ -1346,9 +1376,43 @@ def roll_get(
 
 # --- /v1/chat (FREE, not in x402_routes) ------------------------------------
 
+# Per-IP fixed-window rate limit. Lambda containers are short-lived and not
+# globally-coordinated, so this is a per-container burst cap — combined with
+# API Gateway throttling at the edge for a global ceiling. Backstop against
+# cost-amplification DoS where a single client drains the Bedrock inference
+# budget by spamming /v1/chat (the only unauthenticated LLM endpoint).
+_CHAT_RATE_WINDOW_S = 60
+_CHAT_RATE_MAX = 15
+_chat_rate_lock = Lock()
+_chat_rate_buckets: dict[str, tuple[int, float]] = {}
+
+
+def _client_ip(request: Request) -> str:
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _check_chat_rate(ip: str) -> None:
+    now = time.time()
+    with _chat_rate_lock:
+        count, window_start = _chat_rate_buckets.get(ip, (0, now))
+        if now - window_start > _CHAT_RATE_WINDOW_S:
+            count, window_start = 0, now
+        if count >= _CHAT_RATE_MAX:
+            retry_s = int(_CHAT_RATE_WINDOW_S - (now - window_start)) + 1
+            raise HTTPException(
+                status_code=429,
+                detail=f"rate limited: {_CHAT_RATE_MAX} req/min per IP. Retry in {retry_s}s.",
+                headers={"Retry-After": str(retry_s)},
+            )
+        _chat_rate_buckets[ip] = (count + 1, window_start)
+
 
 @app.post("/v1/chat", response_model=ChatResponse)
-def chat(req: ChatRequest) -> ChatResponse:
+def chat(req: ChatRequest, request: Request) -> ChatResponse:
+    _check_chat_rate(_client_ip(request))
     try:
         turn = chat_svc.chat_turn(req.messages)
     except ValueError as e:
@@ -1500,11 +1564,22 @@ def divigent_dashboard():
     return divigent_svc.get_dashboard_snapshot()
 
 
+_DIVIGENT_EVENT_TYPES = {
+    "snapshot", "idle-deposit", "manual-deposit", "manual-withdraw",
+    "sweep-failure", "non-fatal-error",
+}
+
+
 @app.post("/divigent/event/{event_type}")
 async def divigent_event(event_type: str, request: Request):
-    """Lifecycle event sink. Accepts JSON bodies from any sidecar/cron
-    that posts to /divigent/event/<snapshot|idle-deposit|manual-deposit|
-    manual-withdraw|sweep-failure|non-fatal-error>. Logs and returns 204."""
+    """Lifecycle event sink for internal sidecars/crons. Requires x-internal-auth
+    header (constant-time check via _internal_auth_matches) and an allow-listed
+    event_type — was unauth previously, fixed 2026-05-26 after surface audit
+    flagged log-injection + cost-amplification risk on the open path-param sink."""
+    if not _internal_auth_matches(request):
+        raise HTTPException(status_code=401, detail="unauthorized")
+    if event_type not in _DIVIGENT_EVENT_TYPES:
+        raise HTTPException(status_code=400, detail="unknown event_type")
     try:
         body = await request.json()
     except Exception:
