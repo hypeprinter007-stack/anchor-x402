@@ -3,6 +3,7 @@ name: anchor-x402
 version: 0.1.0
 homepage: https://anchor-x402.com
 description: Sixteen x402-paid services for AI agents on Base mainnet — dual-chain hash anchoring, OFAC sanctions screening, wallet intelligence, transaction & calldata decoding, async wallet due diligence, verifiable RNG, and a universal LLM suite. Pay-per-call USDC. No API keys, no accounts.
+permalink: /plugins/base-mcp.md
 ---
 
 # anchor-x402 — Base AI Agent plugin
