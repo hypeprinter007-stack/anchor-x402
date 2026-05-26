@@ -8,6 +8,18 @@ Globals:
     Architectures: [x86_64]
     Timeout: 60
     MemorySize: 1024
+  # Edge-level throttling for the free, unauthenticated, Bedrock-backed
+  # /v1/chat endpoint. Caps total /v1/chat traffic at 1 RPS sustained + burst 5
+  # before requests ever reach Lambda. The real cost-amplification DoS guard.
+  # Paid /v1/* endpoints are unaffected — they route through the catchall
+  # /{proxy+} which has no RouteSettings. /v1/chat gets a dedicated explicit
+  # route (see AnchorFunction.Events.ChatEvent) so API Gateway can match the
+  # more-specific route first and apply this throttle.
+  HttpApi:
+    RouteSettings:
+      "POST /v1/chat":
+        ThrottlingRateLimit: 1     # 1 req/sec sustained = 60/min
+        ThrottlingBurstLimit: 5    # short bursts of up to 5
 
 Parameters:
   TreasuryAddress:
@@ -183,6 +195,14 @@ Resources:
           Properties:
             Path: /{proxy+}
             Method: ANY
+        # Explicit POST /v1/chat route so API Gateway can attach per-route
+        # throttling (see Globals.HttpApi.RouteSettings). Same Lambda target;
+        # API Gateway matches the more-specific route first.
+        ChatEvent:
+          Type: HttpApi
+          Properties:
+            Path: /v1/chat
+            Method: POST
       Policies:
         # Secrets Manager: only the runtime composite secret. CloudTrail
         # logs every GetSecretValue, KMS-encrypted at rest, scoped by ARN.

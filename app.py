@@ -14,7 +14,6 @@ import json
 import logging
 import os
 import time
-from threading import Lock
 from typing import Any
 
 from dotenv import load_dotenv
@@ -1375,44 +1374,15 @@ def roll_get(
 
 
 # --- /v1/chat (FREE, not in x402_routes) ------------------------------------
-
-# Per-IP fixed-window rate limit. Lambda containers are short-lived and not
-# globally-coordinated, so this is a per-container burst cap — combined with
-# API Gateway throttling at the edge for a global ceiling. Backstop against
-# cost-amplification DoS where a single client drains the Bedrock inference
-# budget by spamming /v1/chat (the only unauthenticated LLM endpoint).
-_CHAT_RATE_WINDOW_S = 60
-_CHAT_RATE_MAX = 15
-_chat_rate_lock = Lock()
-_chat_rate_buckets: dict[str, tuple[int, float]] = {}
-
-
-def _client_ip(request: Request) -> str:
-    xff = request.headers.get("x-forwarded-for")
-    if xff:
-        return xff.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
-
-
-def _check_chat_rate(ip: str) -> None:
-    now = time.time()
-    with _chat_rate_lock:
-        count, window_start = _chat_rate_buckets.get(ip, (0, now))
-        if now - window_start > _CHAT_RATE_WINDOW_S:
-            count, window_start = 0, now
-        if count >= _CHAT_RATE_MAX:
-            retry_s = int(_CHAT_RATE_WINDOW_S - (now - window_start)) + 1
-            raise HTTPException(
-                status_code=429,
-                detail=f"rate limited: {_CHAT_RATE_MAX} req/min per IP. Retry in {retry_s}s.",
-                headers={"Retry-After": str(retry_s)},
-            )
-        _chat_rate_buckets[ip] = (count + 1, window_start)
+#
+# Rate limit is enforced at API Gateway via Globals.HttpApi.RouteSettings in
+# template.yaml — POST /v1/chat is capped at 1 RPS sustained + burst 5,
+# returning 429 with Retry-After before the request ever reaches Lambda. This
+# is the real cost-amplification DoS guard (Bedrock-backed, unauthenticated).
 
 
 @app.post("/v1/chat", response_model=ChatResponse)
-def chat(req: ChatRequest, request: Request) -> ChatResponse:
-    _check_chat_rate(_client_ip(request))
+def chat(req: ChatRequest) -> ChatResponse:
     try:
         turn = chat_svc.chat_turn(req.messages)
     except ValueError as e:
