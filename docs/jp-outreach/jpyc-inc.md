@@ -74,7 +74,7 @@ for the asks since DM is informal:
 
 突然のご連絡を失礼いたします。anchor-x402 を一人で開発している Christopher Ferjo と申します。
 
-このたび、おそらく世界で初めてとなる「JPYC で決済される x402 サービス」を立ち上げました。x402 は AI エージェントが API 呼び出しごとに支払う HTTP 402 ベースの新しい標準（Coinbase・Cloudflare 後押し）です。/v1/anchor は 1 回 1 円。決済例: https://polygonscan.com/tx/0x8c465c282e336bb389a992b47fe9370ba6b5d68d51e73705706f09b096b24a14
+2026 年 5 月 14 日に、おそらく世界で初めてとなる「JPYC で決済される x402 サービス」を立ち上げ、その後も継続的に拡張しております（5/22: Divigent 社と提携しエージェントウォレット向けトレジャリーインテリジェンスを統合、5/25: サービスカタログを日本語化 — https://anchor-x402.com/llms.ja.txt）。x402 は AI エージェントが API 呼び出しごとに支払う HTTP 402 ベースの新しい標準（Coinbase・Cloudflare 後押し）です。/v1/anchor は 1 回 1 円。決済例: https://polygonscan.com/tx/0x8c465c282e336bb389a992b47fe9370ba6b5d68d51e73705706f09b096b24a14
 
 Honest scoping: 67th caller of JPYC v2's transferWithAuthorization, but first production service rail. The prior 66 were test transfers.
 
@@ -87,15 +87,19 @@ cferjo@gmail.com · anchor-x402.com
 
 ---
 
-## Path C — X DM to @jpyc_official
+## Path C — X DM to @jpyc_official (SENT 2026-05-25)
 
-Short, in JP. They run public-facing comms; will route to internal team.
+The actual X DM sent on 2026-05-25, richer than the original Path C draft —
+uses the "around #60 JPYC holder ever" angle, leads with the credibility
+hook, references the TRADOM launch as market validation. Kept here as
+historical record.
 
 ```
-はじめまして。「JPYC で決済される x402 サービス」を立ち上げました（anchor-x402）。AI エージェントが /v1/anchor を 1 円で呼び出せます。
-ライブ: https://api.anchor-x402.com
-決済例: https://polygonscan.com/tx/0x8c465c282e336bb389a992b47fe9370ba6b5d68d51e73705706f09b096b24a14
-広報・BD 担当の方をご紹介いただくことは可能でしょうか？
+Hi JPYC team — Christopher from anchor-x402.com. One of the earliest JPYC on-chain users (around #60 to ever hold JPYC), and I built the first multi-rail x402 paid-API service that natively settles in JPYC on Polygon. AI agents pay $0.001-$1.77 per call, fully on-chain.
+
+With TRADOM Payment launching today, felt like the right cue to introduce myself. Would love to support the JPYC ecosystem more visibly — happy to share what we're seeing on the agent-payment side.
+
+anchor-x402.com
 ```
 
 ---
