@@ -14,6 +14,13 @@ I've had — "USDC-only is a non-starter" came up four times in three
 months. JPYC has 2.6B tokens outstanding but zero agent-native
 distribution. We're closing that gap.
 
+**Market signal (today, 2026-05-25):** TRADOM Payment launched —
+Japanese merchants accepting overseas stablecoin payments, settling
+in JPY fiat. Different stack (fiat-out merchants vs on-chain agents),
+same broader bet that yen-denominated stablecoin payments are the
+next category. Covered by CoinPost — JP press is now actively
+writing this story.
+
 **Honest scoping:** anchor-x402 is the 67th caller of JPYC v2's
 `transferWithAuthorization`. The prior 66 are 16 distinct addresses
 making test-pattern transfers over the past 7 months — none was wired
@@ -26,6 +33,18 @@ rail**, not the first transfer.
 - `/v1/anchor` priced at **¥1 per call** — the press-friendly entry point
 - End-to-end paid tx hashes verifiable on Polygonscan
 - Discoverable in CDP Bazaar + 7 other agent registries
+
+**Recent wins (since the JPYC rail launch on 5/14)**
+- **Divigent integration shipped 5/22** — every agent wallet now gets
+  preflight liquidity intelligence (`assessLiquidity`): adaptive
+  reserves, just-in-time recall from monitored yield venues, so
+  agent wallets don't go bankrupt mid-task.
+- **JP localization live today** — service catalog in Japanese at
+  https://anchor-x402.com/llms.ja.txt and bilingual descriptions
+  in /.well-known/x402.json (the only Japanese-native x402 catalog
+  on the public internet that I'm aware of).
+- **Traction**: 27 paid POSTs in last 7 days across 8 distinct
+  endpoints — real on-chain settlement, not synthetic.
 
 **Live proof:** https://api.anchor-x402.com
 Example settle: https://polygonscan.com/tx/0x8c465c282e336bb389a992b47fe9370ba6b5d68d51e73705706f09b096b24a14
@@ -43,7 +62,7 @@ Example settle: https://polygonscan.com/tx/0x8c465c282e336bb389a992b47fe9370ba6b
 
 **About me:** Christopher Ferjo, solo builder, US-based.
 Background: $LARGECO. Shipping anchor-x402 daily for ~4 months.
-Twitter: @hypeprinter.
+Twitter: @thexferj.
 
 Happy to do a 5-minute live demo — Claude Desktop paying anchor-x402
 ¥1 over MCP. Bring popcorn.

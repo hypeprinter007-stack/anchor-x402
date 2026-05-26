@@ -1,6 +1,6 @@
 theme: jekyll-theme-cayman
 title: anchor-x402
-description: "15 x402-paid services for AI agents on Base + Solana — sanctions screening, wallet intel, due diligence, anchoring, tx decode, ENS/SNS, prices, plus 5 universal LLM endpoints (roast, oracle, tldr, aura, grade). Pay per call in USDC. No API keys. Hosted chatbot at chat.anchor-x402.com."
+description: "16 x402-paid services for AI agents on Base + Solana — sanctions screening, wallet intel, due diligence, anchoring, tx decode, ENS/SNS, prices, plus 5 universal LLM endpoints (roast, oracle, tldr, aura, grade). Pay per call in USDC. No API keys. Hosted chatbot at chat.anchor-x402.com."
 url: "https://anchor-x402.com"
 
 # Jekyll skips dotfiles by default; explicitly include the well-known directory
@@ -8,8 +8,17 @@ url: "https://anchor-x402.com"
 include:
   - .well-known
 
+# Outreach drafts contain partner-specific phrasing, internal follow-up
+# notes, and pitch language not meant for public discovery. Exclude from
+# the Jekyll build so anchor-x402.com/jp-outreach/* and /outreach/* stop
+# being served. Files stay in git (versioned), just not on the public site.
+exclude:
+  - jp-outreach
+  - outreach
+
 # Serve common machine-readable files at the root unmodified.
 keep_files:
   - llms.txt
+  - llms.ja.txt
   - robots.txt
   - ai.txt
