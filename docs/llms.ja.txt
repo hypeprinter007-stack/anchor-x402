@@ -1,0 +1,105 @@
+# anchor-x402
+
+> English / 英語版: [llms.txt](https://anchor-x402.com/llms.txt)
+
+> AIエージェント向けのx402従量課金サービス16種（Base + Solanaメインネット対応）と、chat.anchor-x402.comで提供されるホスト型チャットボット。コール単位のUSDC決済で、APIキー・アカウント登録・サブスクリプション、いずれも不要です。
+
+anchor-x402は、AWS Lambda + FastAPI上で動作する16種のステートレスサービスを公開しています。各エンドポイントは `extensions.bazaar` を含むx402 v2のPaymentRequiredチャレンジを返却し、クライアントはBaseまたはSolanaの任意のウォレットから、EIP-3009 transferWithAuthorizationを用いて1コールあたり $0.001〜$1.77 USDCを支払います。決済はCoinbase CDPファシリテーター経由。本番稼働中：https://api.anchor-x402.com
+
+## ディスカバリー（機械可読）
+
+- [OpenAPI仕様](https://api.anchor-x402.com/openapi.json) — 16サービス全ての完全スキーマ
+- [x402ディスカバリー](https://anchor-x402.com/.well-known/x402.json) — 価格・スキーマ・決済ネットワークを含むサービスカタログ
+- [A2A AgentCard](https://anchor-x402.com/.well-known/agent-card.json) — Google A2Aプロトコルのマニフェスト
+- [稼働状況](https://anchor-x402.betteruptime.com) — リアルタイムのアップタイム
+- [ソースコード](https://github.com/hypeprinter007-stack/anchor-x402) — MITライセンス
+
+## サービス一覧（16種の有料エンドポイント）
+
+### 汎用プリミティブ（9種）
+| エンドポイント | 価格 | 内容 |
+|---|---|---|
+| POST /v1/anchor | $0.005 | 任意の32バイトハッシュをBaseとSolanaメインネットへ並列でアンカリング。両チェーンのtxハッシュを返却 |
+| GET /v1/screen | $0.001 | 任意のウォレット（EVMまたはSolana）に対するOFAC SDN制裁＋AMLスクリーニング |
+| POST /v1/attest | $0.010 | (input_hash, output_hash, decision) に対するウォレット署名を検証し、デュアルチェーンアンカリング |
+| POST /v1/decode/tx | $0.001 | Base/Ethereumメインネットの任意トランザクションを構造化デコード |
+| GET /v1/resolve/name | $0.001 | クロスチェーン名前解決：ENS（Ethereum）＋ Bonfida SNS（Solana） |
+| GET /v1/price/token | $0.001 | シンボルまたはchain+contract指定でUSDスポット価格 |
+| POST /v1/decode/calldata | $0.001 | 4byteセレクター ＋ ABIパラメータデコード |
+| POST /v1/parse/datetime | $0.001 | 自由形式の日時を、構造化されたISO 8601 ＋ Unix epoch ＋ 各構成要素にパース |
+| GET /v1/intel/wallet | $0.005 | ウォレットインテリジェンス統合バンドル（残高 ＋ 履歴 ＋ アイデンティティ ＋ 制裁判定） |
+
+### デューデリジェンス（1種、非同期）
+| エンドポイント | 価格 | 内容 |
+|---|---|---|
+| POST /v1/investigate | $1.77 | エージェント駆動型の複数ステップ・ウォレット・デューデリジェンス。署名済みmarkdownレポート ＋ JSONサイドカー ＋ デュアルチェーンアンカー証明として納品。完了目安5〜10分。job_idを返却し、/v1/investigate/status/{job_id} でポーリング |
+
+### 検証可能な署名付きRNG（1種）
+| エンドポイント | 価格 | 内容 |
+|---|---|---|
+| POST /v1/roll | $0.001 | 呼び出し側が指定した範囲内の暗号学的乱数を、トレジャリーEOAでEIP-191署名のうえ返却。ゲームスタジオ、抽選、DAO投票者選定、NFTミント結果生成向けのVRF互換実装。オプションの32バイト事前コミットメントでフロントランニング攻撃面を閉じます |
+
+### 汎用LLMエンドポイント（5種）
+| エンドポイント | 価格 | 内容 |
+|---|---|---|
+| POST /v1/roast | $0.05 | 任意のターゲット（ウォレット、ツイート、コード、アイデア等）への辛口ロースト |
+| POST /v1/oracle | $0.05 | デュアルチェーンアンカー判定付きYes/Noオラクル。回答 ＋ 質問ハッシュ ＋ タイムスタンプをBase ＋ Solanaへアンカリングし、暗号学的レシートとして利用可能 |
+| POST /v1/tldr | $0.01 | URLまたはペースト済みテキストを3〜5項目の簡潔な箇条書きに要約 |
+| POST /v1/aura | $0.01 | 任意の対象のオーラ判定。色、ティア（S/A/B/C/D/F）、スコア（0〜9999）、説明文を返却 |
+| POST /v1/grade | $0.01 | 任意の対象に対する学業評価風レターグレード（A+〜F）＋ 赤ペン批評 ＋ サマリー |
+
+## ホスト型エージェントチャットボット
+
+[chat.anchor-x402.com](https://chat.anchor-x402.com) — 16種のサービスをユーザーに代わって実行するホスト型Claudeエージェント。自身のエージェントを持たないユーザー向けの推奨経路です。ユーザーはCoinbase Smart Wallet（パスキー対応、アプリ不要）または任意のブラウザ拡張ウォレット（MetaMask、Rabby、Frame等）を接続し、コール単位で支払います。チャット自体は無料、有料ツールコール毎にユーザーの明示的な承認が必要で、EIP-3009 USDC認可署名を1件発行します。セッション支出上限はユーザー側で設定し、クライアント側で強制されます。
+
+非開発者ユーザーにとっての推奨経路であり、16サービスの公式デモ面でもあります。各サービスは `/demo <name>` で無料デモ出力が利用可能です（支払不要）。
+
+## エージェントからのHTTP API利用方法
+
+[anchor-x402-mcp（npm）](https://www.npmjs.com/package/anchor-x402-mcp) — 9種の汎用プリミティブサービスをツールとして公開するMCPサーバー。Claude Desktop、Claude Code、Codex CLI（OpenAI）、ChatGPT Desktop、Cursor、OpenAI Agents SDK、その他MCP互換クライアントから利用可能。
+
+```json
+{
+  "mcpServers": {
+    "anchor-x402": {
+      "command": "npx",
+      "args": ["-y", "anchor-x402-mcp"],
+      "env": { "ANCHOR_WALLET_PRIVATE_KEY": "0xYOUR_BASE_WALLET_KEY" }
+    }
+  }
+}
+```
+
+MCPラッパーは、@x402/fetch + @x402/evm経由で各コールをエージェントのBaseウォレットから自動決済します。プリペイ不要、APIキー不要、各エンドポイント実装内の制約以外のレート制限なし。
+
+または任意のx402 v2クライアントSDK（[@x402/fetch（npm）](https://www.npmjs.com/package/@x402/fetch)、Python x402 SDK、Rust）でHTTP APIを直接コール可能です。決済フローは共通：402 → 署名 → 再送。
+
+## 掲載先（インデックス先一覧）
+
+- [CDP Bazaar](https://docs.cdp.coinbase.com/x402/bazaar) — 16サービス稼働中、自動インデックス
+- [agentic.market](https://api.agentic.market/v1/services/search?q=api.anchor-x402.com) — 16サービス稼働中
+- [Agent Arena](https://agentarena.site/api/agent/8453/47261) — ERC-8004オンチェーン・エージェントレジストリ（Base、agentId 47261）
+- [Virtuals ACP](https://app.virtuals.io) — GETリソース9件 ＋ investigateWallet Job
+- [公式MCPレジストリ](https://registry.modelcontextprotocol.io/v0/servers?search=anchor-x402)
+- [Glama](https://glama.ai/mcp/servers/hypeprinter007-stack/anchor-x402-mcp)
+- [mcp.so](https://mcp.so/server/anchor-x402-mcp)
+- [npm](https://www.npmjs.com/package/anchor-x402-mcp)
+
+## 信頼性ポスチャー
+
+オープンソース（MIT）、AWS Lambda ＋ Secrets Manager ＋ CloudWatch構成。https://anchor-x402.com/trust/ のトラストポータルでは、STRIDE脅威モデル、SIG-Liteセキュリティアンケート記入済み版、コードレベルのセルフ監査ガイド、規制対応デプロイメントガイド、オンチェーン検証可能性の解説、可観測性ドキュメントを公開しています。
+
+SOC 2、ISO 27001、PCI、HIPAA、GDPR DPAいずれも認証は取得していません — サンドボックス／POC／拘束力のないワークフロー向けです。テナント別認証、MSA/DPA/SLA、S3 Object LockによるWORMエビデンス保管、GDPR第17条の削除権 ＋ AML保持要件の整合性確保を含む institutional ティアは、要望に応じて提供可能です（$499〜$5,000+/月）。
+
+## オンチェーン検証可能性
+
+`/v1/anchor`、`/v1/attest`、`/v1/oracle`、および `/v1/investigate` レポートは、32バイトハッシュを **Base ＋ Solanaメインネットの両方** に書き込みます。オンチェーンに記録されたバイト列はサービスから独立しており、anchor-x402への問い合わせ不要で、誰でもチェーンを読むだけでレシートを検証できます。改ざんにはSHA-256の破壊または2つのL1の同時リオーグが必要です。
+
+ライブメインネット・ハッシュを用いた実例：https://anchor-x402.com/trust/on-chain-verifiability
+
+## お問い合わせ
+
+- 一般: hello@anchor-x402.com
+- セキュリティ脆弱性報告: security@anchor-x402.com
+- ソース: https://github.com/hypeprinter007-stack/anchor-x402
+- ライセンス: MIT

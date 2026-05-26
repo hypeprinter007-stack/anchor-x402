@@ -2,6 +2,7 @@
   "version": "2.0",
   "name": "anchor-x402",
   "description": "Sixteen x402-paid services for AI agents on Base + Solana mainnet: nine commodity primitives (dual-chain hash anchoring, OFAC sanctions screening, signed decision attestation, mainnet tx decode, ENS/SNS resolution, USD spot price, EVM calldata decode, freeform datetime parsing, bundled wallet intelligence), one async due-diligence investigator ($1.77), one verifiable signed RNG (drop-in VRF for game studios), and five universal LLM endpoints (roast, oracle with on-chain anchored verdict, TL;DR, aura, grade). Plus a hosted chatbot at chat.anchor-x402.com. Pay-per-call USDC, no API keys, no accounts.",
+  "description_ja": "AIエージェント向けのx402従量課金サービス16種。Base + Solanaメインネット対応。内訳は、汎用プリミティブ9種（デュアルチェーンのハッシュアンカリング、OFAC制裁スクリーニング、署名検証＋アンカリング、メインネットtxデコード、ENS/SNS名前解決、USDスポット価格、EVMコールデータデコード、自由形式の日時パース、ウォレットインテリジェンス統合）、非同期デューデリジェンス調査1種（$1.77）、検証可能な署名付き乱数生成1種（ゲームスタジオ向けVRF互換）、汎用LLMエンドポイント5種（roast、オンチェーンアンカー判定付きoracle、TL;DR、aura、grade）。さらにchat.anchor-x402.comではホスト型チャットボットも利用可能。コール単位のUSDC決済で、APIキー・アカウント登録ともに不要です。",
   "operator": "anchor-x402",
   "homepage": "https://anchor-x402.com",
   "trust_portal": "https://anchor-x402.com/trust/",
@@ -27,9 +28,9 @@
     }
   ],
   "free_endpoints": [
-    {"path": "/health", "method": "GET", "description": "Liveness probe — returns {status,service}"},
-    {"path": "/openapi.json", "method": "GET", "description": "Full OpenAPI 3 spec for all 16 paid services"},
-    {"path": "/docs", "method": "GET", "description": "Swagger UI for interactive exploration"}
+    {"path": "/health", "method": "GET", "description": "Liveness probe — returns {status,service}", "description_ja": "稼働確認プローブ。{status,service}を返却します。"},
+    {"path": "/openapi.json", "method": "GET", "description": "Full OpenAPI 3 spec for all 16 paid services", "description_ja": "16種の有料サービス全てを記述したOpenAPI 3完全仕様。"},
+    {"path": "/docs", "method": "GET", "description": "Swagger UI for interactive exploration", "description_ja": "対話的にサービスを試せるSwagger UI。"}
   ],
   "routes": [
     {
@@ -39,6 +40,7 @@
       "price": "$0.005",
       "category": "security",
       "description": "Anchor a 32-byte hash to Base + Solana mainnet in parallel. Returns both tx URLs as cryptographic proof of when the hash existed.",
+      "description_ja": "32バイトのハッシュをBaseとSolanaメインネットへ並列でアンカリング。両チェーンのtx URLを返却し、そのハッシュが存在した時点の暗号学的証明として利用できます。",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -56,6 +58,7 @@
       "price": "$0.001",
       "category": "security",
       "description": "OFAC SDN sanctions + AML screening for any wallet address. Returns sanctions match boolean, flagged programs (Tornado Cash, Lazarus, etc.), risk level.",
+      "description_ja": "任意のウォレットアドレスに対するOFAC SDN制裁＋AMLスクリーニング。制裁マッチの真偽値、該当プログラム名（Tornado Cash、Lazarus等）、リスクレベルを返却します。",
       "params": {
         "wallet": {"type": "string", "required": true, "description": "EVM 0x… (40 hex) or Solana base58 pubkey"}
       },
@@ -68,6 +71,7 @@
       "price": "$0.010",
       "category": "security",
       "description": "Verify a wallet signature over (input_hash, output_hash, decision) with domain separation, then dual-chain anchor the resulting Merkle root. Returns verified signer + on-chain proof.",
+      "description_ja": "(input_hash, output_hash, decision) に対するウォレット署名をドメイン分離付きで検証し、得られたマークルルートをデュアルチェーンへアンカリング。検証済み署名者とオンチェーン証明を返却します。",
       "input_schema": {
         "type": "object",
         "required": ["input_hash", "output_hash", "decision", "scheme", "signature"],
@@ -89,6 +93,7 @@
       "price": "$0.001",
       "category": "devtools",
       "description": "Structured decode of any mainnet transaction. EVM (Base/Ethereum): from/to/value/gas/status/calldata. Solana: slot/fee/signers/program_calls.",
+      "description_ja": "任意のメインネットトランザクションを構造化デコード。EVM（Base/Ethereum）はfrom/to/value/gas/status/calldataを、Solanaはslot/fee/signers/program_callsを返却します。",
       "input_schema": {
         "type": "object",
         "required": ["chain", "tx_hash"],
@@ -106,6 +111,7 @@
       "price": "$0.001",
       "category": "identity",
       "description": "Cross-chain name resolution: ENS (.eth) and Bonfida SNS (.sol). Returns resolved address(es) per registry.",
+      "description_ja": "クロスチェーンの名前解決。ENS（.eth）とBonfida SNS（.sol）に対応し、各レジストリから解決アドレスを返却します。",
       "params": {
         "name": {"type": "string", "required": true, "description": "Human-readable name"}
       },
@@ -118,6 +124,7 @@
       "price": "$0.001",
       "category": "finance",
       "description": "USD spot price for any major token by symbol or chain+contract. CoinGecko-backed, 60s cache.",
+      "description_ja": "主要トークンのUSDスポット価格を、シンボル指定またはchain+contract指定で取得。CoinGeckoバックエンド、60秒キャッシュ。",
       "params": {
         "symbol": {"type": "string", "description": "Token symbol (BTC, ETH, etc.). Mutually exclusive with chain+contract."},
         "chain": {"type": "string", "description": "Chain slug: base, ethereum, solana, polygon, arbitrum, optimism, bsc, avalanche."},
@@ -132,6 +139,7 @@
       "price": "$0.001",
       "category": "devtools",
       "description": "Decode raw EVM calldata into function name + typed parameters via openchain.xyz signature directory + eth_abi.",
+      "description_ja": "生のEVMコールデータを、openchain.xyzのシグネチャディレクトリとeth_abiを用いて関数名＋型付きパラメータにデコードします。",
       "input_schema": {
         "type": "object",
         "required": ["chain", "calldata_hex"],
@@ -149,6 +157,7 @@
       "price": "$0.001",
       "category": "devtools",
       "description": "Parse any freeform datetime string into structured ISO 8601 + components + relative time + confidence.",
+      "description_ja": "任意の自由形式の日時文字列を、構造化されたISO 8601、各構成要素、相対時間、信頼度にパースします。",
       "input_schema": {
         "type": "object",
         "required": ["input"],
@@ -167,6 +176,7 @@
       "price": "$0.005",
       "category": "data",
       "description": "Unified wallet intelligence bundle. ONE call returns balances on Base + Ethereum + Solana, USDC across chains, tx counts, ENS/SNS reverse, sanctions verdict — aggregated from 8-10 parallel sources.",
+      "description_ja": "統合ウォレットインテリジェンスバンドル。1回のコールで、Base/Ethereum/Solanaの残高、チェーン横断のUSDC残高、tx数、ENS/SNS逆引き、制裁判定を返却。8〜10件のソースから並列で集約します。",
       "params": {
         "wallet": {"type": "string", "required": true, "description": "EVM 0x… or Solana base58 pubkey"}
       },
@@ -179,6 +189,7 @@
       "price": "$1.77",
       "category": "security",
       "description": "Agent-driven wallet due diligence. Multi-step LLM investigation: sanctions screen, on-chain history, identity correlation, counterparty graph. Delivered as signed markdown report + JSON sidecar with dual-chain anchor proof on Base + Solana. Async — returns job_id, poll /v1/investigate/status/{job_id}. ETA 5-10 min.",
+      "description_ja": "エージェント駆動型のウォレット・デューデリジェンス。複数ステップのLLM調査として、制裁スクリーニング、オンチェーン履歴、アイデンティティ相関、カウンターパーティグラフを実行。署名済みmarkdownレポート＋JSONサイドカー＋Base/Solanaへのデュアルチェーンアンカー証明として納品します。非同期実行のため、job_idを返却し、/v1/investigate/status/{job_id}でポーリング。完了目安は5〜10分。",
       "input_schema": {
         "type": "object",
         "required": ["address"],
@@ -195,6 +206,7 @@
       "price": "$0.05",
       "category": "ai_ml",
       "description": "Witty roast of any target — wallet, tweet, idea, code, anything. Powered by Claude on AWS Bedrock. Universal text input.",
+      "description_ja": "任意のターゲット（ウォレット、ツイート、アイデア、コード、何でも）に対する辛口ロースト。AWS Bedrock上のClaudeで生成。任意のテキスト入力に対応します。",
       "input_schema": {
         "type": "object",
         "required": ["target"],
@@ -211,6 +223,7 @@
       "price": "$0.05",
       "category": "ai_ml",
       "description": "Yes/no oracle with dual-chain anchored verdict on Base + Solana. Returns MAYBE/YES/NO + explanation + on-chain proof (merkle_root, base_tx, solana_tx).",
+      "description_ja": "Base＋Solanaへのデュアルチェーンアンカー判定付きYes/Noオラクル。MAYBE/YES/NO、説明、オンチェーン証明（merkle_root、base_tx、solana_tx）を返却します。",
       "input_schema": {
         "type": "object",
         "required": ["question"],
@@ -227,6 +240,7 @@
       "price": "$0.01",
       "category": "ai_ml",
       "description": "Summarize a URL (fetched server-side) or pasted text into 3-5 concise bullets. Powered by Claude on AWS Bedrock.",
+      "description_ja": "URL（サーバ側で取得）またはペースト済みテキストを、3〜5項目の簡潔な箇条書きに要約。AWS Bedrock上のClaudeで生成します。",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -243,6 +257,7 @@
       "price": "$0.01",
       "category": "ai_ml",
       "description": "Aura read of any target. Returns color (free-form), tier (S/A/B/C/D/F), score (0-9999), description. Screenshot-friendly viral output.",
+      "description_ja": "任意のターゲットに対するオーラ判定。色（自由形式）、ティア（S/A/B/C/D/F）、スコア（0〜9999）、説明文を返却。スクリーンショット拡散に最適なフォーマット。",
       "input_schema": {
         "type": "object",
         "required": ["target"],
@@ -259,6 +274,7 @@
       "price": "$0.01",
       "category": "ai_ml",
       "description": "Academic letter grade with red-pen marginalia for anything. Returns letter_grade (A-F), marginalia bullets, summary.",
+      "description_ja": "任意の対象に対する学業評価風レターグレード＋赤ペン批評。letter_grade（A〜F）、批評の箇条書き、サマリーを返却します。",
       "input_schema": {
         "type": "object",
         "required": ["target"],
@@ -275,6 +291,7 @@
       "price": "$0.001",
       "category": "security",
       "description": "Cryptographically-random integer(s) over a caller-chosen range, signed by the treasury EOA (EIP-191). Drop-in VRF for game studios, raffles, DAO voter selection, NFT mint reveals. Optional 32-byte pre-commitment binds inputs into the signed payload to close front-running windows.",
+      "description_ja": "呼び出し側が指定した範囲内の暗号学的乱数を、トレジャリーEOAでEIP-191署名のうえ返却。ゲームスタジオ、抽選、DAO投票者選定、NFTミントの結果生成向けのVRF互換実装です。オプションの32バイト事前コミットメントを署名ペイロードへ組み込むことで、フロントランニングの攻撃面を閉じます。",
       "input_schema": {
         "type": "object",
         "required": ["low", "high"],

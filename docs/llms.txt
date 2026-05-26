@@ -1,18 +1,20 @@
 # anchor-x402
 
-> Fifteen x402-paid services for AI agents on Base + Solana mainnet, plus a hosted chatbot at chat.anchor-x402.com. Pay-per-call USDC, no API keys, no accounts, no subscriptions.
+> 日本語版 / Japanese: [llms.ja.txt](https://anchor-x402.com/llms.ja.txt)
 
-anchor-x402 exposes 15 stateless services on AWS Lambda + FastAPI. Each endpoint returns an x402 v2 PaymentRequired challenge with `extensions.bazaar`; clients pay $0.001–$1.77 USDC per call from any Base or Solana wallet via EIP-3009 transferWithAuthorization. Settlement via Coinbase's CDP facilitator. Live at https://api.anchor-x402.com.
+> Sixteen x402-paid services for AI agents on Base + Solana mainnet, plus a hosted chatbot at chat.anchor-x402.com. Pay-per-call USDC, no API keys, no accounts, no subscriptions.
+
+anchor-x402 exposes 16 stateless services on AWS Lambda + FastAPI. Each endpoint returns an x402 v2 PaymentRequired challenge with `extensions.bazaar`; clients pay $0.001–$1.77 USDC per call from any Base or Solana wallet via EIP-3009 transferWithAuthorization. Settlement via Coinbase's CDP facilitator. Live at https://api.anchor-x402.com.
 
 ## Discovery (machine-readable)
 
-- [OpenAPI spec](https://api.anchor-x402.com/openapi.json) — full schema for all 15 services
+- [OpenAPI spec](https://api.anchor-x402.com/openapi.json) — full schema for all 16 services
 - [x402 discovery](https://anchor-x402.com/.well-known/x402.json) — service catalog with prices, schemas, payment networks
 - [A2A AgentCard](https://anchor-x402.com/.well-known/agent-card.json) — Google A2A protocol manifest
 - [Status](https://anchor-x402.betteruptime.com) — live uptime
 - [Source code](https://github.com/hypeprinter007-stack/anchor-x402) — MIT licensed
 
-## Services (15 paid endpoints)
+## Services (16 paid endpoints)
 
 ### Commodity primitives (9)
 | Endpoint | Price | What it does |
@@ -31,6 +33,11 @@ anchor-x402 exposes 15 stateless services on AWS Lambda + FastAPI. Each endpoint
 | Endpoint | Price | What it does |
 |---|---|---|
 | POST /v1/investigate | $1.77 | Agent-driven multi-step wallet due diligence — signed markdown report + JSON sidecar + dual-chain anchor proof. ETA 5–10 min. Returns job_id; poll /v1/investigate/status/{job_id} |
+
+### Verifiable signed RNG (1)
+| Endpoint | Price | What it does |
+|---|---|---|
+| POST /v1/roll | $0.001 | Cryptographically-random integer(s) over a caller-chosen range, EIP-191 signed by the treasury EOA. Drop-in VRF for game studios, raffles, DAO voter selection, NFT mint reveals. Optional 32-byte pre-commitment closes front-running windows |
 
 ### Universal LLM endpoints (5)
 | Endpoint | Price | What it does |
