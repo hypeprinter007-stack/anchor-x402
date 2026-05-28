@@ -431,7 +431,7 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: !Sub '${AWS::StackName}-ApiGateway5xxElevated'
-      AlarmDescription: ServerlessHttpApi 5xx > 3 over 5 minutes
+      AlarmDescription: ServerlessHttpApi 5xx > 15 sustained across 2 of 3 five-minute windows
       Namespace: AWS/ApiGateway
       MetricName: 5xx
       Dimensions:
@@ -439,8 +439,13 @@ Resources:
           Value: !Ref ServerlessHttpApi
       Statistic: Sum
       Period: 300
-      EvaluationPeriods: 1
-      Threshold: 3
+      # Was: 1 period × threshold 3 — fired on transient 5–7-error bursts that
+      # happen ~2-3×/day at AWS plumbing level (Lambda is healthy, errors don't
+      # reach our handler). Updated 2026-05-28 after 15+ false-alarm flaps in 48h.
+      # New: 2 of 3 periods × threshold 15 = sustained burst, real outage signal.
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 2
+      Threshold: 15
       ComparisonOperator: GreaterThanThreshold
       TreatMissingData: notBreaching
       AlarmActions:
