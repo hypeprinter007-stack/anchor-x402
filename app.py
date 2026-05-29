@@ -874,6 +874,64 @@ class HeadAsGetMiddleware:
 app.add_middleware(HeadAsGetMiddleware)
 
 
+# Canonical-host 308 redirect. AWS API Gateway serves the same Lambda under
+# both the custom domain and the raw `*.execute-api.us-east-1.amazonaws.com`
+# hostname; CDP's discovery crawler was indexing both, duplicating every paid
+# endpoint per host (x402trace host_pollution facet, X402-53). 308 preserves
+# method + body so POST /v1/anchor on a non-canonical host redirects cleanly
+# without method downgrade. Fires before HeadAsGetMiddleware (so HEAD probes
+# also redirect) and before x402_mw (so no 402 challenge is emitted for the
+# crawler to index). CORS remains outermost.
+from urllib.parse import urlparse as _urlparse
+_CANONICAL_HOST = _urlparse(_RESOURCE_BASE).hostname or "api.anchor-x402.com"
+_HOST_ALLOWLIST = {
+    _CANONICAL_HOST,
+    "chat.anchor-x402.com",
+    "localhost",
+    "127.0.0.1",
+    "0.0.0.0",
+    "testserver",
+}
+
+
+class CanonicalHostMiddleware:
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") != "http":
+            await self.app(scope, receive, send)
+            return
+
+        host = ""
+        for k, v in scope.get("headers", []):
+            if k == b"host":
+                host = v.decode("latin-1").split(":")[0].lower()
+                break
+
+        if host and host not in _HOST_ALLOWLIST:
+            raw_path = scope.get("raw_path") or scope.get("path", "/").encode("latin-1")
+            qs = scope.get("query_string", b"")
+            target = f"https://{_CANONICAL_HOST}{raw_path.decode('latin-1')}"
+            if qs:
+                target += "?" + qs.decode("latin-1")
+            await send({
+                "type": "http.response.start",
+                "status": 308,
+                "headers": [
+                    (b"location", target.encode("latin-1")),
+                    (b"content-length", b"0"),
+                ],
+            })
+            await send({"type": "http.response.body", "body": b"", "more_body": False})
+            return
+
+        await self.app(scope, receive, send)
+
+
+app.add_middleware(CanonicalHostMiddleware)
+
+
 # CORS registered LAST so it ends up outermost in the Starlette stack — must
 # wrap x402_mw so that short-circuited 402 responses still receive ACAO +
 # expose-headers. Allow * origin (payment auth via X-PAYMENT replaces origin-
