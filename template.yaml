@@ -207,6 +207,7 @@ Resources:
                 - dynamodb:GetItem
                 - dynamodb:PutItem
                 - dynamodb:UpdateItem
+                - dynamodb:Scan
               Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${InvestigatorJobsTable}"
         # Bedrock invocation for /v1/chat, /v1/roast, /v1/oracle, /v1/tldr,
         # /v1/aura, /v1/grade. Cross-region inference profiles forward to
@@ -350,6 +351,42 @@ Resources:
               Action:
                 - secretsmanager:GetSecretValue
               Resource: !Ref AnchorRuntimeSecret
+
+  # Daily backstop for the /v1/investigate auto-refund promise. The fast
+  # path is investigate_status refunding inline when the buyer polls; this
+  # catches the rare case of a FAILED job whose buyer never polled back.
+  RefundCronFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      CodeUri: ./
+      Handler: services.refund_cron.handler
+      Timeout: 300
+      MemorySize: 512
+      Environment:
+        Variables:
+          BASE_RPC_URL: !Ref BaseRpcUrl
+          ANCHOR_SECRET_ARN: !Ref AnchorRuntimeSecret
+          INVESTIGATOR_JOBS_TABLE: "risk-investigator-jobs"
+      Events:
+        DailyRefundSweep:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 18 * * ? *)
+            Description: Daily 18:00 UTC scan for FAILED /v1/investigate jobs without a refund_tx — backstops the inline refund-on-poll path.
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: !Ref AnchorRuntimeSecret
+            - Effect: Allow
+              Action:
+                - dynamodb:Scan
+                - dynamodb:GetItem
+                - dynamodb:UpdateItem
+              Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/risk-investigator-jobs"
 
   # Daily heartbeat that pays for the 8 endpoints with no other organic
   # outside-buyer traffic (attest, parse/datetime, roll, roast, oracle, tldr,

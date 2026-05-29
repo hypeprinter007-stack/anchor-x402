@@ -302,6 +302,11 @@ class InvestigateStatusResponse(BaseModel):
     deliverable: InvestigateDeliverable | None = None
     eta_seconds: int | None = None
     error: str | None = None
+    refund_tx: str | None = Field(
+        default=None,
+        description="On-chain USDC refund tx hash (Base) when a FAILED job has been refunded. Auto-refunded for Base USDC payers; Solana/JPYC payers see `refund_pending=manual` and need a follow-up.",
+    )
+    refund_pending: Literal["manual"] | None = None
 
 
 # --- /v1/roast ---

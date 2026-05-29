@@ -81,6 +81,25 @@ build-DivigentSweepFunction build-DivigentOracleKeeperFunction:
 	find "$(ARTIFACTS_DIR)" -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null || true
 	find "$(ARTIFACTS_DIR)" -name "*.pyc" -delete 2>/dev/null || true
 
+build-RefundCronFunction:
+	# Daily refund backstop. Needs web3 + eth-account for USDC transfer +
+	# boto3 (Lambda-provided) for DDB. Reuses requirements-divigent.txt's
+	# minimal web3 set; pulls in services/refund.py + secrets + refund_cron.
+	python3 -m pip install \
+		--platform manylinux2014_x86_64 \
+		--only-binary=:all: \
+		--python-version 3.12 \
+		--implementation cp \
+		--quiet \
+		-r requirements-divigent.txt \
+		-t "$(ARTIFACTS_DIR)"
+	mkdir -p "$(ARTIFACTS_DIR)/services"
+	touch "$(ARTIFACTS_DIR)/services/__init__.py"
+	cp services/refund.py services/refund_cron.py services/secrets.py "$(ARTIFACTS_DIR)/services/"
+	rm -rf "$(ARTIFACTS_DIR)/boto3" "$(ARTIFACTS_DIR)/botocore" "$(ARTIFACTS_DIR)/s3transfer" "$(ARTIFACTS_DIR)/jmespath"
+	find "$(ARTIFACTS_DIR)" -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null || true
+	find "$(ARTIFACTS_DIR)" -name "*.pyc" -delete 2>/dev/null || true
+
 build-CdpHeartbeatFunction:
 	# Daily discovery heartbeat. Needs httpx + x402 SDK + eth-account; reuses
 	# requirements.txt to keep the pin set unified with AnchorFunction. Only

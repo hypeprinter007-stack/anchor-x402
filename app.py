@@ -813,9 +813,31 @@ def _inject_402_challenge_body(response):
     meta = _RESOURCE_METADATA.get(path)
     if meta:
         challenge.setdefault("resource", {}).update(meta)
+
+    # Buyer-confidence signal for /v1/investigate ($1.77 is high enough that
+    # delivery proof + refund-on-fail materially shifts willingness to pay).
+    # `delivery_stats` is the live track record; `refund_policy` documents
+    # the auto-refund promise so the buyer sees it before they commit.
+    challenge_mutated = bool(meta)
+    if path == "/v1/investigate":
+        from services import delivery_stats
+        bazaar_ext = challenge.setdefault("extensions", {}).setdefault("bazaar", {})
+        bazaar_ext["delivery_stats"] = {
+            **delivery_stats.get_30d_stats(),
+            "window_days": 30,
+        }
+        bazaar_ext["refund_policy"] = {
+            "policy": "auto_refund_on_failed",
+            "networks": ["eip155:8453"],
+            "amount_usdc": "1.77",
+            "trigger": "status=FAILED",
+            "delivery": "USDC transfer treasury → buyer wallet on Base; refund_tx exposed in /v1/investigate/status response",
+        }
+        challenge_mutated = True
+
     from fastapi.responses import JSONResponse as _JSONResponse
     new_headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
-    if meta:
+    if challenge_mutated:
         new_headers["payment-required"] = base64.b64encode(json.dumps(challenge).encode()).decode()
     return _JSONResponse(content=challenge, status_code=402, headers=new_headers)
 
@@ -1215,20 +1237,32 @@ _ddb = boto3.resource("dynamodb").Table(_JOBS_TABLE)
 
 
 @app.post("/v1/investigate", response_model=InvestigateAcceptedResponse)
-def investigate_dispatch(req: InvestigateRequest) -> InvestigateAcceptedResponse:
+def investigate_dispatch(req: InvestigateRequest, request: Request) -> InvestigateAcceptedResponse:
     """Accept payment, record job, async-dispatch to private worker."""
+    from services import refund as refund_svc
     job_id = str(uuid4())
     now = int(time.time())
+    buyer_wallet, buyer_network = refund_svc.parse_buyer_from_x_payment(
+        request.headers.get("x-payment")
+    )
     try:
+        item: dict[str, Any] = {
+            "job_id": job_id,
+            "address": req.address,
+            "status": "DISPATCHING",
+            "source": "x402",
+            "created_at": now,
+            "updated_at": now,
+        }
+        # Captured at dispatch time so the refund path (status-poll or daily
+        # cron) has a destination for FAILED-job auto-refunds. Internal-auth
+        # bypass calls have no X-PAYMENT and skip this — they aren't paid jobs.
+        if buyer_wallet:
+            item["buyer_wallet"] = buyer_wallet
+        if buyer_network:
+            item["buyer_network"] = buyer_network
         _ddb.put_item(
-            Item={
-                "job_id": job_id,
-                "address": req.address,
-                "status": "DISPATCHING",
-                "source": "x402",
-                "created_at": now,
-                "updated_at": now,
-            },
+            Item=item,
             ConditionExpression="attribute_not_exists(job_id)",
         )
     except Exception as e:  # noqa: BLE001
@@ -1300,6 +1334,20 @@ def investigate_status(job_id: str) -> InvestigateStatusResponse:
         return InvestigateStatusResponse(job_id=job_id, status="UNKNOWN")
 
     status = item.get("status", "UNKNOWN")
+
+    # Refund-on-poll fast path. If the job FAILED and we haven't yet refunded,
+    # do it now so the buyer's status check is also their refund. The daily
+    # refund_cron is the backstop for buyers who never poll.
+    if status == "FAILED" and not item.get("refund_tx") and not item.get("refund_pending"):
+        try:
+            from services import refund as refund_svc
+            result = refund_svc.refund_failed_job(job_id)
+            # Re-read to pick up the refund_tx that refund_failed_job just wrote.
+            item = _ddb.get_item(Key={"job_id": job_id}).get("Item") or item
+            logging.getLogger("investigate").info("inline refund for job=%s: %s", job_id, result)
+        except Exception:
+            logging.getLogger("investigate").exception("inline refund failed for job=%s", job_id)
+
     deliverable = item.get("deliverable")
     return InvestigateStatusResponse(
         job_id=job_id,
@@ -1307,6 +1355,8 @@ def investigate_status(job_id: str) -> InvestigateStatusResponse:
         deliverable=InvestigateDeliverable(**deliverable) if deliverable else None,
         eta_seconds=None if status in ("DELIVERED", "FAILED") else 600,
         error=item.get("error_msg") or item.get("error"),
+        refund_tx=item.get("refund_tx"),
+        refund_pending=item.get("refund_pending"),
     )
 
 
@@ -1370,8 +1420,8 @@ def grade(req: GradeRequest) -> GradeResponse:
 # reach the 402 challenge regardless of method preference.
 
 @app.get("/v1/investigate", response_model=InvestigateAcceptedResponse)
-def investigate_dispatch_get(address: str) -> InvestigateAcceptedResponse:
-    return investigate_dispatch(InvestigateRequest(address=address))
+def investigate_dispatch_get(address: str, request: Request) -> InvestigateAcceptedResponse:
+    return investigate_dispatch(InvestigateRequest(address=address), request)
 
 
 @app.get("/v1/roast", response_model=RoastResponse)
