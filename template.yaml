@@ -142,6 +142,10 @@ Parameters:
     Default: "conservative"
     AllowedValues: ["conservative", "balanced", "capital-efficient"]
     Description: Liquidity posture preset for assessLiquidity(). Conservative for first production runs; can bump to balanced/capital-efficient via stack update.
+  AcpPulseSecretName:
+    Type: String
+    Default: "risk-investigator/acp-pulse-client"
+    Description: Cross-stack Secrets Manager name (created by the risk-investigator stack) holding the buyer-side EOA private key. The CdpHeartbeat Lambda reuses this wallet so there's no second funding stream to manage.
 
 Conditions:
   HasAlarmEmail: !Not [!Equals [!Ref AlarmEmail, ""]]
@@ -346,6 +350,38 @@ Resources:
               Action:
                 - secretsmanager:GetSecretValue
               Resource: !Ref AnchorRuntimeSecret
+
+  # Daily heartbeat that pays for the 8 endpoints with no other organic
+  # outside-buyer traffic (attest, parse/datetime, roll, roast, oracle, tldr,
+  # aura, grade). The InvestigatorPulse cron covers /v1/investigate and the
+  # investigator worker pays for 7 more during each job; these 8 would
+  # otherwise decay against CDP discovery's 30-day TTL. Reuses the pulse
+  # wallet via the shared `risk-investigator/acp-pulse-client` secret.
+  CdpHeartbeatFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      CodeUri: ./
+      Handler: services.cdp_heartbeat.handler
+      Timeout: 300
+      MemorySize: 512
+      Environment:
+        Variables:
+          ANCHOR_X402_BASE_URL: "https://api.anchor-x402.com"
+          HEARTBEAT_WALLET_PRIVATE_KEY: !Sub "{{resolve:secretsmanager:${AcpPulseSecretName}:SecretString:ACP_AGENT_PRIVATE_KEY}}"
+      Events:
+        DailyHeartbeat:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 16 * * ? *)
+            Description: Daily 16:00 UTC paid probe across the 8 endpoints with no organic outside-buyer traffic — keeps CDP discovery entries alive.
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${AcpPulseSecretName}-*"
 
   # Composite runtime secret. Seeded from CloudFormation parameters on
   # first deploy; rotate independently afterward via:
