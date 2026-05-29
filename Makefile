@@ -81,6 +81,25 @@ build-DivigentSweepFunction build-DivigentOracleKeeperFunction:
 	find "$(ARTIFACTS_DIR)" -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null || true
 	find "$(ARTIFACTS_DIR)" -name "*.pyc" -delete 2>/dev/null || true
 
+build-CdpHeartbeatFunction:
+	# Daily discovery heartbeat. Needs httpx + x402 SDK + eth-account; reuses
+	# requirements.txt to keep the pin set unified with AnchorFunction. Only
+	# fires once a day so artifact size isn't worth a third requirements file.
+	python3 -m pip install \
+		--platform manylinux2014_x86_64 \
+		--only-binary=:all: \
+		--python-version 3.12 \
+		--implementation cp \
+		--quiet \
+		-r requirements.txt \
+		-t "$(ARTIFACTS_DIR)"
+	mkdir -p "$(ARTIFACTS_DIR)/services"
+	touch "$(ARTIFACTS_DIR)/services/__init__.py"
+	cp services/cdp_heartbeat.py "$(ARTIFACTS_DIR)/services/"
+	rm -rf "$(ARTIFACTS_DIR)/boto3" "$(ARTIFACTS_DIR)/botocore" "$(ARTIFACTS_DIR)/s3transfer" "$(ARTIFACTS_DIR)/jmespath"
+	find "$(ARTIFACTS_DIR)" -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null || true
+	find "$(ARTIFACTS_DIR)" -name "*.pyc" -delete 2>/dev/null || true
+
 deploy:
 	sam deploy --stack-name anchor-x402 --capabilities CAPABILITY_IAM --resolve-s3 --no-confirm-changeset --no-fail-on-empty-changeset --region us-east-1
 
