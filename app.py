@@ -1670,6 +1670,23 @@ async def divigent_event(event_type: str, request: Request):
     return Response(status_code=204)
 
 
+@app.post("/internal/refund/{job_id}")
+def internal_refund(job_id: str, request: Request):
+    """Push-refund webhook for the worker. Called when the worker writes
+    status=FAILED, so the buyer wallet gets refunded within seconds instead of
+    waiting on a buyer-side poll or the daily backstop cron. Idempotent via
+    refund_failed_job's existing refund_tx check."""
+    if not _internal_auth_matches(request):
+        raise HTTPException(status_code=401, detail="unauthorized")
+    from services import refund as refund_svc
+    try:
+        result = refund_svc.refund_failed_job(job_id)
+    except Exception as e:  # noqa: BLE001
+        logging.getLogger("refund").exception("internal_refund failed job=%s", job_id)
+        raise HTTPException(status_code=502, detail=f"refund failed: {type(e).__name__}")
+    return result
+
+
 @app.get("/chat")
 def chat_ui():
     return _serve_chat_html()
