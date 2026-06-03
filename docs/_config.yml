@@ -1,6 +1,6 @@
 theme: jekyll-theme-cayman
 title: anchor-x402
-description: "16 x402-paid services for AI agents on Base + Solana — sanctions screening, wallet intel, due diligence, anchoring, tx decode, ENS/SNS, prices, plus 5 universal LLM endpoints (roast, oracle, tldr, aura, grade). Pay per call in USDC. No API keys. Hosted chatbot at chat.anchor-x402.com."
+description: "Sixteen x402-paid services on three rails — Base USDC, Solana USDC, and JPYC on Polygon (¥1 per anchor). 9 commodity primitives, async wallet due-diligence, signed RNG, 5 universal LLM endpoints. Hosted chatbot at chat.anchor-x402.com. Pay-per-call, no API keys, no accounts."
 url: "https://anchor-x402.com"
 
 # Jekyll skips dotfiles by default; explicitly include the well-known directory

@@ -2,9 +2,9 @@
 
 > 日本語版 / Japanese: [llms.ja.txt](https://anchor-x402.com/llms.ja.txt)
 
-> Sixteen x402-paid services for AI agents on Base + Solana mainnet, plus a hosted chatbot at chat.anchor-x402.com. Pay-per-call USDC, no API keys, no accounts, no subscriptions.
+> Sixteen x402-paid services for AI agents on three settlement rails — Base USDC, Solana USDC, and JPYC on Polygon — plus a hosted chatbot at chat.anchor-x402.com. Pay-per-call, no API keys, no accounts, no subscriptions.
 
-anchor-x402 exposes 16 stateless services on AWS Lambda + FastAPI. Each endpoint returns an x402 v2 PaymentRequired challenge with `extensions.bazaar`; clients pay $0.001–$1.77 USDC per call from any Base or Solana wallet via EIP-3009 transferWithAuthorization. Settlement via Coinbase's CDP facilitator. Live at https://api.anchor-x402.com.
+anchor-x402 exposes 16 stateless services on AWS Lambda + FastAPI. Each endpoint returns an x402 v2 PaymentRequired challenge with `extensions.bazaar`; clients pay $0.001–$1.77 USDC (or the JPYC equivalent ¥0.1–¥350) per call from any Base, Solana, or Polygon wallet via EIP-3009 transferWithAuthorization. USDC settles via Coinbase's CDP facilitator; JPYC settles via an in-process facilitator on Polygon. Live at https://api.anchor-x402.com.
 
 ## Discovery (machine-readable)
 
@@ -51,9 +51,9 @@ anchor-x402 exposes 16 stateless services on AWS Lambda + FastAPI. Each endpoint
 
 ## Hosted agent chatbot
 
-[chat.anchor-x402.com](https://chat.anchor-x402.com) — a hosted Claude agent that runs the 15 services on behalf of users who don't have their own agent. Users connect a Coinbase Smart Wallet (passkey, no app needed) or any browser-extension wallet (MetaMask, Rabby, Frame, etc.) and pay per call. The chat itself is free; each paid tool call requires explicit user approval and signs a single EIP-3009 USDC authorization. Session spend caps are user-set and enforced client-side.
+[chat.anchor-x402.com](https://chat.anchor-x402.com) — a hosted Claude agent that runs the 16 services on behalf of users who don't have their own agent. Users connect a Coinbase Smart Wallet (passkey, no app needed) or any browser-extension wallet (MetaMask, Rabby, Frame, etc.) and pay per call. The chat itself is free; each paid tool call requires explicit user approval and signs a single EIP-3009 USDC authorization. Session spend caps are user-set and enforced client-side.
 
-This is the recommended path for non-developers and the canonical demo surface for any of the 15 services. Each service has free demo output available via `/demo <name>` (no payment).
+This is the recommended path for non-developers and the canonical demo surface for any of the 16 services. Each service has free demo output available via `/demo <name>` (no payment).
 
 ## How agents use the HTTP API
 
@@ -77,8 +77,8 @@ Or call the HTTP API directly using any x402 v2 client SDK ([@x402/fetch on npm]
 
 ## Listings (where this service is indexed)
 
-- [CDP Bazaar](https://docs.cdp.coinbase.com/x402/bazaar) — 15 services live, auto-indexed
-- [agentic.market](https://api.agentic.market/v1/services/search?q=api.anchor-x402.com) — 15 services live
+- [CDP Bazaar](https://docs.cdp.coinbase.com/x402/bazaar) — 16 services live, auto-indexed
+- [agentic.market](https://api.agentic.market/v1/services/search?q=api.anchor-x402.com) — 16 services live
 - [Agent Arena](https://agentarena.site/api/agent/8453/47261) — ERC-8004 on-chain agent registry (Base, agentId 47261)
 - [Virtuals ACP](https://app.virtuals.io) — 9 GET resource offerings + investigateWallet Job
 - [Official MCP Registry](https://registry.modelcontextprotocol.io/v0/servers?search=anchor-x402)

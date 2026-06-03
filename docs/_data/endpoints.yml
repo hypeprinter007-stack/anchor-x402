@@ -1,0 +1,61 @@
+# Pricing tiers in JPYC. usd → jpy mapping mirrors _JPYC_TIERS_ATOMIC in app.py.
+# When prices shift, update both.
+
+rails:
+  - id: base
+    name: Base
+    asset: USDC
+    network: eip155:8453
+    facilitator: Coinbase CDP
+    color: "#0052ff"
+  - id: solana
+    name: Solana
+    asset: USDC
+    network: Solana mainnet
+    facilitator: Coinbase CDP
+    color: "#14f195"
+  - id: polygon
+    name: Polygon
+    asset: JPYC
+    network: eip155:137
+    facilitator: in-process
+    hook: "¥1 per anchor"
+    color: "#d12027"
+
+categories:
+  - id: commodity
+    title: Commodity primitives
+    count: 9
+    blurb: "Stateless, sub-cent calls. Drop-in building blocks for any agent."
+    endpoints:
+      - { path: "/v1/anchor",          method: POST, usd: "0.005", jpy: "1",   desc: "Anchor a 32-byte hash to Base + Solana in parallel. Returns both tx hashes." }
+      - { path: "/v1/screen",          method: GET,  usd: "0.001", jpy: "0.1", desc: "OFAC SDN + AML screen for any EVM or Solana wallet." }
+      - { path: "/v1/attest",          method: POST, usd: "0.010", jpy: "2",   desc: "Verify a wallet signature over (input, output, decision); dual-chain anchor the result." }
+      - { path: "/v1/decode/tx",       method: POST, usd: "0.001", jpy: "0.1", desc: "Structured decode of any Base or Ethereum mainnet transaction." }
+      - { path: "/v1/resolve/name",    method: GET,  usd: "0.001", jpy: "0.1", desc: "Cross-chain name resolution: ENS + Bonfida SNS." }
+      - { path: "/v1/price/token",     method: GET,  usd: "0.001", jpy: "0.1", desc: "USD spot price by symbol or chain+contract." }
+      - { path: "/v1/decode/calldata", method: POST, usd: "0.001", jpy: "0.1", desc: "4byte selector + ABI parameter decode." }
+      - { path: "/v1/parse/datetime",  method: POST, usd: "0.001", jpy: "0.1", desc: "Freeform datetime → ISO 8601 + unix epoch + components." }
+      - { path: "/v1/intel/wallet",    method: GET,  usd: "0.005", jpy: "1",   desc: "Bundled wallet intelligence — balances, activity, identity, sanctions." }
+  - id: diligence
+    title: Due diligence
+    count: "1 · async"
+    blurb: "The high-trust call. Auto-refund if the worker fails."
+    endpoints:
+      - { path: "/v1/investigate",     method: POST, usd: "1.77",  jpy: "350", desc: "Agent-driven multi-step wallet investigation. Signed markdown + JSON sidecar + dual-chain anchor. ETA 5–10 min. Auto-refund on failure." }
+  - id: rng
+    title: Verifiable signed RNG
+    count: 1
+    blurb: "Drop-in VRF — cryptographic receipts for game studios, raffles, DAO selection, NFT reveals."
+    endpoints:
+      - { path: "/v1/roll",            method: POST, usd: "0.001", jpy: "0.1", desc: "Cryptographically-random integer(s) over a caller-chosen range, EIP-191 signed. Optional 32-byte pre-commitment closes front-running windows." }
+  - id: llm
+    title: Universal LLM
+    count: 5
+    blurb: "One-shot LLM calls with deterministic price. Two anchor verdicts on-chain."
+    endpoints:
+      - { path: "/v1/roast",           method: POST, usd: "0.05",  jpy: "10",  desc: "Witty roast of any target — wallet, tweet, code, idea." }
+      - { path: "/v1/oracle",          method: POST, usd: "0.05",  jpy: "10",  desc: "Yes/no oracle with dual-chain anchored verdict — answer + question hash + timestamp on Base + Solana." }
+      - { path: "/v1/tldr",            method: POST, usd: "0.01",  jpy: "2",   desc: "Summarize a URL or pasted text into 3–5 bullets." }
+      - { path: "/v1/aura",            method: POST, usd: "0.01",  jpy: "2",   desc: "Aura read of anything — color, tier (S/A/B/C/D/F), score 0–9999, punchy description." }
+      - { path: "/v1/grade",           method: POST, usd: "0.01",  jpy: "2",   desc: "Letter grade (A+ to F) + red-pen marginalia + summary." }

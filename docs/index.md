@@ -1,60 +1,38 @@
 ---
-layout: default
-title: anchor-x402
+layout: home
+title: "anchor-x402 — 16 x402-paid services for AI agents"
+description: "Sixteen x402-paid endpoints on three rails — Base USDC, Solana USDC, JPYC on Polygon. Hosted agent chatbot at chat.anchor-x402.com. Pay-per-call, no API keys, no accounts."
 ---
 
-# anchor-x402
+## What this is, in one paragraph
 
-> Fifteen x402-paid services for AI agents — nine commodity primitives, one agent-driven wallet investigator, and five universal LLM endpoints (roast, oracle, tldr, aura, grade). Plus a hosted-agent chatbot at [chat.anchor-x402.com](https://chat.anchor-x402.com) for users without their own agent. One AWS Lambda, one OpenAPI spec, indexed across 8 agent-discovery surfaces — [CDP Bazaar](https://docs.cdp.coinbase.com/x402/bazaar), [agentic.market](https://agentic.market), [Agent Arena](https://agentarena.site/api/agent/8453/47261) (ERC-8004 NFT), [Virtuals ACP](https://app.virtuals.io), the [Official MCP Registry](https://registry.modelcontextprotocol.io), [Glama](https://glama.ai/mcp/servers/hypeprinter007-stack/anchor-x402-mcp), [mcp.so](https://mcp.so/server/anchor-x402-mcp), and [npm](https://www.npmjs.com/package/anchor-x402-mcp). Pay per call in USDC on Base or Solana mainnet — no API keys, no accounts, no subscriptions.
+anchor-x402 is **sixteen stateless x402 endpoints** that any AI agent can call and pay for in a single round-trip. Each call returns an x402 v2 PaymentRequired challenge; the agent signs an EIP-3009 authorization from its own wallet, replays the request, and gets the result. Settlement happens on **Base** or **Solana** (USDC via Coinbase's CDP facilitator) or **Polygon** (JPYC via an in-process facilitator). Live at `https://api.anchor-x402.com` — see the [/health probe](https://api.anchor-x402.com/health) or the [Swagger UI](https://api.anchor-x402.com/docs).
 
-## Try it without an agent
-
-**→ [chat.anchor-x402.com](https://chat.anchor-x402.com)** — connect a wallet, chat with our hosted Claude agent, pay per call from your own USDC on Base. The agent quotes the price aloud before every call and never spends beyond a cap you set.
-
-Watch a [30-second walkthrough →](/demo/) or browse [five per-endpoint demos →](/demos/).
+If you don't have your own agent, **[chat.anchor-x402.com](https://chat.anchor-x402.com)** is a hosted Claude that runs the same sixteen services on your behalf. Connect a wallet (Coinbase Smart Wallet with a passkey, MetaMask, Rabby — any of them), chat for free, and approve each paid tool call one EIP-3009 signature at a time.
 
 ## Have an x402 endpoint?
 
-If you run a paid x402 service and want it exposed through this agent — listed in the chat surface, included in the `anchor-x402-mcp` npm package, cross-linked from this site, and discoverable through our existing listings — reach out at **[hello@anchor-x402.com](mailto:hello@anchor-x402.com?subject=x402%20endpoint%20listing)**. Include the endpoint URL, one-line description, and price. First listing is free if it covers something we don't already do well.
+If you run a paid x402 service and want it exposed through this agent — listed in the chat surface, included in the [`anchor-x402-mcp`](https://www.npmjs.com/package/anchor-x402-mcp) npm package, cross-linked from this site, and discoverable through our existing listings — email **[hello@anchor-x402.com](mailto:hello@anchor-x402.com?subject=x402%20endpoint%20listing)**. Include the endpoint URL, one-line description, and price. First listing is free if it covers something we don't already do well.
 
 White-label / custom-bot tier — your branding, your system prompt, your tool subset, your tenant-scoped subdomain, revenue share on tool calls — same address.
 
-## Live API
-
-- **Base URL:** `https://api.anchor-x402.com`
-- **Swagger UI:** [/docs](https://api.anchor-x402.com/docs)
-- **OpenAPI spec:** [/openapi.json](https://api.anchor-x402.com/openapi.json)
-- **Health:** [/health](https://api.anchor-x402.com/health)
-- **Status page:** [anchor-x402.betteruptime.com](https://anchor-x402.betteruptime.com)
-
-## Services
-
-| Endpoint | Method | Price | Purpose |
-|---|---|---|---|
-| `/v1/anchor` | POST | $0.005 | Anchor a 32-byte hash to Base + Solana mainnet in parallel |
-| `/v1/screen` | GET | $0.001 | Sanctions + AML screening for any wallet address |
-| `/v1/attest` | POST | $0.010 | Verify a wallet signature, dual-chain anchor the result |
-| `/v1/decode/tx` | POST | $0.001 | Structured decode of any mainnet tx |
-| `/v1/resolve/name` | GET | $0.001 | Cross-chain name resolution (ENS, Bonfida SNS) |
-| `/v1/price/token` | GET | $0.001 | USD spot price by symbol or chain+contract |
-| `/v1/decode/calldata` | POST | $0.001 | 4byte selector + ABI param decode |
-| `/v1/parse/datetime` | POST | $0.001 | Freeform datetime → structured ISO 8601 |
-| `/v1/intel/wallet` | GET | $0.005 | Bundled wallet intelligence (balances + activity + identity + sanctions) |
-
 ## For institutional reviewers
 
-The full security posture lives at [/trust/](trust/) — threat model, pre-filled SIG-Lite security questionnaire, code-level self-audit guide, regulated deployment guide, on-chain verifiability primer, and observability setup. Start with [trust/](trust/).
+The full security posture lives at [/trust/](trust/) — STRIDE threat model, pre-filled SIG-Lite questionnaire, code-level self-audit guide, regulated deployment guide, on-chain verifiability primer, and observability docs.
 
-If you need an **institutional tier** beyond what anchor-x402's commodity tier provides — per-tenant authentication, signed MSA / DPA / SLA contracts, WORM evidence vault, GDPR Article 17 erasure, dedicated support — email [hello@anchor-x402.com](mailto:hello@anchor-x402.com). Available $499–$5,000+/mo depending on volume and posture.
+No SOC 2 / ISO 27001 / PCI / HIPAA — this is the commodity tier, fit for sandboxes, POCs, and non-binding workflows. An **institutional tier** ($499–$5,000+/mo) is available on request: per-tenant authentication, signed MSA/DPA/SLA, WORM evidence vault on S3 Object Lock, GDPR Article 17 erasure reconciled with AML retention. Email [hello@anchor-x402.com](mailto:hello@anchor-x402.com).
 
 ## For agents and developers
 
-- **MCP server:** [`anchor-x402-mcp`](https://www.npmjs.com/package/anchor-x402-mcp) on npm — drop one config block into Claude Desktop, Cursor, or any MCP client and the 9 services become callable tools that auto-pay from your Base wallet. Install: `npx anchor-x402-mcp`. Source: [github.com/hypeprinter007-stack/anchor-x402-mcp](https://github.com/hypeprinter007-stack/anchor-x402-mcp).
-- **Server source:** [github.com/hypeprinter007-stack/anchor-x402](https://github.com/hypeprinter007-stack/anchor-x402)
-- **License:** MIT — fork it, audit it, deploy your own
-- **x402 client SDK:** [github.com/coinbase/x402](https://github.com/coinbase/x402)
-- **Quickstart:** see the [repo README](https://github.com/hypeprinter007-stack/anchor-x402#quickstart-agent--consumer)
+- **MCP server:** [`anchor-x402-mcp`](https://www.npmjs.com/package/anchor-x402-mcp) on npm. One config block in Claude Desktop, Claude Code, Codex CLI, ChatGPT Desktop, Cursor, or OpenAI Agents SDK and the services become callable tools that auto-pay from your Base wallet. `npx anchor-x402-mcp`.
+- **Direct HTTP:** any x402 v2 client SDK works — [`@x402/fetch`](https://www.npmjs.com/package/@x402/fetch) for TypeScript, the Python x402 SDK, or Rust. Same dance: 402 → sign → retry.
+- **Source:** [github.com/hypeprinter007-stack/anchor-x402](https://github.com/hypeprinter007-stack/anchor-x402) (MIT licensed — fork it, audit it, deploy your own)
+- **Discovery surfaces:** [CDP Bazaar](https://docs.cdp.coinbase.com/x402/bazaar), [agentic.market](https://api.agentic.market/v1/services/search?q=api.anchor-x402.com), [Agent Arena](https://agentarena.site/api/agent/8453/47261) (ERC-8004), [Virtuals ACP](https://app.virtuals.io), the [Official MCP Registry](https://registry.modelcontextprotocol.io/v0/servers?search=anchor-x402), [Glama](https://glama.ai/mcp/servers/hypeprinter007-stack/anchor-x402-mcp), [mcp.so](https://mcp.so/server/anchor-x402-mcp).
+
+## On-chain verifiability
+
+`/v1/anchor`, `/v1/attest`, `/v1/oracle`, and `/v1/investigate` reports each write a 32-byte hash to **both Base and Solana mainnet**. The on-chain bytes are independent of this service — anyone can verify a receipt by reading the chains directly. Tampering would require breaking SHA-256 or simultaneously reorganizing two L1s. Live examples at [/trust/on-chain-verifiability](/trust/on-chain-verifiability).
 
 ## Contact
 
-Christopher Ferjo · [hello@anchor-x402.com](mailto:hello@anchor-x402.com) · security disclosures: [security@anchor-x402.com](mailto:security@anchor-x402.com)
+Christopher Ferjo · [hello@anchor-x402.com](mailto:hello@anchor-x402.com) · security disclosures: [security@anchor-x402.com](mailto:security@anchor-x402.com) · [@thexferj](https://x.com/thexferj)

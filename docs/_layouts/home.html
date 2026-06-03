@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ page.title | default: site.title }}</title>
+  <meta name="description" content="{{ page.description | default: site.description }}">
+  <link rel="icon" type="image/png" href="{{ '/icon.png' | relative_url }}">
+  <link rel="stylesheet" href="{{ '/assets/css/anchor.css' | relative_url }}?v=2">
+  {% include head-custom.html %}
+</head>
+<body data-currency="usd">
+
+  <header class="topbar">
+    <div class="container">
+      <a class="brand" href="/">anchor<span class="dim">-x402</span></a>
+      <nav class="nav">
+        <a href="/demos/">demos</a>
+        <a href="/trust/">trust</a>
+        <a href="https://api.anchor-x402.com/docs">api</a>
+        <a href="https://github.com/hypeprinter007-stack/anchor-x402">github</a>
+        <a class="nav-cta" href="https://chat.anchor-x402.com">chat ↗</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="container">
+      <div class="hero-text">
+        <div class="hero-eyebrow"><span class="dot"></span> live on mainnet</div>
+        <h1 class="hero-title">
+          Sixteen services.<br>
+          Three payment rails.<br>
+          <span class="accent">One call.</span>
+        </h1>
+        <p class="hero-sub">
+          x402-paid endpoints for AI agents. Your agent's wallet pays
+          <strong style="color:var(--text)">$0.001–$1.77</strong> per call
+          in <strong style="color:var(--text)">USDC</strong> on Base or
+          Solana — or in <strong style="color:var(--text)">JPYC</strong>
+          on Polygon, ¥1 per anchor. EIP-3009 gasless. No keys, no signup.
+        </p>
+
+        <div class="cta-row">
+          <a class="btn btn-primary" href="https://chat.anchor-x402.com">Try without an agent →</a>
+          <a class="btn btn-ghost" href="https://api.anchor-x402.com/openapi.json">OpenAPI</a>
+          <a class="btn btn-ghost" href="https://www.npmjs.com/package/anchor-x402-mcp">MCP server</a>
+        </div>
+      </div>
+      <img class="hero-logo" src="{{ '/assets/anchor-logo.svg' | relative_url }}" alt="anchor-x402 logo">
+    </div>
+  </section>
+
+  <section class="rails-section">
+    <div class="container">
+      <div class="rails">
+        {% for r in site.data.endpoints.rails %}
+        <div class="rail" style="--rail-color: {{ r.color }}">
+          <div class="rail-name">{{ r.network }}</div>
+          <div class="rail-asset">
+            <span>{{ r.name }} · {{ r.asset }}</span>
+            {% if r.hook %}<span class="rail-hook">{{ r.hook }}</span>{% endif %}
+          </div>
+          <div class="rail-detail">{{ r.facilitator }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <section class="flow-section">
+    <div class="container">
+      <div class="section-title">The dance</div>
+      <h2 class="section-h2">Three round-trips. One signature.</h2>
+      <p class="flow-blurb">A real call to <code>/v1/screen</code> from any x402 client. Your agent never holds an API key — the wallet's the credential.</p>
+      <div class="flow-grid">
+        <div class="flow-step">
+          <div class="flow-step-h"><span class="flow-num">1</span> agent requests</div>
+<pre><code>GET /v1/screen?address=0x1234…
+→ <span class="resp-402">402 Payment Required</span>
+   x-payment-required: { ... $0.001 USDC ... }</code></pre>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-h"><span class="flow-num">2</span> agent signs</div>
+<pre><code>// EIP-3009 transferWithAuthorization
+// signed by agent's own wallet — no
+// custody, no balance with anchor.
+x-payment: eyJzaWc...</code></pre>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-h"><span class="flow-num">3</span> server settles + returns</div>
+<pre><code>GET /v1/screen + x-payment
+→ <span class="resp-200">200 OK</span>
+   { "sanctioned": false, "lists": [] }
+   x-payment-response: { tx: 0xabc... }</code></pre>
+        </div>
+      </div>
+      <div class="currency-toggle" style="margin-top:36px">
+        <span>Show prices in</span>
+        <div class="switch">
+          <button data-currency="usd" class="active">USD</button>
+          <button data-currency="jpy">JPY</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="services">
+    <div class="container">
+      <div class="section-title">Catalog</div>
+      <h2 class="section-h2">Sixteen paid endpoints, four categories.</h2>
+
+      {% for c in site.data.endpoints.categories %}
+      <div class="cat">
+        <div class="cat-title">{{ c.title }} <span class="cat-count">{{ c.count }}</span></div>
+        <p class="cat-blurb">{{ c.blurb }}</p>
+        <div class="card-grid">
+          {% for e in c.endpoints %}
+          <a class="card" href="https://api.anchor-x402.com/docs">
+            <div class="card-head">
+              <code class="endpoint"><span class="method">{{ e.method }}</span>{{ e.path }}</code>
+              <span class="price">
+                <span class="usd">${{ e.usd }}</span>
+                <span class="jpy">¥{{ e.jpy }}</span>
+              </span>
+            </div>
+            <p class="desc">{{ e.desc }}</p>
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="content">
+    <div class="container">
+      {{ content }}
+    </div>
+  </section>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div>Christopher Ferjo · <a href="mailto:hello@anchor-x402.com">hello@anchor-x402.com</a> · MIT</div>
+      <div class="links">
+        <a href="/trust/">trust</a>
+        <a href="/llms.txt">llms.txt</a>
+        <a href="/llms.ja.txt">日本語</a>
+        <a href="https://anchor-x402.betteruptime.com">status</a>
+        <a href="mailto:security@anchor-x402.com">security</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="{{ '/assets/js/anchor.js' | relative_url }}?v=2"></script>
+</body>
+</html>

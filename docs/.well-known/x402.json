@@ -1,8 +1,8 @@
 {
   "version": "2.0",
   "name": "anchor-x402",
-  "description": "Sixteen x402-paid services for AI agents on Base + Solana mainnet: nine commodity primitives (dual-chain hash anchoring, OFAC sanctions screening, signed decision attestation, mainnet tx decode, ENS/SNS resolution, USD spot price, EVM calldata decode, freeform datetime parsing, bundled wallet intelligence), one async due-diligence investigator ($1.77), one verifiable signed RNG (drop-in VRF for game studios), and five universal LLM endpoints (roast, oracle with on-chain anchored verdict, TL;DR, aura, grade). Plus a hosted chatbot at chat.anchor-x402.com. Pay-per-call USDC, no API keys, no accounts.",
-  "description_ja": "AIエージェント向けのx402従量課金サービス16種。Base + Solanaメインネット対応。内訳は、汎用プリミティブ9種（デュアルチェーンのハッシュアンカリング、OFAC制裁スクリーニング、署名検証＋アンカリング、メインネットtxデコード、ENS/SNS名前解決、USDスポット価格、EVMコールデータデコード、自由形式の日時パース、ウォレットインテリジェンス統合）、非同期デューデリジェンス調査1種（$1.77）、検証可能な署名付き乱数生成1種（ゲームスタジオ向けVRF互換）、汎用LLMエンドポイント5種（roast、オンチェーンアンカー判定付きoracle、TL;DR、aura、grade）。さらにchat.anchor-x402.comではホスト型チャットボットも利用可能。コール単位のUSDC決済で、APIキー・アカウント登録ともに不要です。",
+  "description": "Sixteen x402-paid services for AI agents on three settlement rails — Base USDC, Solana USDC, and JPYC on Polygon (¥1 per anchor call). Nine commodity primitives, one async due-diligence investigator ($1.77 / ¥350), one verifiable signed RNG (drop-in VRF), and five universal LLM endpoints (roast, oracle with on-chain anchored verdict, TL;DR, aura, grade). Plus a hosted chatbot at chat.anchor-x402.com. Pay-per-call, no API keys, no accounts.",
+  "description_ja": "AIエージェント向けのx402従量課金サービス16種、3つの決済レール対応 — Baseメインネット USDC、Solanaメインネット USDC、PolygonメインネットJPYC（アンカー1回あたり¥1）。汎用プリミティブ9種、非同期デューデリジェンス調査1種（$1.77 / ¥350）、検証可能な署名付き乱数生成1種（VRF互換）、汎用LLMエンドポイント5種（roast、オンチェーンアンカー判定付きoracle、TL;DR、aura、grade）。さらにchat.anchor-x402.comではホスト型チャットボットも利用可能。コール単位の決済で、APIキー・アカウント登録ともに不要です。",
   "operator": "anchor-x402",
   "homepage": "https://anchor-x402.com",
   "trust_portal": "https://anchor-x402.com/trust/",
@@ -25,6 +25,15 @@
       "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
       "asset_name": "USDC",
       "payment_address": "6apuZvJQ51Led9iEjnHw6f5jfnXL4qjt8S1h58PeXzuR"
+    },
+    {
+      "id": "eip155:137",
+      "name": "Polygon mainnet",
+      "asset": "0x431D5dfF03120AFA4bDf332c61A6e1766eF37BDB",
+      "asset_name": "JPYC",
+      "asset_decimals": 18,
+      "facilitator": "in-process",
+      "note": "First FSA-licensed Japanese yen stablecoin. Tier mapping: $0.001=¥0.1, $0.005=¥1, $0.01=¥2, $0.05=¥10, $1.77=¥350, $5.00=¥1000."
     }
   ],
   "free_endpoints": [
