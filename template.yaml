@@ -331,7 +331,7 @@ Resources:
     Properties:
       CodeUri: ./
       Handler: services.divigent_cron.oracle_keeper_handler
-      Timeout: 60
+      Timeout: 120
       MemorySize: 512
       Environment:
         Variables:
@@ -623,7 +623,7 @@ Resources:
         - Name: FunctionName
           Value: !Ref DivigentOracleKeeperFunction
       Statistic: Sum
-      Period: 3600
+      Period: 300
       EvaluationPeriods: 1
       Threshold: 0
       ComparisonOperator: GreaterThanThreshold
