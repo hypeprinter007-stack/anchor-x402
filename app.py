@@ -529,6 +529,35 @@ _tldr_bazaar_ext = declare_discovery_extension(
     }),
 )
 
+# --- Bazaar category backfill ---
+# anchor (security) and roll (gaming) set their own category at declaration.
+# Everything else defaults to discoverable with no category; tag them here so
+# Bazaar category-browse surfaces them. Tags are chosen for DISCOVERY VOLUME:
+# each is an exact string already populated in the live CDP Bazaar taxonomy
+# (so we cluster with existing sellers rather than orphan a new label), biased
+# toward the larger browse pools while staying semantically accurate. `gaming`
+# (roll) and `content-extraction` (tldr) are the deliberate niche-but-precise
+# picks. This is independent of docs/.well-known/x402.json, which CDP does not
+# read and keeps its own taxonomy.
+for _ext, _cat in (
+    (_screen_bazaar_ext, "security"),
+    (_attest_bazaar_ext, "security"),
+    (_tx_decode_bazaar_ext, "web3"),
+    (_name_resolve_bazaar_ext, "web3"),
+    (_token_price_bazaar_ext, "finance"),
+    (_calldata_decode_bazaar_ext, "web3"),
+    (_intel_wallet_bazaar_ext, "security"),
+    (_investigate_bazaar_ext, "security"),
+    (_datetime_parse_bazaar_ext, "ai"),
+    (_roast_bazaar_ext, "ai"),
+    (_oracle_bazaar_ext, "ai"),
+    (_aura_bazaar_ext, "ai"),
+    (_grade_bazaar_ext, "ai"),
+    (_tldr_bazaar_ext, "content-extraction"),
+):
+    _ext["bazaar"]["discoverable"] = True
+    _ext["bazaar"]["category"] = _cat
+
 x402_routes = {
     "POST /v1/anchor": RouteConfig(
         accepts=_accepts_at("$0.005"),

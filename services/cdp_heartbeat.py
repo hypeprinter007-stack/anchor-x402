@@ -1,8 +1,8 @@
 """CDP discovery heartbeat — daily paid probes against endpoints with no
 organic outside-buyer traffic. Two product surfaces:
 
-  anchor-x402: 8 routes not covered by InvestigatorPulse or the worker
-    (attest, parse/datetime, roll, roast, oracle, tldr, aura, grade).
+  anchor-x402: 9 routes not covered by InvestigatorPulse or the worker
+    (attest, decode/tx, parse/datetime, roll, roast, oracle, tldr, aura, grade).
   signalfuse:  all 10 paid routes — no internal cron currently pays for any.
 
 Mirrors the x402 client pattern from risk-investigator/poller/pulse.py.
@@ -27,20 +27,20 @@ ANCHOR_BASE_URL = os.environ.get("ANCHOR_X402_BASE_URL", "https://api.anchor-x40
 SIGNALFUSE_BASE_URL = os.environ.get("SIGNALFUSE_BASE_URL", "https://api.signalfuse.co")
 
 # Probe shape: (method, path, body-or-None). GET endpoints with query params
-# bake them into the path. Payloads are shape-valid so the request reaches
-# the route handler; the 402-settle happens in middleware regardless of
-# whether the handler ultimately returns 200 or a business-logic 4xx.
+# bake them into the path. CRITICAL: the 402-settle only happens on a 2xx
+# response — a handler that 4xx/5xx's BEFORE returning does NOT settle, so the
+# probe doesn't count toward the Bazaar 30-day active window. Every probe body
+# below must drive the handler to a 200. (attest needs a real signature, built
+# dynamically in `handler`; decode/tx needs a real on-chain tx.)
 _ZERO_HASH = "00" * 32
 _HB = "discovery-heartbeat"
+# Permanent, immutable Base mainnet tx — decode/tx must reach a 200 to settle.
+_REAL_BASE_TX = "0x9e1fd68b563cd36fbb42aa993f31762aaa7cfb876c579ccb40d36d16e178902b"
 
+# NOTE: /v1/attest is NOT listed here — it needs a valid eip191 signature over
+# the live wallet, so its probe is built in `handler` via `_attest_probe`.
 ANCHOR_PROBES: list[tuple[str, str, dict[str, Any] | None]] = [
-    ("POST", "/v1/attest", {
-        "input_hash": _ZERO_HASH,
-        "output_hash": _ZERO_HASH,
-        "decision": "HEARTBEAT",
-        "scheme": "eip191",
-        "signature": "0x" + "00" * 65,
-    }),
+    ("GET", f"/v1/decode/tx?chain=base&tx_hash={_REAL_BASE_TX}", None),
     ("POST", "/v1/parse/datetime", {"input": "tomorrow at noon"}),
     ("POST", "/v1/roll", {"low": 1, "high": 100, "count": 1}),
     ("POST", "/v1/roast", {"target": _HB}),
@@ -96,6 +96,31 @@ def _x402_http_client():
     return _X402_HTTP_CLIENT
 
 
+def _attest_probe() -> tuple[str, str, dict[str, Any]]:
+    """Build a /v1/attest probe with a REAL eip191 signature over the heartbeat
+    wallet, signed the same way services/attest.py reconstructs and recovers it.
+    A valid signature is required — attest 400s (and so never settles) otherwise.
+    """
+    from eth_account import Account
+    from eth_account.messages import encode_defunct
+
+    pk = os.environ["HEARTBEAT_WALLET_PRIVATE_KEY"].strip()
+    if not pk.startswith("0x"):
+        pk = "0x" + pk
+    account = Account.from_key(pk)
+
+    ih = oh = _ZERO_HASH
+    decision = "HEARTBEAT"
+    msg = f"anchor-x402/attest/v1\ninput={ih}\noutput={oh}\ndecision={decision}".encode("utf-8")
+    sig = account.sign_message(encode_defunct(msg)).signature.hex()
+    if not sig.startswith("0x"):
+        sig = "0x" + sig
+    return ("POST", "/v1/attest", {
+        "input_hash": ih, "output_hash": oh, "decision": decision,
+        "scheme": "eip191", "signature": sig,
+    })
+
+
 def _emit(event_type: str, **fields: Any) -> None:
     payload = {"event_type": event_type, "ts": datetime.now(timezone.utc).isoformat(), **fields}
     log.info("CDP_HEARTBEAT_EVENT %s", json.dumps(payload, default=str))
@@ -126,7 +151,11 @@ def handler(event, context):
     """EventBridge target — daily heartbeat across both product surfaces."""
     results = []
     for target_name, base_url, probes in TARGETS:
-        for method, path, body in probes:
+        probe_list = list(probes)
+        if target_name == "anchor":
+            # attest needs a live signature — build it per run, not at import.
+            probe_list = [_attest_probe()] + probe_list
+        for method, path, body in probe_list:
             try:
                 result = _probe(base_url, method, path, body)
                 _emit("heartbeat.probe", target=target_name, path=path, **result)
