@@ -822,6 +822,28 @@ _RESOURCE_METADATA: dict[str, dict[str, Any]] = {
 }
 
 
+# Per-path Bazaar listing card injected into the 402 challenge body. The x402
+# SDK surfaces RouteConfig.extensions only in the payment-required header, never
+# as a body-level `extensions` field that strict validators (x402trace
+# bazaar-check) require. Build {name, description, category} from data already
+# declared, taking only the canonical route per path (the one carrying the
+# bazaar extension; method wrappers carry none and are skipped).
+_BAZAAR_CARD: dict[str, dict[str, str]] = {}
+for _route_key, _route_cfg in x402_routes.items():
+    _bz = (_route_cfg.extensions or {}).get("bazaar")
+    if not _bz:
+        continue
+    _card_path = _route_key.split(" ", 1)[1]
+    _card: dict[str, str] = {
+        "name": (_RESOURCE_METADATA.get(_card_path) or {}).get("serviceName") or "anchor-x402",
+    }
+    if _route_cfg.description:
+        _card["description"] = _route_cfg.description
+    if _bz.get("category"):
+        _card["category"] = _bz["category"]
+    _BAZAAR_CARD[_card_path] = _card
+
+
 def _inject_402_challenge_body(response):
     """The x402 Python SDK defaults to header-only 402 challenges: the full
     PaymentRequired JSON lands in the `payment-required` response header
@@ -843,11 +865,21 @@ def _inject_402_challenge_body(response):
     if meta:
         challenge.setdefault("resource", {}).update(meta)
 
+    # Top-level extensions.bazaar listing card (see _BAZAAR_CARD). The SDK omits
+    # RouteConfig extensions from the challenge body; surface them here so strict
+    # validators see a complete Bazaar manifest. /v1/investigate layers extra
+    # signals on top below.
+    card = _BAZAAR_CARD.get(path)
+    if card:
+        _bz = challenge.setdefault("extensions", {}).setdefault("bazaar", {})
+        for _k, _v in card.items():
+            _bz.setdefault(_k, _v)
+
     # Buyer-confidence signal for /v1/investigate ($1.77 is high enough that
     # delivery proof + refund-on-fail materially shifts willingness to pay).
     # `delivery_stats` is the live track record; `refund_policy` documents
     # the auto-refund promise so the buyer sees it before they commit.
-    challenge_mutated = bool(meta)
+    challenge_mutated = bool(meta) or bool(card)
     if path == "/v1/investigate":
         from services import delivery_stats
         bazaar_ext = challenge.setdefault("extensions", {}).setdefault("bazaar", {})

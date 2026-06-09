@@ -11,6 +11,12 @@
   "facilitator": "https://api.cdp.coinbase.com/platform/v2/x402",
   "x402_version": 2,
   "discovery_extension": "bazaar",
+  "extensions": {
+    "bazaar": {
+      "name": "anchor-x402",
+      "description": "x402-paid services for AI agents on Base, Solana, and Polygon (JPYC) — wallet screening & due-diligence, on-chain attestation, token price & name resolution, verifiable signed RNG, and LLM utilities. Pay-per-call, no API keys."
+    }
+  },
   "networks": [
     {
       "id": "eip155:8453",
