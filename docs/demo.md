@@ -7,16 +7,16 @@ permalink: /demo/
 
 # 30 seconds, end-to-end
 
-<video controls playsinline preload="metadata" poster="/og.png" style="width:100%; max-width:480px; display:block; margin:0 auto 32px; border-radius:6px; background:#0c0d10;">
+<video controls playsinline preload="metadata" poster="/og.png" style="width:100%; max-width:480px; display:block; margin:0 auto 32px; border-radius:6px; background:#0b1220;">
   <source src="/demo.mp4" type="video/mp4">
   Your browser can't play HTML5 video. <a href="/demo.mp4">Download the MP4</a>.
 </video>
 
 <div style="text-align:center; margin: 24px 0 40px;">
-  <a href="https://chat.anchor-x402.com" style="display:inline-block; padding:14px 28px; background:#d97954; color:#0c0d10; font-weight:600; border-radius:6px; text-decoration:none;">Try it now →</a>
-  <span style="display:inline-block; margin:0 12px; color:#7a7c84;">·</span>
+  <a href="https://chat.anchor-x402.com" style="display:inline-block; padding:14px 28px; background:#7dd3fc; color:#0b1220; font-weight:600; border-radius:6px; text-decoration:none;">Try it now →</a>
+  <span style="display:inline-block; margin:0 12px; color:#94a3b8;">·</span>
   <a href="https://github.com/hypeprinter007-stack/anchor-x402">source</a>
-  <span style="color:#7a7c84;"> · </span>
+  <span style="color:#94a3b8;"> · </span>
   <a href="https://api.anchor-x402.com/docs">api docs</a>
 </div>
 
@@ -65,6 +65,6 @@ All on the same Lambda, same x402 v2 protocol, same CDP facilitator. The MCP ser
 The full security posture lives at [/trust/](/trust/) — STRIDE threat model, SIG-Lite questionnaire, regulated deployment guide.
 
 <div style="text-align:center; margin: 48px 0 24px;">
-  <a href="https://chat.anchor-x402.com" style="display:inline-block; padding:16px 36px; background:#d97954; color:#0c0d10; font-weight:600; border-radius:6px; text-decoration:none; font-size:18px;">Run a paid call →</a>
-  <p style="margin-top:12px; color:#7a7c84; font-size:14px;">Bring USDC on Base. Cheapest call is $0.001.</p>
+  <a href="https://chat.anchor-x402.com" style="display:inline-block; padding:16px 36px; background:#7dd3fc; color:#0b1220; font-weight:600; border-radius:6px; text-decoration:none; font-size:18px;">Run a paid call →</a>
+  <p style="margin-top:12px; color:#94a3b8; font-size:14px;">Bring USDC on Base. Cheapest call is $0.001.</p>
 </div>

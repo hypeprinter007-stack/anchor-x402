@@ -12,7 +12,7 @@ Each demo is the same five-beat flow: chat free, agent quotes a price, approval 
 <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 28px; margin: 36px 0;">
 
 <div>
-<video controls playsinline preload="metadata" poster="/og.png" style="width:100%; border-radius:6px; background:#0c0d10;">
+<video controls playsinline preload="metadata" poster="/og.png" style="width:100%; border-radius:6px; background:#0b1220;">
   <source src="/demos/aura.mp4" type="video/mp4">
 </video>
 <h3 style="margin:14px 0 6px;">aura — $0.010</h3>
@@ -21,7 +21,7 @@ Each demo is the same five-beat flow: chat free, agent quotes a price, approval 
 </div>
 
 <div>
-<video controls playsinline preload="metadata" poster="/og.png" style="width:100%; border-radius:6px; background:#0c0d10;">
+<video controls playsinline preload="metadata" poster="/og.png" style="width:100%; border-radius:6px; background:#0b1220;">
   <source src="/demos/screen.mp4" type="video/mp4">
 </video>
 <h3 style="margin:14px 0 6px;">screen — $0.001</h3>
@@ -30,7 +30,7 @@ Each demo is the same five-beat flow: chat free, agent quotes a price, approval 
 </div>
 
 <div>
-<video controls playsinline preload="metadata" poster="/og.png" style="width:100%; border-radius:6px; background:#0c0d10;">
+<video controls playsinline preload="metadata" poster="/og.png" style="width:100%; border-radius:6px; background:#0b1220;">
   <source src="/demos/anchor.mp4" type="video/mp4">
 </video>
 <h3 style="margin:14px 0 6px;">anchor — $0.005</h3>
@@ -39,7 +39,7 @@ Each demo is the same five-beat flow: chat free, agent quotes a price, approval 
 </div>
 
 <div>
-<video controls playsinline preload="metadata" poster="/og.png" style="width:100%; border-radius:6px; background:#0c0d10;">
+<video controls playsinline preload="metadata" poster="/og.png" style="width:100%; border-radius:6px; background:#0b1220;">
   <source src="/demos/roll.mp4" type="video/mp4">
 </video>
 <h3 style="margin:14px 0 6px;">roll — $0.001</h3>
@@ -48,10 +48,10 @@ Each demo is the same five-beat flow: chat free, agent quotes a price, approval 
 </div>
 
 <div>
-<video controls playsinline preload="metadata" poster="/og.png" style="width:100%; border-radius:6px; background:#0c0d10;">
+<video controls playsinline preload="metadata" poster="/og.png" style="width:100%; border-radius:6px; background:#0b1220;">
   <source src="/demos/investigate.mp4" type="video/mp4">
 </video>
-<h3 style="margin:14px 0 6px;">investigate — $1.77 <span style="color:#9ea3b0; font-weight:400;">· 90 s</span></h3>
+<h3 style="margin:14px 0 6px;">investigate — $1.77 <span style="color:#94a3b8; font-weight:400;">· 90 s</span></h3>
 <p style="margin:0 0 8px; color:#cfd2da; font-size:14px;">Multi-step wallet due-diligence. Agent runs 4–6 anchor-x402 sub-calls (sanctions, intel, name resolve, tx decode), synthesizes a verdict via Claude on AWS Bedrock, signs the deliverable, and anchors the report hash on Base + Solana. Async 5–10 min in production; this demo compresses the polling.</p>
 <p style="margin:0; font-size:13px;"><code>POST /v1/investigate {address}</code></p>
 </div>
@@ -59,8 +59,8 @@ Each demo is the same five-beat flow: chat free, agent quotes a price, approval 
 </div>
 
 <div style="text-align:center; margin: 48px 0 24px;">
-  <a href="https://chat.anchor-x402.com" style="display:inline-block; padding:16px 36px; background:#d97954; color:#0c0d10; font-weight:600; border-radius:6px; text-decoration:none; font-size:18px;">Run any of these →</a>
-  <p style="margin-top:12px; color:#7a7c84; font-size:14px;">Bring USDC on Base. Cheapest call is $0.001.</p>
+  <a href="https://chat.anchor-x402.com" style="display:inline-block; padding:16px 36px; background:#7dd3fc; color:#0b1220; font-weight:600; border-radius:6px; text-decoration:none; font-size:18px;">Run any of these →</a>
+  <p style="margin-top:12px; color:#94a3b8; font-size:14px;">Bring USDC on Base. Cheapest call is $0.001.</p>
 </div>
 
 ## What every demo shows
@@ -71,18 +71,36 @@ Each demo is the same five-beat flow: chat free, agent quotes a price, approval 
 
 **Results are structured.** Each endpoint returns a small JSON object that an agent can route on — sanctions verdict, tier, anchor tx hashes, verifiable signature. The result cards in these demos are the same components the hosted chat at [chat.anchor-x402.com](https://chat.anchor-x402.com) renders post-payment.
 
+## The agent-to-agent view: a signed decision receipt
+
+The five above are a human approving an agent in chat. `attest` is the other direction — an **autonomous agent signing its own decision** and anchoring a receipt that says *who approved what, and when*. No browser, no chat: just an agent, a wallet, and one paid call.
+
+<div style="max-width:560px; margin: 24px 0;">
+<video controls playsinline preload="metadata" poster="/og.png" style="width:100%; border-radius:6px; background:#0b1220;">
+  <source src="/demos/attest.mp4" type="video/mp4">
+</video>
+<h3 style="margin:14px 0 6px;">attest — $0.010</h3>
+<p style="margin:0 0 8px; color:#cfd2da; font-size:14px;">A treasury agent evaluates a $50k transfer, decides <code>APPROVED</code>, and signs the domain-separated <code>(input_hash, output_hash, decision)</code> tuple. One paid call verifies the signature and dual-anchors the Merkle root on Base + Solana — returning the recovered signer and two on-chain proof URLs. The kicker: anyone holding the 3-tuple re-derives the anchored root and re-proves the decision <strong>for free</strong>, no second call.</p>
+<p style="margin:0; font-size:13px;"><code>POST /v1/attest {input_hash, output_hash, decision, scheme, signature}</code></p>
+</div>
+
+Run it yourself — [`examples/agent/attest-decision-receipt.mjs`](https://github.com/hypeprinter007-stack/anchor-x402/blob/main/examples/agent/attest-decision-receipt.mjs):
+
+```
+BASE_PRIVATE_KEY=0x… node attest-decision-receipt.mjs
+```
+
 ## Looking for the canonical 30-second story?
 
 The original [/demo/](/demo/) page walks through the full flow on the `aura` endpoint with five-beat narration. Use it as the lead-in; come back here for the per-endpoint variations.
 
-## Eleven more endpoints not pictured
+## Ten more endpoints not pictured
 
-The catalog has 16 paid endpoints total — these 5 are a representative cross-section. The rest:
+The catalog has 16 paid endpoints total — the 6 above are a representative cross-section. The rest:
 
 - **Decode** `/v1/decode/tx`, `/v1/decode/calldata` ($0.001 each) — structured tx + EVM calldata decode across Base/Ethereum/Solana
 - **Resolve + price** `/v1/resolve/name`, `/v1/price/token` ($0.001 each) — ENS+SNS, USD spot price
 - **Intel** `/v1/intel/wallet` ($0.005) — bundled wallet intelligence in one call
-- **Attest** `/v1/attest` ($0.010) — verify a signature + dual-chain anchor the result
 - **Parse** `/v1/parse/datetime` ($0.001) — freeform → ISO 8601
 - **LLM** `/v1/roast`, `/v1/oracle`, `/v1/tldr`, `/v1/grade` ($0.01–$0.05) — universal text inputs, anchored verdicts where it makes sense
 
