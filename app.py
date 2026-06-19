@@ -917,7 +917,29 @@ def _internal_auth_matches(request) -> bool:
 async def x402_mw(request, call_next):
     if _internal_auth_matches(request):
         return await call_next(request)
-    response = await payment_middleware(x402_routes, x402_server)(request, call_next)
+    try:
+        response = await payment_middleware(x402_routes, x402_server)(request, call_next)
+    except ValueError as e:
+        # The x402 facilitator raises a bare ValueError when it REJECTS a payment
+        # — bad/expired/reused authorization, or the payer's on-chain
+        # transferWithAuthorization reverts (e.g. insufficient USDC). That's a
+        # client payment problem, not a server fault, so it must surface as 402,
+        # not 500. (Was 500ing every rejected/underfunded payer + the keepalive
+        # once its wallet drained.) Unknown ValueErrors still bubble up as 500.
+        msg = str(e)
+        if "verify failed" in msg.lower() or "facilitator" in msg.lower():
+            logging.getLogger("x402").warning("payment rejected by facilitator: %s", msg)
+            from fastapi.responses import JSONResponse as _JSONResponse
+            return _JSONResponse(
+                status_code=402,
+                content={
+                    "error": "payment_invalid",
+                    "detail": "Payment verification failed — the authorization was rejected "
+                              "(insufficient balance, expired, or already used). Submit a fresh, "
+                              "funded payment authorization and retry.",
+                },
+            )
+        raise
     if response.status_code == 402:
         response = _inject_402_challenge_body(response)
     return response
