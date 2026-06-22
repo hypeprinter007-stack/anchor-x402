@@ -1,9 +1,25 @@
 {
   "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+  "name": "anchor-x402",
+  "description": "Sixteen x402-paid services for AI agents — pay-per-call in USDC on Base or Solana mainnet, no accounts, no API keys. Skills: dual-chain hash anchoring, OFAC sanctions screening, signed decision attestation, mainnet tx + EVM calldata decode, ENS/SNS resolution, USD spot price, freeform datetime parsing, bundled wallet intelligence, async wallet due-diligence investigator ($1.77, signed + dual-chain-anchored report), plus universal LLM endpoints — roast, oracle (anchored verdict), TL;DR, aura, grade. Hosted chatbot at chat.anchor-x402.com; MCP server published as anchor-x402-mcp.",
+  "image": "https://anchor-x402.com/icon.png",
+  "services": [
+    {
+      "name": "web",
+      "endpoint": "https://api.anchor-x402.com"
+    },
+    {
+      "name": "A2A",
+      "endpoint": "https://anchor-x402.com/.well-known/agent-card.json",
+      "version": "0.3.0"
+    }
+  ],
+  "active": true,
   "registrations": [
     {
       "agentId": 47261,
       "agentRegistry": "eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432"
     }
-  ]
+  ],
+  "supportedTrust": ["reputation", "crypto-economic"]
 }
