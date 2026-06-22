@@ -711,6 +711,33 @@ x402_routes = {
     ),
 }
 
+# --- Builder-code attribution (ERC-8021 Schema 2 via the CDP facilitator) ---
+# Declare anchor's Base Builder Code on every paid route. A supporting facilitator
+# (CDP) appends the ERC-8021 suffix to each settlement-tx calldata, attributing the
+# volume to this app for Base.dev analytics + future fee-share. Hand-rolled to match
+# the TS/Go SDK's declareBuilderCodeExtension() output (no Python helper yet); shape
+# per the x402 spec specs/extensions/builder_code.md. The facilitator fills `w`
+# (wallet) and the client fills `s` (service); the resource server only sets `a`.
+# Verify a settled tx at https://buildercode-checker.vercel.app/.
+_BUILDER_CODE = "bc_kxz79e8i"
+_builder_code_ext = {
+    "builder-code": {
+        "info": {"a": _BUILDER_CODE},
+        "schema": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "properties": {
+                "a": {"type": "string", "pattern": "^[a-z0-9_]{1,32}$", "description": "App builder code"},
+                "w": {"type": "string", "pattern": "^[a-z0-9_]{1,32}$", "description": "Wallet builder code"},
+                "s": {"type": "array", "items": {"type": "string", "pattern": "^[a-z0-9_]{1,32}$"}, "description": "Service builder codes"},
+            },
+            "additionalProperties": False,
+        },
+    }
+}
+for _rc in x402_routes.values():
+    _rc.extensions = {**(_rc.extensions or {}), **_builder_code_ext}
+
 
 # Per-accept resource binding — echo the resource URL into each accepts[].extra
 # so agents verifying signatures see the exact URL they're authorizing for each
