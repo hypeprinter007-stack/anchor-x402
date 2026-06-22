@@ -1,5 +1,5 @@
 ---
-layout: default
+layout: page
 title: anchor-x402 demos — five paid endpoints, end-to-end
 description: "30-second walkthroughs of five anchor-x402 endpoints — aura, sanctions screen, dual-chain anchor, verifiable RNG, and the $1.77 wallet due-diligence investigator. See the chat → approve → sign → result loop with the real Coinbase Smart Wallet signing view."
 permalink: /demos/

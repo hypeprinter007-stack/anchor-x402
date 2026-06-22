@@ -1,7 +1,7 @@
 ---
-layout: default
+layout: page
 title: anchor-x402 demo — 30 seconds, end-to-end
-description: "Watch the full anchor-x402 flow in 30 seconds — chat free, type a target, see the price the agent quotes, approve with passkey, see the result. No accounts, no API keys, USDC settlement on Base mainnet."
+description: "Watch the full anchor-x402 flow in 30 seconds — chat free, type a target, see the price the agent quotes, approve with passkey, see the result. No accounts, no API keys; pay-per-call USDC on Base or Solana, or JPYC on Polygon."
 permalink: /demo/
 ---
 
@@ -45,12 +45,12 @@ Each paid call is its own EIP-3009 signature for a single amount to a single add
 
 [Five demos, one per endpoint →](/demos/) — aura, sanctions screen, dual-chain anchor, verifiable RNG, and the $1.77 wallet due-diligence investigator with its 90-second async flow.
 
-## 15 services in this same flow
+## 16 services in this same flow
 
-`aura` ($0.01) is one of fifteen. Same approval pattern works for:
+`aura` ($0.01) is one of sixteen. Same approval pattern works for:
 
 - **Compliance** — OFAC sanctions screen ($0.001), bundled wallet intel ($0.005), full async due-diligence investigator ($1.77)
-- **Chain utilities** — dual-chain hash anchoring ($0.005), signed decision attestations ($0.01), tx decode, calldata decode, ENS / SNS resolution, token price, datetime parsing ($0.001 each)
+- **Chain utilities** — dual-chain hash anchoring ($0.005), signed decision attestations ($0.01), tx decode, calldata decode, ENS / SNS resolution, token price, datetime parsing, verifiable signed RNG (`roll`) ($0.001 each)
 - **Fun / shareable** — roast ($0.05), oracle with on-chain anchored verdict ($0.05), tldr ($0.01), aura ($0.01), grade ($0.01)
 
 All on the same Lambda, same x402 v2 protocol, same CDP facilitator. The MCP server [`anchor-x402-mcp`](https://www.npmjs.com/package/anchor-x402-mcp) gives any agent (Claude Desktop / Cursor / Codex / ChatGPT Desktop) the same 14 tools (everything except the async investigator and the hosted chat surface).
