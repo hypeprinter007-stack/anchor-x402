@@ -133,6 +133,31 @@ async def _access_log(request, call_next):
     response = await call_next(request)
     host = request.headers.get("host", "").split(":")[0]
     print(f"access host={host} method={request.method} path={request.url.path} status={response.status_code}")
+    # Settled-payment telemetry. This middleware is innermost (inside x402_mw),
+    # so a request carrying X-PAYMENT that reached here has already passed
+    # verification — a <400 response means a paid call was delivered. One
+    # structured line per paid call gives per-rail / per-route / per-payer usage
+    # via Insights (the routes are otherwise stateless). Payer is a public
+    # on-chain address; best-effort, never raises into the request path.
+    pay_header = request.headers.get("payment-signature") or request.headers.get("x-payment")
+    if pay_header and response.status_code < 400:
+        try:
+            from services import refund as refund_svc
+            payer, network = refund_svc.parse_buyer_from_x_payment(pay_header)
+            if payer or network:
+                print("PAID_CALL " + json.dumps(
+                    {
+                        "ts": int(time.time()),
+                        "path": request.url.path,
+                        "method": request.method,
+                        "network": network,
+                        "payer": payer,
+                        "status": response.status_code,
+                    },
+                    separators=(",", ":"),
+                ))
+        except Exception:
+            pass
     return response
 
 cdp_facilitator = HTTPFacilitatorClient(
@@ -1353,7 +1378,7 @@ def investigate_dispatch(req: InvestigateRequest, request: Request) -> Investiga
     job_id = str(uuid4())
     now = int(time.time())
     buyer_wallet, buyer_network = refund_svc.parse_buyer_from_x_payment(
-        request.headers.get("x-payment")
+        request.headers.get("payment-signature") or request.headers.get("x-payment")
     )
     try:
         item: dict[str, Any] = {

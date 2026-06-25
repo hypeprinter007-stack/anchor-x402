@@ -53,15 +53,18 @@ def _ddb_table():
 
 
 def parse_buyer_from_x_payment(x_payment_header: str | None) -> tuple[str | None, str | None]:
-    """Decode the X-PAYMENT header to extract (buyer_wallet, network). Returns
-    (None, None) on absent/unparseable header — the caller should treat that
-    as "buyer wallet unknown, no auto-refund possible." Internal-auth bypass
-    calls and missing headers fall through this path silently."""
+    """Decode a base64 x402 payment header to extract (buyer_wallet, network).
+    Accepts both the V2 `PAYMENT-SIGNATURE` and the legacy V1 `X-PAYMENT`
+    payload shapes — V2 carries the network under `accepted.network`, V1 at the
+    top level; the payer `from` is under `payload.authorization` in both.
+    Returns (None, None) on absent/unparseable header — the caller should treat
+    that as "buyer wallet unknown, no auto-refund possible." Internal-auth
+    bypass calls and missing headers fall through this path silently."""
     if not x_payment_header:
         return None, None
     try:
         payload = json.loads(base64.b64decode(x_payment_header))
-        network = payload.get("network")
+        network = payload.get("network") or payload.get("accepted", {}).get("network")
         auth = payload.get("payload", {}).get("authorization", {})
         return auth.get("from"), network
     except Exception:
