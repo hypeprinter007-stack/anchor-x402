@@ -896,6 +896,74 @@ for _route_key, _route_cfg in x402_routes.items():
     _BAZAAR_CARD[_card_path] = _card
 
 
+# --- AgentCash / Poncho discoverability ---------------------------------------
+# Annotate the FastAPI-generated /openapi.json with the x402 payment metadata
+# AgentCash's discovery pipeline reads: per-paid-route `x-payment-info` + a 402
+# response, plus top-level `info.x-guidance` and `info.contact`. Prices come from
+# x402_routes so this stays in sync with the live 402 challenge — when the
+# OpenAPI and runtime 402 agree, agents succeed on the first call. Helps every
+# x402 agent/aggregator, not just Poncho. x402-only; USDC is what these read.
+_AGENTCASH_GUIDANCE = (
+    "Pay-per-call x402 services for AI agents — no API keys or accounts. Each "
+    "paid route returns HTTP 402 with x402 payment requirements; pay in USDC on "
+    "Base or Solana (select routes also settle JPYC on Polygon) and retry with "
+    "the payment header. Prices are $0.001–$1.77 per call. POST routes take a "
+    "JSON body per each operation's requestBody schema."
+)
+_AGENTCASH_CONTACT_EMAIL = "hypeprinter007@gmail.com"
+
+
+def _route_usd_amount(route_cfg) -> str | None:
+    """USD price for a route as a 6-dp string, from its first $-denominated
+    accept (the Base USDC option). None if no USD price is declared."""
+    for opt in route_cfg.accepts or []:
+        price = getattr(opt, "price", None)
+        if isinstance(price, str) and price.startswith("$"):
+            try:
+                return f"{float(price[1:]):.6f}"
+            except ValueError:
+                return None
+    return None
+
+
+def _agentcash_openapi():
+    """Custom OpenAPI builder: FastAPI's default schema + AgentCash payment
+    annotations. Cached on app.openapi_schema after first build."""
+    if app.openapi_schema:
+        return app.openapi_schema
+    from fastapi.openapi.utils import get_openapi
+
+    schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+    )
+    info = schema.setdefault("info", {})
+    info["x-guidance"] = _AGENTCASH_GUIDANCE
+    info.setdefault("contact", {})["email"] = _AGENTCASH_CONTACT_EMAIL
+    paths = schema.get("paths", {})
+    for route_key, route_cfg in x402_routes.items():
+        method, _, path = route_key.partition(" ")
+        operation = (paths.get(path) or {}).get(method.lower())
+        if not operation:
+            continue
+        amount = _route_usd_amount(route_cfg)
+        if amount is not None:
+            operation["x-payment-info"] = {
+                "price": {"mode": "fixed", "currency": "USD", "amount": amount},
+                "protocols": [{"x402": {}}],
+            }
+        operation.setdefault("responses", {}).setdefault(
+            "402", {"description": "Payment Required"}
+        )
+    app.openapi_schema = schema
+    return schema
+
+
+app.openapi = _agentcash_openapi
+
+
 def _inject_402_challenge_body(response):
     """The x402 Python SDK defaults to header-only 402 challenges: the full
     PaymentRequired JSON lands in the `payment-required` response header
