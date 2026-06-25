@@ -942,6 +942,7 @@ def _agentcash_openapi():
     info = schema.setdefault("info", {})
     info["x-guidance"] = _AGENTCASH_GUIDANCE
     info.setdefault("contact", {})["email"] = _AGENTCASH_CONTACT_EMAIL
+    info["x-logo"] = {"url": "https://api.anchor-x402.com/icon.png", "altText": "anchor-x402"}
     paths = schema.get("paths", {})
     for route_key, route_cfg in x402_routes.items():
         method, _, path = route_key.partition(" ")
@@ -1721,6 +1722,27 @@ def _serve_chat_html() -> FileResponse:
         media_type="text/html",
         headers={"Cache-Control": "no-store, max-age=0"},
     )
+
+
+def _serve_icon() -> FileResponse:
+    """Brand logo at the API origin. x402 directories/clients derive a service
+    icon from the resource origin's favicon; without one they show a generic
+    placeholder. Free, public, cached."""
+    return FileResponse(
+        os.path.join(_STATIC_DIR, "icon.png"),
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon_ico():
+    return _serve_icon()
+
+
+@app.get("/icon.png", include_in_schema=False)
+def icon_png():
+    return _serve_icon()
 
 
 @app.api_route("/", methods=["GET", "HEAD"])
