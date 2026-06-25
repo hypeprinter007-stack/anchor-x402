@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "esbuild static/chat.entry.js --bundle --format=esm --target=es2020,safari14 --outfile=static/chat.bundle.js --legal-comments=none --minify && gzip -k -9 -f static/chat.bundle.js"
+    "build": "esbuild static/chat.entry.js --bundle --format=esm --target=es2020,safari14 --outfile=static/chat.bundle.js --legal-comments=none --minify && gzip -n -k -9 -f static/chat.bundle.js"
   },
   "devDependencies": {
     "esbuild": "^0.24.0",
