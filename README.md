@@ -1,12 +1,12 @@
 # anchor-x402
 
-> Fifteen x402-paid services for AI agents — nine commodity primitives, one agent-driven wallet investigator, and five universal LLM endpoints (roast, oracle, tldr, aura, grade). Plus a hosted-agent chatbot at [chat.anchor-x402.com](https://chat.anchor-x402.com) for users without their own agent. One AWS Lambda, one OpenAPI spec, indexed across 8 agent-discovery surfaces ([CDP Bazaar](https://docs.cdp.coinbase.com/x402/bazaar), [agentic.market](https://agentic.market), [Agent Arena](https://agentarena.site), [Virtuals ACP](https://app.virtuals.io), [MCP Registry](https://registry.modelcontextprotocol.io), [Glama](https://glama.ai), [mcp.so](https://mcp.so), [npm](https://www.npmjs.com/package/anchor-x402-mcp) — see [Listings](#listings)). Pay per call in USDC on Base or Solana mainnet — no API keys, no accounts, no subscriptions.
+> Sixteen x402-paid services for AI agents — nine commodity primitives, one agent-driven wallet investigator, five universal LLM endpoints (roast, oracle, tldr, aura, grade), and a signed on-chain RNG (roll). Plus a hosted-agent chatbot at [chat.anchor-x402.com](https://chat.anchor-x402.com) for users without their own agent. One AWS Lambda, one OpenAPI spec, indexed across a dozen-plus agent-discovery surfaces ([CDP Bazaar](https://docs.cdp.coinbase.com/x402/bazaar), [agentic.market](https://agentic.market), [x402scan](https://www.x402scan.com), [PayAPI Market](https://payapi.market), [Poncho](https://tryponcho.com), [MCP Registry](https://registry.modelcontextprotocol.io), [Glama](https://glama.ai) — see [Listings](#listings)). Pay per call in **USDC on Base or Solana**, or in **JPYC on Polygon** (¥1 per anchor call) — no API keys, no accounts, no subscriptions.
 
 **Site:** https://anchor-x402.com
 **Trust portal:** https://anchor-x402.com/trust/
 **Live API:** `https://api.anchor-x402.com`
 **Status:** https://anchor-x402.betteruptime.com
-**MCP server:** [`anchor-x402-mcp`](https://www.npmjs.com/package/anchor-x402-mcp) on npm — `npx anchor-x402-mcp` plugs all 9 services into Claude Desktop / Cursor / Continue as tools
+**MCP server:** [`anchor-x402-mcp`](https://www.npmjs.com/package/anchor-x402-mcp) on npm — `npx anchor-x402-mcp` plugs all 14 tools into Claude Desktop / Cursor / Continue
 **Swagger UI:** [/docs](https://api.anchor-x402.com/docs)
 **OpenAPI:** [/openapi.json](https://api.anchor-x402.com/openapi.json)
 
@@ -23,6 +23,13 @@
 | `/v1/decode/calldata` | POST | $0.001 | 4byte selector + ABI param decode for EVM calldata |
 | `/v1/parse/datetime` | POST | $0.001 | Freeform datetime string → structured ISO 8601 |
 | `/v1/intel/wallet` | GET | $0.005 | Bundled wallet intelligence: balances + activity + identity + sanctions |
+| `/v1/investigate` | POST | $1.77 | Agent-driven wallet due diligence — async, signed report + JSON sidecar, dual-chain anchored |
+| `/v1/roast` | POST | $0.050 | LLM roast of a target |
+| `/v1/oracle` | POST | $0.050 | Yes/no verdict on a question, dual-chain anchored |
+| `/v1/tldr` | POST | $0.010 | Summarize a URL or block of text |
+| `/v1/aura` | POST | $0.010 | Aura/vibe tier score |
+| `/v1/grade` | POST | $0.010 | Graded feedback on text |
+| `/v1/roll` | POST | $0.001 | Signed verifiable RNG (dice/range roll) |
 
 All endpoints accept payment on **Base** or **Solana** mainnet in USDC, and — when a Polygon treasury is configured — in **JPYC** on Polygon (Japan's first FSA-licensed yen stablecoin, settled via an in-process EIP-3009 facilitator; `/v1/anchor` is priced at ¥1 per call on this rail). All return v2 `PaymentRequired` with `extensions.bazaar` so they're auto-indexed by the CDP facilitator on settlement.
 
@@ -33,6 +40,8 @@ Two product theses live in this repo:
 1. **Trust infrastructure** (`anchor`, `attest`, `screen`, `intel-wallet`) — agents pay for cryptographic, multi-chain, signed receipts that an AI's decision happened the way it claims. Nothing else in the agentic API economy provides this primitive.
 
 2. **Commodity utilities** (`decode/tx`, `resolve/name`, `price/token`, `decode/calldata`, `parse/datetime`) — agents pay sub-cent prices to skip orchestration code, cache misses, and rate-limited free APIs. Each call replaces 2–10 lines of boilerplate.
+
+3. **LLM + signed RNG** (`investigate`, `roast`, `oracle`, `tldr`, `aura`, `grade`, `roll`) — premium agent-driven due diligence, universal text endpoints, and verifiable on-chain randomness, paid per call without an LLM key or RNG oracle of your own.
 
 ## Quickstart (operator)
 
@@ -173,7 +182,7 @@ client agent              │  AWS Lambda (Python 3.12)         │
    │                      │    ↓                              │
    │ x402 USDC ─────────▶ │  FastAPI + x402 middleware        │
    │ (Base or Solana)     │    ↓                              │
-   │                      │  9 routes, 1 OpenAPI spec         │
+   │                      │  16 routes, 1 OpenAPI spec        │
    │                      │    ↓                              │
    │                      │  services/*.py                    │
    │                      │    │                              │
@@ -187,22 +196,28 @@ client agent              │  AWS Lambda (Python 3.12)         │
    ◄────────  signed JSON  ─────────┘
 ```
 
-Stateless. No DynamoDB, no S3. Treasury keys live in AWS Secrets Manager (`anchor-x402/runtime`); fetched at cold-start and cached in process memory.
+The commodity, trust, and LLM/RNG routes are stateless. The one exception is `/v1/investigate`, which records async jobs in DynamoDB and writes signed deliverables to S3, with an auto-refund-on-failure flow (push webhook + poll + daily cron). Treasury keys live in AWS Secrets Manager (`anchor-x402/runtime`); fetched at cold-start and cached in process memory. The JPYC/Polygon rail settles via an in-process EIP-3009 facilitator alongside the CDP facilitator.
 
 ## Repo layout
 
 ```
 anchor-x402/
-├── app.py                              # FastAPI + x402 + 9 routes
+├── app.py                              # FastAPI + x402 + 16 routes
 ├── models.py                           # Pydantic request/response schemas
 ├── services/
 │   ├── anchor.py                       # dual-chain hash anchoring
 │   ├── attest.py                       # sig verification + anchor wrapper
 │   ├── calldata_decode.py              # 4byte + ABI decode
 │   ├── cdp_auth.py                     # CDP facilitator JWT auth
+│   ├── cdp_heartbeat.py                # daily Bazaar keepalive probes
 │   ├── datetime_parse.py               # dateparser + dateutil
 │   ├── intel_wallet.py                 # parallel wallet intel bundle
+│   ├── jpyc_facilitator.py             # in-process EIP-3009 facilitator (Polygon/JPYC)
+│   ├── llm.py                          # Bedrock LLM client (roast/oracle/tldr/aura/grade)
 │   ├── name_resolve.py                 # ENS + Bonfida SNS
+│   ├── oracle.py, roast.py, tldr.py    # LLM endpoints
+│   ├── aura.py, grade.py, roll.py      # LLM tiers + signed RNG
+│   ├── refund.py, refund_cron.py       # /v1/investigate auto-refund (push + cron)
 │   ├── screen.py                       # OFAC SDN screening
 │   ├── secrets.py                      # AWS Secrets Manager helper
 │   ├── token_price.py                  # CoinGecko proxy + cache
@@ -219,7 +234,9 @@ anchor-x402/
 │       ├── datetime-parse/PAY.md
 │       └── intel-wallet/PAY.md
 ├── scripts/
-│   └── test_e2e.py                     # paid e2e for all 9 services
+│   ├── test_e2e.py                     # paid e2e across the catalog
+│   ├── test_jpyc_e2e.py                # JPYC/Polygon rail e2e
+│   └── gen_og.py                       # regenerate the social card (docs/og.png)
 ├── template.yaml                       # SAM (Lambda + APIGW + Secrets Manager + CloudWatch)
 ├── Makefile                            # install / lock / build / deploy / local
 ├── requirements.in / .txt              # pinned dependency lockfile
@@ -265,16 +282,22 @@ anchor-x402 is the public-utility commodity tier. An **institutional tier** with
 
 ## Listings
 
-| Catalog | Type | Discovery URL | Status |
-|---|---|---|---|
-| **CDP Bazaar** | x402 service registry | auto-indexed via `extensions.bazaar` in 402 response | 15 services live |
-| **agentic.market** | x402 service search API | [api.agentic.market/v1/services/search?q=api.anchor-x402.com](https://api.agentic.market/v1/services/search?q=api.anchor-x402.com) | 15 services live |
-| **Agent Arena** | ERC-8004 on-chain agent registry (Base) | [agentarena.site/api/agent/8453/47261](https://agentarena.site/api/agent/8453/47261) | live (agentId 47261, full bundle) |
-| **Virtuals ACP** | Agent Commerce Protocol | smart wallet `0x68847…75a51` on Base; 9 GET resource offerings + 1 Job offering (`investigateWallet`, $1.77) | resources registered; Job offering pending import |
-| **Official MCP Registry** | Anthropic-maintained MCP server registry | [registry.modelcontextprotocol.io/v0/servers?search=anchor-x402](https://registry.modelcontextprotocol.io/v0/servers?search=anchor-x402) | published as `io.github.hypeprinter007-stack/anchor-x402` |
-| **Glama** | MCP server marketplace | [glama.ai/mcp/servers/hypeprinter007-stack/anchor-x402-mcp](https://glama.ai/mcp/servers/hypeprinter007-stack/anchor-x402-mcp) | License A / Quality A |
-| **mcp.so** | MCP server directory | [mcp.so/server/anchor-x402-mcp](https://mcp.so/server/anchor-x402-mcp) | live |
-| **npm** | Node package registry | [npmjs.com/package/anchor-x402-mcp](https://www.npmjs.com/package/anchor-x402-mcp) | `anchor-x402-mcp@0.1.2` |
+| Catalog | Type | Status |
+|---|---|---|
+| **CDP Bazaar** | x402 service registry (auto-indexed via `extensions.bazaar`) | 16 services live |
+| **agentic.market** | x402 service search API | 16 services live |
+| **x402scan** | x402 explorer + marketplace | auto-indexed from on-chain activity |
+| **PayAPI Market** | curated x402 + MCP marketplace | live (approved 2026-06) |
+| **Poncho / AgentCash** | buyer-side x402 agent (tool catalog) | listed — [tryponcho.com/m/api.anchor-x402.com](https://tryponcho.com/m/api.anchor-x402.com/) |
+| **x402 List** | agent-first x402 directory | submitted, in review |
+| **awesome-x402** | curated GitHub list | listed (PR #350) |
+| **Agent Arena / Base ERC-8004** | on-chain agent identity (Base) | live — agentId 47261 |
+| **Solana Agent Registry** | on-chain agent identity (Metaplex MPL Agent) | registered (MPL Core asset) |
+| **Virtuals ACP** | Agent Commerce Protocol | resources registered |
+| **Official MCP Registry** | Anthropic-maintained MCP server registry | `io.github.hypeprinter007-stack/anchor-x402` |
+| **Glama** | MCP server marketplace | License A / Quality A |
+| **mcp.so** | MCP server directory | live |
+| **npm** | Node package registry | [`anchor-x402-mcp@0.2.1`](https://www.npmjs.com/package/anchor-x402-mcp) |
 
 ## Roadmap
 
