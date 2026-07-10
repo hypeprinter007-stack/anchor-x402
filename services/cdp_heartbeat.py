@@ -1,5 +1,6 @@
-"""CDP discovery heartbeat — daily paid probes against endpoints with no
-organic outside-buyer traffic. Two product surfaces:
+"""CDP discovery heartbeat — every-14-days paid probes against endpoints with no
+organic outside-buyer traffic, keeping them inside CDP's 30-day active window
+(2x margin). Two product surfaces:
 
   anchor-x402: 9 routes not covered by InvestigatorPulse or the worker
     (attest, decode/tx, parse/datetime, roll, roast, oracle, tldr, aura, grade).
@@ -40,7 +41,10 @@ _REAL_BASE_TX = "0x9e1fd68b563cd36fbb42aa993f31762aaa7cfb876c579ccb40d36d16e1789
 # NOTE: /v1/attest is NOT listed here — it needs a valid eip191 signature over
 # the live wallet, so its probe is built in `handler` via `_attest_probe`.
 ANCHOR_PROBES: list[tuple[str, str, dict[str, Any] | None]] = [
-    ("GET", f"/v1/decode/tx?chain=base&tx_hash={_REAL_BASE_TX}", None),
+    # POST (not GET) to match decode/tx's declared discovery shape — CDP catalogs
+    # and keeps the 30-day active window only on settlements matching the declared
+    # method/body; the old GET probe settled daily but never counted for discovery.
+    ("POST", "/v1/decode/tx", {"chain": "base", "tx_hash": _REAL_BASE_TX}),
     ("POST", "/v1/parse/datetime", {"input": "tomorrow at noon"}),
     ("POST", "/v1/roll", {"low": 1, "high": 100, "count": 1}),
     ("POST", "/v1/roast", {"target": _HB}),
@@ -148,7 +152,7 @@ def _probe(base_url: str, method: str, path: str, body: dict[str, Any] | None) -
 
 
 def handler(event, context):
-    """EventBridge target — daily heartbeat across both product surfaces."""
+    """EventBridge target — every-14-days heartbeat across both product surfaces."""
     results = []
     for target_name, base_url, probes in TARGETS:
         probe_list = list(probes)

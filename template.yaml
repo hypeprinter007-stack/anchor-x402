@@ -408,11 +408,11 @@ Resources:
           ANCHOR_X402_BASE_URL: "https://api.anchor-x402.com"
           HEARTBEAT_WALLET_PRIVATE_KEY: !Sub "{{resolve:secretsmanager:${AcpPulseSecretName}:SecretString:ACP_AGENT_PRIVATE_KEY}}"
       Events:
-        DailyHeartbeat:
+        BiweeklyHeartbeat:
           Type: Schedule
           Properties:
-            Schedule: cron(0 16 * * ? *)
-            Description: Daily 16:00 UTC paid probe across the 8 endpoints with no organic outside-buyer traffic — keeps CDP discovery entries alive.
+            Schedule: cron(0 16 */14 * ? *)
+            Description: Every-14-days 16:00 UTC paid probe across the endpoints with no organic outside-buyer traffic — keeps CDP discovery entries inside the 30-day active window (2x margin).
       Policies:
         - Statement:
             - Effect: Allow
