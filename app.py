@@ -160,6 +160,75 @@ async def _access_log(request, call_next):
             pass
     return response
 
+
+# Cross-sell pointers up the value ladder, injected into paid JSON responses.
+# The buyer at that moment is an agent with a funded wallet that just paid —
+# the only point where we can merchandise to it. Only pairings with a real
+# workflow adjacency are listed; novelty routes are deliberately absent.
+_RELATED_UPSELLS = {
+    "/v1/price/token": ["/v1/screen"],
+    "/v1/resolve/name": ["/v1/screen"],
+    "/v1/decode/tx": ["/v1/intel/wallet"],
+    "/v1/screen": ["/v1/intel/wallet", "/v1/investigate"],
+    "/v1/intel/wallet": ["/v1/investigate"],
+    "/v1/anchor": ["/v1/attest"],
+}
+
+_UPSELL_CARDS = {
+    "/v1/screen": {
+        "method": "GET",
+        "price": "$0.001",
+        "reason": "OFAC SDN + AML screening for any wallet you transact with (EVM or Solana)",
+    },
+    "/v1/intel/wallet": {
+        "method": "GET",
+        "price": "$0.005",
+        "reason": "Full wallet intel bundle — balances, activity, identity, sanctions — from 8+ sources in one call",
+    },
+    "/v1/investigate": {
+        "method": "POST",
+        "price": "$1.77",
+        "reason": "Deep agent-driven wallet due diligence — signed report, dual-chain anchored, auto-refund on failure",
+    },
+    "/v1/attest": {
+        "method": "POST",
+        "price": "$0.01",
+        "reason": "Upgrade a bare anchor to a verifiable attestation — signature over (input, output, decision), anchored",
+    },
+}
+
+
+@app.middleware("http")
+async def _related_upsell(request, call_next):
+    """Append `x402_related` to paid JSON responses per _RELATED_UPSELLS.
+    Gated on a payment header so free/internal traffic passes untouched;
+    best-effort — any parse failure returns the original body unmodified."""
+    response = await call_next(request)
+    upsells = _RELATED_UPSELLS.get(request.url.path)
+    if (
+        not upsells
+        or response.status_code != 200
+        or "application/json" not in response.headers.get("content-type", "")
+        or not (request.headers.get("payment-signature") or request.headers.get("x-payment"))
+    ):
+        return response
+    body = b"".join([chunk async for chunk in response.body_iterator])
+    from fastapi.responses import JSONResponse as _JSONResponse, Response as _Response
+    try:
+        payload = json.loads(body)
+        if not isinstance(payload, dict):
+            raise ValueError("non-object body")
+        host = request.headers.get("host", "api.anchor-x402.com").split(":")[0]
+        payload["x402_related"] = [
+            {"resource": f"https://{host}{p}", **_UPSELL_CARDS[p]} for p in upsells
+        ]
+        headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
+        return _JSONResponse(content=payload, status_code=200, headers=headers)
+    except Exception:
+        headers = {k: v for k, v in response.headers.items()}
+        return _Response(content=body, status_code=response.status_code, headers=headers)
+
+
 cdp_facilitator = HTTPFacilitatorClient(
     FacilitatorConfig(
         url="https://api.cdp.coinbase.com/platform/v2/x402",
@@ -1024,6 +1093,28 @@ def _inject_402_challenge_body(response):
     return _JSONResponse(content=challenge, status_code=402, headers=new_headers)
 
 
+def _log_402(request, kind):
+    """Funnel telemetry: 402s short-circuit inside x402_mw and never reach the
+    innermost _access_log, so without this line the top of the conversion
+    funnel (challenges served per path) is invisible in CloudWatch. `kind`
+    separates a fresh challenge from a rejected payment retry; the truncated
+    user-agent separates SDK agents from crawlers. Best-effort, never raises."""
+    try:
+        print("CHALLENGE " + json.dumps(
+            {
+                "ts": int(time.time()),
+                "host": request.headers.get("host", "").split(":")[0],
+                "path": request.url.path,
+                "method": request.method,
+                "kind": kind,
+                "ua": request.headers.get("user-agent", "")[:80],
+            },
+            separators=(",", ":"),
+        ))
+    except Exception:
+        pass
+
+
 def _internal_auth_matches(request) -> bool:
     """Constant-time compare for the internal-auth bypass header. Cheap defense
     against timing oracles even though they're not practically exploitable across
@@ -1050,6 +1141,7 @@ async def x402_mw(request, call_next):
         msg = str(e)
         if "verify failed" in msg.lower() or "facilitator" in msg.lower():
             logging.getLogger("x402").warning("payment rejected by facilitator: %s", msg)
+            _log_402(request, "payment_rejected")
             from fastapi.responses import JSONResponse as _JSONResponse
             return _JSONResponse(
                 status_code=402,
@@ -1063,6 +1155,8 @@ async def x402_mw(request, call_next):
         raise
     if response.status_code == 402:
         response = _inject_402_challenge_body(response)
+        has_pay = request.headers.get("payment-signature") or request.headers.get("x-payment")
+        _log_402(request, "payment_rejected" if has_pay else "challenge")
     return response
 
 
