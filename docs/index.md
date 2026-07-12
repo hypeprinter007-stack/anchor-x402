@@ -24,6 +24,7 @@ No SOC 2 / ISO 27001 / PCI / HIPAA — this is the commodity tier, fit for sandb
 
 ## For agents and developers
 
+- **Guides:** [Pay an x402 API from Node.js](/guides/pay-x402-api-node/) (complete ~30-line client) · [Accept x402 payments in Python](/guides/accept-x402-payments-python/) (the FastAPI pattern behind this service)
 - **MCP server:** [`anchor-x402-mcp`](https://www.npmjs.com/package/anchor-x402-mcp) on npm. One config block in Claude Desktop, Claude Code, Codex CLI, ChatGPT Desktop, Cursor, or OpenAI Agents SDK and the services become callable tools that auto-pay from your Base wallet. `npx anchor-x402-mcp`.
 - **Direct HTTP:** any x402 v2 client SDK works — [`@x402/fetch`](https://www.npmjs.com/package/@x402/fetch) for TypeScript, the Python x402 SDK, or Rust. Same dance: 402 → sign → retry.
 - **Source:** [github.com/hypeprinter007-stack/anchor-x402](https://github.com/hypeprinter007-stack/anchor-x402) (MIT licensed — fork it, audit it, deploy your own)

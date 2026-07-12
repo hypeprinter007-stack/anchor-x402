@@ -1093,24 +1093,38 @@ def _inject_402_challenge_body(response):
     return _JSONResponse(content=challenge, status_code=402, headers=new_headers)
 
 
-def _log_402(request, kind):
+def _log_402(request, kind, err=None):
     """Funnel telemetry: 402s short-circuit inside x402_mw and never reach the
     innermost _access_log, so without this line the top of the conversion
     funnel (challenges served per path) is invisible in CloudWatch. `kind`
     separates a fresh challenge from a rejected payment retry; the truncated
-    user-agent separates SDK agents from crawlers. Best-effort, never raises."""
+    user-agent separates SDK agents from crawlers. Rejected payments are the
+    revenue leak, so they additionally carry payer + network (from the payment
+    header) and the facilitator error — enough to classify failures per payer
+    without a debugger. Best-effort, never raises."""
     try:
-        print("CHALLENGE " + json.dumps(
-            {
-                "ts": int(time.time()),
-                "host": request.headers.get("host", "").split(":")[0],
-                "path": request.url.path,
-                "method": request.method,
-                "kind": kind,
-                "ua": request.headers.get("user-agent", "")[:80],
-            },
-            separators=(",", ":"),
-        ))
+        entry = {
+            "ts": int(time.time()),
+            "host": request.headers.get("host", "").split(":")[0],
+            "path": request.url.path,
+            "method": request.method,
+            "kind": kind,
+            "ua": request.headers.get("user-agent", "")[:80],
+        }
+        pay_header = request.headers.get("payment-signature") or request.headers.get("x-payment")
+        if pay_header:
+            try:
+                from services import refund as refund_svc
+                payer, network = refund_svc.parse_buyer_from_x_payment(pay_header)
+                if payer:
+                    entry["payer"] = payer
+                if network:
+                    entry["network"] = network
+            except Exception:
+                pass
+        if err:
+            entry["err"] = str(err)[:160]
+        print("CHALLENGE " + json.dumps(entry, separators=(",", ":")))
     except Exception:
         pass
 
@@ -1141,7 +1155,7 @@ async def x402_mw(request, call_next):
         msg = str(e)
         if "verify failed" in msg.lower() or "facilitator" in msg.lower():
             logging.getLogger("x402").warning("payment rejected by facilitator: %s", msg)
-            _log_402(request, "payment_rejected")
+            _log_402(request, "payment_rejected", err=msg)
             from fastapi.responses import JSONResponse as _JSONResponse
             return _JSONResponse(
                 status_code=402,
@@ -1150,6 +1164,15 @@ async def x402_mw(request, call_next):
                     "detail": "Payment verification failed — the authorization was rejected "
                               "(insufficient balance, expired, or already used). Submit a fresh, "
                               "funded payment authorization and retry.",
+                    "retry_hint": {
+                        "retryable": True,
+                        "action": "sign_fresh_authorization",
+                        "likely_causes": [
+                            "insufficient_usdc_balance",
+                            "authorization_expired",
+                            "authorization_already_used",
+                        ],
+                    },
                 },
             )
         raise

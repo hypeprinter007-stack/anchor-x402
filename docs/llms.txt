@@ -14,6 +14,8 @@ anchor-x402 exposes 16 stateless services on AWS Lambda + FastAPI. Each endpoint
 - [Base AI Agent plugin spec](https://anchor-x402.com/plugins/base-mcp.md) — capability catalog formatted for Base MCP's `initiate_x402_request` flow
 - [Status](https://anchor-x402.betteruptime.com) — live uptime
 - [Source code](https://github.com/hypeprinter007-stack/anchor-x402) — MIT licensed
+- [Guide: pay an x402 API from Node.js](https://anchor-x402.com/guides/pay-x402-api-node/) — complete ~30-line client, works against any endpoint here
+- [Guide: accept x402 payments in Python](https://anchor-x402.com/guides/accept-x402-payments-python/) — the FastAPI server pattern this service runs
 
 ## Services (16 paid endpoints)
 
