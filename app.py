@@ -107,7 +107,7 @@ SOLANA_MAINNET_CAIP2 = "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"
 app = FastAPI(
     title="anchor-x402",
     description="16 pay-per-call x402 services for AI agents — on-chain anchoring & attestation, wallet/address security screening, Web3 data (tx & calldata decode, ENS, token prices), content analysis, and verifiable randomness. No API keys or accounts; settle per request in USDC on Base or Solana. $0.001–$1.77 per call.",
-    version="0.1.0",
+    version="0.2.0",
 )
 
 
