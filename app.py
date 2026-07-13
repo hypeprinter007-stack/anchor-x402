@@ -2076,6 +2076,18 @@ def _serve_x402_discovery() -> FileResponse:
     )
 
 
+# One-time domain-ownership proof for the x402-list.com listing claim
+# (2026-07-12, token expires 72h after issuance). Public by design — the
+# whole point is that their reviewer fetches it. Safe to remove after the
+# claim is confirmed.
+@app.get("/.well-known/x402list.txt", include_in_schema=False)
+def x402list_proof():
+    return Response(
+        content="x402list-verify-K4KRlSespUIYdlivsGicc2BVGe0twbwQkCVqt1tXKQI",
+        media_type="text/plain",
+    )
+
+
 @app.get("/.well-known/x402")
 def x402_discovery():
     return _serve_x402_discovery()
