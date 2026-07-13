@@ -108,7 +108,22 @@ app = FastAPI(
     title="anchor-x402",
     description="16 pay-per-call x402 services for AI agents — on-chain anchoring & attestation, wallet/address security screening, Web3 data (tx & calldata decode, ENS, token prices), content analysis, and verifiable randomness. No API keys or accounts; settle per request in USDC on Base or Solana. $0.001–$1.77 per call.",
     version="0.2.0",
+    docs_url=None,  # custom /docs below — directory scrapers read its <title> + favicon
 )
+
+
+@app.get("/docs", include_in_schema=False)
+def swagger_docs():
+    """Swagger UI with branded <title> and favicon. x402 directories (x402scan
+    et al.) scrape this page for the service's display name and icon; the
+    FastAPI default gave them 'anchor-x402 - Swagger UI' and the stock
+    FastAPI favicon."""
+    from fastapi.openapi.docs import get_swagger_ui_html
+    return get_swagger_ui_html(
+        openapi_url="/openapi.json",
+        title="anchor-x402 — 16 x402 pay-per-call services for AI agents",
+        swagger_favicon_url="/icon.png",
+    )
 
 
 # uagents_core.logger.get_logger() defaults to creating a FileHandler at
