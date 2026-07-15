@@ -1108,6 +1108,12 @@ def _agentcash_openapi():
         operation.setdefault("responses", {}).setdefault(
             "402", {"description": "Payment Required"}
         )
+    # Free routes (health, job-status polls): declare "no auth" explicitly so
+    # discovery validators don't flag a missing auth mode.
+    for path_ops in paths.values():
+        for operation in path_ops.values():
+            if isinstance(operation, dict) and "x-payment-info" not in operation:
+                operation.setdefault("security", [])
     app.openapi_schema = schema
     return schema
 
@@ -2128,7 +2134,7 @@ def icon_png():
     return _serve_icon()
 
 
-@app.api_route("/", methods=["GET", "HEAD"])
+@app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
 def root(request: Request):
     """Root: chat UI on the chat.* subdomain, docs redirect on the api.* one.
 
@@ -2171,12 +2177,12 @@ def _agentverse_investigator_reply(user_text: str) -> str:
     )
 
 
-@app.get("/agentverse/status")
+@app.get("/agentverse/status", include_in_schema=False)
 def agentverse_status():
     return {"status": "ok", "agent": "anchor-x402"}
 
 
-@app.post("/agentverse/chat")
+@app.post("/agentverse/chat", include_in_schema=False)
 async def agentverse_chat(request: Request):
     import json as _json
     from uuid import uuid4 as _uuid4
@@ -2244,7 +2250,7 @@ async def agentverse_chat(request: Request):
 # The /event/* receivers mirror SignalFuse's contract so the same dashboard
 # pattern works against either integration shape.
 
-@app.get("/divigent/dashboard")
+@app.get("/divigent/dashboard", include_in_schema=False)
 def divigent_dashboard():
     """Read-only snapshot of seller's Divigent position + idle USDC."""
     return divigent_svc.get_dashboard_snapshot()
@@ -2256,7 +2262,7 @@ _DIVIGENT_EVENT_TYPES = {
 }
 
 
-@app.post("/divigent/event/{event_type}")
+@app.post("/divigent/event/{event_type}", include_in_schema=False)
 async def divigent_event(event_type: str, request: Request):
     """Lifecycle event sink for internal sidecars/crons. Requires x-internal-auth
     header (constant-time check via _internal_auth_matches) and an allow-listed
@@ -2278,7 +2284,7 @@ async def divigent_event(event_type: str, request: Request):
     return Response(status_code=204)
 
 
-@app.post("/internal/refund/{job_id}")
+@app.post("/internal/refund/{job_id}", include_in_schema=False)
 def internal_refund(job_id: str, request: Request):
     """Push-refund webhook for the worker. Called when the worker writes
     status=FAILED, so the buyer wallet gets refunded within seconds instead of
@@ -2295,12 +2301,12 @@ def internal_refund(job_id: str, request: Request):
     return result
 
 
-@app.get("/chat")
+@app.get("/chat", include_in_schema=False)
 def chat_ui():
     return _serve_chat_html()
 
 
-@app.get("/.well-known/farcaster.json")
+@app.get("/.well-known/farcaster.json", include_in_schema=False)
 def farcaster_manifest():
     path = os.path.join(_STATIC_DIR, "farcaster.json")
     return FileResponse(
@@ -2327,12 +2333,12 @@ def _serve_x402_discovery() -> FileResponse:
     )
 
 
-@app.get("/.well-known/x402")
+@app.get("/.well-known/x402", include_in_schema=False)
 def x402_discovery():
     return _serve_x402_discovery()
 
 
-@app.get("/.well-known/x402.json")
+@app.get("/.well-known/x402.json", include_in_schema=False)
 def x402_discovery_json():
     return _serve_x402_discovery()
 
@@ -2340,12 +2346,12 @@ def x402_discovery_json():
 # Opportunistic indexer probes — neither path is in the spec, but both are
 # being hit 276×/day each. Alias both to the same catalog content so we get
 # free indexing upside instead of returning 404.
-@app.get("/.well-known/x402-resources")
+@app.get("/.well-known/x402-resources", include_in_schema=False)
 def x402_resources_wellknown():
     return _serve_x402_discovery()
 
 
-@app.get("/x402-resources")
+@app.get("/x402-resources", include_in_schema=False)
 def x402_resources():
     return _serve_x402_discovery()
 
@@ -2353,7 +2359,7 @@ def x402_resources():
 _DOCS_DIR = os.path.join(os.path.dirname(__file__), "docs")
 
 
-@app.get("/robots.txt")
+@app.get("/robots.txt", include_in_schema=False)
 def robots_txt():
     path = os.path.join(_DOCS_DIR, "robots.txt")
     if not os.path.exists(path):
@@ -2365,7 +2371,7 @@ def robots_txt():
     )
 
 
-@app.get("/llms.txt")
+@app.get("/llms.txt", include_in_schema=False)
 def llms_txt():
     path = os.path.join(_DOCS_DIR, "llms.txt")
     if not os.path.exists(path):
@@ -2377,19 +2383,19 @@ def llms_txt():
     )
 
 
-@app.get("/icon.png")
+@app.get("/icon.png", include_in_schema=False)
 def chat_icon():
     return FileResponse(os.path.join(_STATIC_DIR, "icon.png"), media_type="image/png",
                         headers={"Cache-Control": "public, max-age=86400, immutable"})
 
 
-@app.get("/splash.png")
+@app.get("/splash.png", include_in_schema=False)
 def chat_splash():
     return FileResponse(os.path.join(_STATIC_DIR, "splash.png"), media_type="image/png",
                         headers={"Cache-Control": "public, max-age=86400, immutable"})
 
 
-@app.get("/s.png")
+@app.get("/s.png", include_in_schema=False)
 def chat_splash_short():
     # Short alias for splash.png — Farcaster manifest spec caps splashImageUrl
     # at 32 characters, so we need a URL ≤ 32 chars.
@@ -2397,7 +2403,7 @@ def chat_splash_short():
                         headers={"Cache-Control": "public, max-age=86400, immutable"})
 
 
-@app.get("/chat.bundle.js")
+@app.get("/chat.bundle.js", include_in_schema=False)
 def chat_bundle():
     # Serve the gzipped bundle (1.8 MB) with Content-Encoding: gzip — the
     # browser decompresses transparently. The raw bundle (6.7 MB) exceeds
@@ -2420,7 +2426,7 @@ def chat_bundle():
     )
 
 
-@app.get("/v1/config")
+@app.get("/v1/config", include_in_schema=False)
 def public_config():
     """Public, non-sensitive runtime config for the static chat UI."""
     return {"wcProjectId": os.getenv("WC_PROJECT_ID", "")}
