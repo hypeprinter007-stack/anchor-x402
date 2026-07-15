@@ -1,14 +1,14 @@
 ---
 layout: home
-title: "anchor-x402 — 16 x402-paid services for AI agents"
-description: "Sixteen x402-paid endpoints on three rails — Base USDC, Solana USDC, JPYC on Polygon. Hosted agent chatbot at chat.anchor-x402.com. Pay-per-call, no API keys, no accounts."
+title: "anchor-x402 — 18 x402-paid services for AI agents"
+description: "Eighteen x402-paid endpoints on three rails — Base USDC, Solana USDC, JPYC on Polygon. Hosted agent chatbot at chat.anchor-x402.com. Pay-per-call, no API keys, no accounts."
 ---
 
 ## What this is, in one paragraph
 
-anchor-x402 is **sixteen stateless x402 endpoints** that any AI agent can call and pay for in a single round-trip. Each call returns an x402 v2 PaymentRequired challenge; the agent signs an EIP-3009 authorization from its own wallet, replays the request, and gets the result. Settlement happens on **Base** or **Solana** (USDC via Coinbase's CDP facilitator) or **Polygon** (JPYC via an in-process facilitator). Live at `https://api.anchor-x402.com` — see the [/health probe](https://api.anchor-x402.com/health) or the [Swagger UI](https://api.anchor-x402.com/docs).
+anchor-x402 is **eighteen stateless x402 endpoints** that any AI agent can call and pay for in a single round-trip. Each call returns an x402 v2 PaymentRequired challenge; the agent signs an EIP-3009 authorization from its own wallet, replays the request, and gets the result. Settlement happens on **Base** or **Solana** (USDC via Coinbase's CDP facilitator) or **Polygon** (JPYC via an in-process facilitator). Live at `https://api.anchor-x402.com` — see the [/health probe](https://api.anchor-x402.com/health) or the [Swagger UI](https://api.anchor-x402.com/docs).
 
-If you don't have your own agent, **[chat.anchor-x402.com](https://chat.anchor-x402.com)** is a hosted Claude that runs the same sixteen services on your behalf. Connect a wallet (Coinbase Smart Wallet with a passkey, MetaMask, Rabby — any of them), chat for free, and approve each paid tool call one EIP-3009 signature at a time.
+If you don't have your own agent, **[chat.anchor-x402.com](https://chat.anchor-x402.com)** is a hosted Claude that runs the same services on your behalf. Connect a wallet (Coinbase Smart Wallet with a passkey, MetaMask, Rabby — any of them), chat for free, and approve each paid tool call one EIP-3009 signature at a time.
 
 ## Have an x402 endpoint?
 

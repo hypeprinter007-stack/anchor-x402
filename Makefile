@@ -39,6 +39,9 @@ build-AnchorFunction:
 		-t "$(ARTIFACTS_DIR)"
 	cp app.py models.py "$(ARTIFACTS_DIR)/"
 	cp -r services "$(ARTIFACTS_DIR)/"
+	# x402 service registry for /v1/ledger (regenerate: node scripts/build-registry.mjs)
+	mkdir -p "$(ARTIFACTS_DIR)/data"
+	cp data/x402_registry.json "$(ARTIFACTS_DIR)/data/"
 	mkdir -p "$(ARTIFACTS_DIR)/static"
 	cp static/chat.html static/chat.bundle.js.gz static/farcaster.json static/icon.png static/splash.png static/s.png "$(ARTIFACTS_DIR)/static/"
 	# Ship the .well-known/x402.json discovery doc + robots.txt + llms.txt

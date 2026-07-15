@@ -432,3 +432,52 @@ class ChatResponse(BaseModel):
     assistant_text: str | None = None
     tool_uses: list[ChatToolUse] | None = None
     stop_reason: str | None = None
+
+
+# --- /v1/ledger/* (x402 spend accounting) ---
+
+
+class LedgerSummaryRequest(BaseModel):
+    model_config = {"populate_by_name": True}
+
+    wallet: str = Field(description="EVM address (Base) whose x402 spend to reconstruct.")
+    from_: str | None = Field(
+        default=None, alias="from",
+        description="ISO date or datetime, start of range. Default: 30 days before `to`.",
+    )
+    to: str | None = Field(default=None, description="ISO date or datetime, end of range. Default: now.")
+    direction: Literal["outbound", "inbound", "both"] = Field(
+        default="outbound", description="outbound = spend, inbound = revenue.",
+    )
+    min_amount: str | float | None = Field(default=None, description="Minimum USDC per transfer, e.g. 0.001.")
+    group_by: Literal["service", "recipient", "day"] = "service"
+    include_unfiltered: bool = Field(
+        default=False,
+        description="Include non-x402 USDC transfers as category=other_transfer.",
+    )
+
+
+class LedgerReportRequest(LedgerSummaryRequest):
+    format: Literal["markdown", "csv", "both"] = "both"
+    title: str | None = Field(default=None, description="Report title; appears in the markdown header.")
+    prepared_for: str | None = Field(default=None, description="Optional client name for the report header.")
+
+
+class LedgerReportAccepted(BaseModel):
+    job_id: str = Field(description="Unique job id; poll /v1/ledger/report/{job_id}.")
+    status: Literal["accepted"] = "accepted"
+    status_url: str = Field(description="Absolute URL to poll for completion.")
+    eta_seconds: int = Field(default=120, description="Approximate wait until DELIVERED.")
+
+
+class LedgerReportStatus(BaseModel):
+    job_id: str
+    status: str = Field(description="DISPATCHING | IN_PROGRESS | DELIVERED | FAILED | UNKNOWN")
+    deliverable: dict[str, Any] | None = Field(
+        default=None,
+        description="On DELIVERED: report URLs, sha256, eip191 signature, dual-chain anchor txs.",
+    )
+    eta_seconds: int | None = None
+    error: str | None = None
+    refund_tx: str | None = None
+    refund_pending: str | None = None

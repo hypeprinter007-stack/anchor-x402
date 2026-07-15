@@ -21,7 +21,7 @@ load_dotenv()
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from mangum import Mangum
 
 logging.basicConfig(
@@ -106,8 +106,8 @@ SOLANA_MAINNET_CAIP2 = "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"
 
 app = FastAPI(
     title="anchor-x402",
-    description="16 pay-per-call x402 services for AI agents — on-chain anchoring & attestation, wallet/address security screening, Web3 data (tx & calldata decode, ENS, token prices), content analysis, and verifiable randomness. No API keys or accounts; settle per request in USDC on Base or Solana. $0.001–$1.77 per call.",
-    version="0.2.0",
+    description="18 pay-per-call x402 services for AI agents — on-chain anchoring & attestation, wallet/address security screening, Web3 data (tx & calldata decode, ENS, token prices), x402 spend accounting, content analysis, and verifiable randomness. No API keys or accounts; settle per request in USDC on Base or Solana. $0.001–$1.77 per call.",
+    version="0.3.0",
     docs_url=None,  # custom /docs below — directory scrapers read its <title> + favicon
 )
 
@@ -121,7 +121,7 @@ def swagger_docs():
     from fastapi.openapi.docs import get_swagger_ui_html
     return get_swagger_ui_html(
         openapi_url="/openapi.json",
-        title="anchor-x402 — 16 x402 pay-per-call services for AI agents",
+        title="anchor-x402 — 18 x402 pay-per-call services for AI agents",
         swagger_favicon_url="/icon.png",
     )
 
@@ -638,6 +638,60 @@ _tldr_bazaar_ext = declare_discovery_extension(
     }),
 )
 
+_ledger_summary_bazaar_ext = declare_discovery_extension(
+    input={"wallet": "0x7818cB9cEad1E13E64A259F0867089dB75E374c5", "from": "2026-06-01", "to": "2026-07-01"},
+    input_schema={
+        "properties": {
+            "wallet": {"type": "string", "description": "EVM address (Base) whose x402 spend to reconstruct."},
+            "from": {"type": "string", "description": "ISO date, start of range. Default: 30 days before `to`."},
+            "to": {"type": "string", "description": "ISO date, end of range. Default: now."},
+            "direction": {"type": "string", "enum": ["outbound", "inbound", "both"], "description": "outbound = spend (default), inbound = revenue."},
+            "min_amount": {"type": "string", "description": "Minimum USDC per transfer, e.g. 0.001."},
+            "group_by": {"type": "string", "enum": ["service", "recipient", "day"]},
+        },
+        "required": ["wallet"],
+    },
+    body_type="json",
+    output=OutputConfig(example={
+        "wallet": "0x7818cb9cead1e13e64a259f0867089db75e374c5",
+        "chain": "base",
+        "range": {"from": "2026-06-01T00:00:00Z", "to": "2026-07-01T23:59:59Z"},
+        "direction": "outbound",
+        "totals": {"usdc": "12.2910", "tx_count": 454, "unique_recipients": 4, "identified_pct": 99.9},
+        "groups": [{"label": "anchor-x402", "recipient": "0x127462e296fac1a7f5cf33ba57bb2f0fff5cd0b6",
+                    "service_id": "anchor-x402.com", "usdc": "8.8880", "tx_count": 231,
+                    "avg_call_price": "0.0384", "first_tx": "2026-06-01T04:11:22Z", "last_tx": "2026-07-01T20:03:14Z"}],
+        "daily": [{"date": "2026-06-01", "usdc": "0.4110", "tx_count": 17}],
+        "granularity": "day",
+        "registry_version": "2026-07-15",
+        "spec_version": "1.0",
+    }),
+)
+
+_ledger_report_bazaar_ext = declare_discovery_extension(
+    input={"wallet": "0x7818cB9cEad1E13E64A259F0867089dB75E374c5", "from": "2026-04-01", "to": "2026-06-30",
+           "title": "Q2 agent spend"},
+    input_schema={
+        "properties": {
+            "wallet": {"type": "string", "description": "EVM address (Base) whose x402 spend to report on."},
+            "from": {"type": "string", "description": "ISO date, start of range. Default: 30 days before `to`."},
+            "to": {"type": "string", "description": "ISO date, end of range. Default: now."},
+            "direction": {"type": "string", "enum": ["outbound", "inbound", "both"]},
+            "format": {"type": "string", "enum": ["markdown", "csv", "both"], "description": "Which report files to produce. Default both."},
+            "title": {"type": "string", "description": "Report title for the markdown header."},
+            "prepared_for": {"type": "string", "description": "Optional client name for the report header."},
+        },
+        "required": ["wallet"],
+    },
+    body_type="json",
+    output=OutputConfig(example={
+        "job_id": "8f14e45f-ea9d-4a4c-b8be-1c1c672f9b2d",
+        "status": "accepted",
+        "status_url": "https://api.anchor-x402.com/v1/ledger/report/8f14e45f-ea9d-4a4c-b8be-1c1c672f9b2d",
+        "eta_seconds": 120,
+    }),
+)
+
 # --- Bazaar category backfill ---
 # anchor (security) and roll (gaming) set their own category at declaration.
 # Everything else defaults to discoverable with no category; tag them here so
@@ -663,6 +717,8 @@ for _ext, _cat in (
     (_aura_bazaar_ext, "ai"),
     (_grade_bazaar_ext, "ai"),
     (_tldr_bazaar_ext, "content-extraction"),
+    (_ledger_summary_bazaar_ext, "finance"),
+    (_ledger_report_bazaar_ext, "finance"),
 ):
     _ext["bazaar"]["discoverable"] = True
     _ext["bazaar"]["category"] = _cat
@@ -747,6 +803,16 @@ x402_routes = {
         accepts=_accepts_at("$0.001"),
         description="Verifiable RNG — cryptographically-random integer(s) signed by the treasury key. Drop-in VRF for game studios. $0.001 USDC.",
         extensions={**_roll_bazaar_ext},
+    ),
+    "POST /v1/ledger/summary": RouteConfig(
+        accepts=_accepts_at("$0.01"),
+        description="x402 spend accounting for any Base wallet — totals + per-service breakdown reconstructed from chain data. $0.01 USDC.",
+        extensions={**_ledger_summary_bazaar_ext},
+    ),
+    "POST /v1/ledger/report": RouteConfig(
+        accepts=_accepts_at("$0.35"),
+        description="Signed + dual-chain-anchored x402 expense report (markdown + CSV, async job). $0.35 USDC.",
+        extensions={**_ledger_report_bazaar_ext},
     ),
     # GET wrappers for function-like callers (Virtuals ACP, etc.) — same price, no
     # bazaar extensions to avoid duplicate listings (POST is the canonical entry).
@@ -1696,6 +1762,191 @@ def investigate_status(job_id: str) -> InvestigateStatusResponse:
     )
 
 
+# --- /v1/ledger (x402 spend accounting) --------------------------------------
+#
+# Stateless: every call reconstructs from chain data + the versioned registry
+# bundled at data/x402_registry.json (regenerate with scripts/build-registry.mjs
+# before deploys). The async report reuses the investigate job store; the
+# rendered files land in S3 and are served back through /reports/ledger/.
+
+from models import (
+    LedgerReportAccepted,
+    LedgerReportRequest,
+    LedgerReportStatus,
+    LedgerSummaryRequest,
+)
+from services import ledger as ledger_svc
+
+_LEDGER_SYNC_MAX_DAYS = 120  # longer sync scans risk the 29s API Gateway cap
+
+
+@app.exception_handler(ledger_svc.LedgerError)
+def _ledger_error_handler(request: Request, exc: ledger_svc.LedgerError) -> JSONResponse:
+    return JSONResponse(status_code=exc.status, content=exc.body())
+
+
+@app.post("/v1/ledger/summary")
+def ledger_summary(req: LedgerSummaryRequest) -> dict:
+    """Categorized x402 spend for a wallet, computed at request time."""
+    wallet = ledger_svc.validate_wallet(req.wallet)
+    from_ts, to_ts = ledger_svc.parse_range(req.from_, req.to)
+    if to_ts - from_ts > _LEDGER_SYNC_MAX_DAYS * 86400:
+        raise ledger_svc.LedgerError(
+            "range_too_long",
+            f"sync summary caps at {_LEDGER_SYNC_MAX_DAYS} days; use POST /v1/ledger/report (async) for longer ranges",
+            status=422,
+        )
+    scanned = ledger_svc.scan(
+        wallet, from_ts, to_ts, req.direction,
+        str(req.min_amount) if req.min_amount is not None else None,
+        req.include_unfiltered,
+        max_inspections=1_000,  # sync budget; the async report allows 5x
+    )
+    out = ledger_svc.summarize(scanned, wallet, from_ts, to_ts, req.direction, req.group_by)
+    out["generated_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    return out
+
+
+@app.post("/v1/ledger/report", response_model=LedgerReportAccepted)
+def ledger_report_dispatch(req: LedgerReportRequest, request: Request) -> LedgerReportAccepted:
+    """Accept payment, record job, async-dispatch the report build to this
+    same Lambda (self-invoke — see the ledger_job branch in handler())."""
+    from services import refund as refund_svc
+    wallet = ledger_svc.validate_wallet(req.wallet)
+    from_ts, to_ts = ledger_svc.parse_range(req.from_, req.to)
+    job_id = str(uuid4())
+    now = int(time.time())
+    buyer_wallet, buyer_network = refund_svc.parse_buyer_from_x_payment(
+        request.headers.get("payment-signature") or request.headers.get("x-payment")
+    )
+    item: dict[str, Any] = {
+        "job_id": job_id,
+        "kind": "ledger_report",
+        "address": wallet,
+        "status": "DISPATCHING",
+        "source": "x402",
+        "price_atomic": 350_000,  # $0.35 — read by the job-aware refund path
+        "created_at": now,
+        "updated_at": now,
+    }
+    if buyer_wallet:
+        item["buyer_wallet"] = buyer_wallet
+    if buyer_network:
+        item["buyer_network"] = buyer_network
+    try:
+        _ddb.put_item(Item=item, ConditionExpression="attribute_not_exists(job_id)")
+    except Exception as e:  # noqa: BLE001
+        logging.getLogger("ledger").exception("DDB write failed")
+        raise HTTPException(status_code=502, detail=f"job init failed: {type(e).__name__}")
+
+    payload = {
+        "ledger_job": True,
+        "job_id": job_id,
+        "params": {
+            "wallet": wallet,
+            "from_ts": from_ts,
+            "to_ts": to_ts,
+            "direction": req.direction,
+            "min_amount": str(req.min_amount) if req.min_amount is not None else None,
+            "include_unfiltered": req.include_unfiltered,
+            "group_by": req.group_by,
+            "format": req.format,
+            "title": req.title,
+            "prepared_for": req.prepared_for,
+        },
+    }
+    # Same deliver-or-die contract as /v1/investigate: payment settled, so
+    # retry transient invoke failures before marking FAILED (which refunds).
+    last_err: Exception | None = None
+    for attempt, delay in enumerate([0.5, 1.0, 2.0, 4.0, 8.0]):
+        try:
+            _lambda.invoke(
+                FunctionName=os.environ.get("AWS_LAMBDA_FUNCTION_NAME", ""),
+                InvocationType="Event",
+                Payload=json.dumps(payload).encode(),
+            )
+            last_err = None
+            break
+        except Exception as e:  # noqa: BLE001
+            last_err = e
+            time.sleep(delay)
+    if last_err is not None:
+        logging.getLogger("ledger").exception("ledger report dispatch exhausted retries")
+        try:
+            _ddb.update_item(
+                Key={"job_id": job_id},
+                UpdateExpression="SET #s = :s, error_msg = :e",
+                ExpressionAttributeNames={"#s": "status"},
+                ExpressionAttributeValues={":s": "FAILED", ":e": f"dispatch failed: {type(last_err).__name__}"},
+            )
+        except Exception:
+            pass
+        raise HTTPException(status_code=502, detail=f"dispatch failed: {type(last_err).__name__}")
+
+    return LedgerReportAccepted(
+        job_id=job_id,
+        status="accepted",
+        status_url=f"{_PUBLIC_BASE}/v1/ledger/report/{job_id}",
+        eta_seconds=120,
+    )
+
+
+@app.get("/v1/ledger/report/{job_id}", response_model=LedgerReportStatus)
+def ledger_report_status(job_id: str) -> LedgerReportStatus:
+    """Poll endpoint — free, no x402 (deliberately omitted from x402_routes)."""
+    try:
+        resp = _ddb.get_item(Key={"job_id": job_id})
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"lookup failed: {type(e).__name__}")
+
+    item = resp.get("Item")
+    if not item or item.get("kind") != "ledger_report":
+        return LedgerReportStatus(job_id=job_id, status="UNKNOWN", error="job_not_found")
+
+    status = item.get("status", "UNKNOWN")
+    # Refund-on-poll fast path, same as investigate; refund.py reads the
+    # job's price_atomic so a $0.35 job refunds $0.35, not the $1.77 default.
+    if status == "FAILED" and not item.get("refund_tx") and not item.get("refund_pending"):
+        try:
+            from services import refund as refund_svc
+            refund_svc.refund_failed_job(job_id)
+            item = _ddb.get_item(Key={"job_id": job_id}).get("Item") or item
+        except Exception:
+            logging.getLogger("ledger").exception("inline refund failed for job=%s", job_id)
+
+    return LedgerReportStatus(
+        job_id=job_id,
+        status=status,
+        deliverable=item.get("deliverable"),
+        eta_seconds=None if status in ("DELIVERED", "FAILED") else 120,
+        error=item.get("error_msg"),
+        refund_tx=item.get("refund_tx"),
+        refund_pending=item.get("refund_pending"),
+    )
+
+
+@app.get("/reports/ledger/{filename}", include_in_schema=False)
+def ledger_report_file(filename: str) -> Response:
+    """Serve rendered report files from S3. Unguessable job-id URLs,
+    immutable once written."""
+    import re as _re
+    if not _re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(md|csv)", filename):
+        raise HTTPException(status_code=404, detail="not found")
+    import boto3 as _boto3
+    try:
+        obj = _boto3.client("s3").get_object(
+            Bucket=ledger_svc.REPORTS_BUCKET, Key=f"ledger/{filename}"
+        )
+        body = obj["Body"].read()
+    except Exception:  # noqa: BLE001
+        raise HTTPException(status_code=404, detail="report not found")
+    return Response(
+        content=body,
+        media_type="text/markdown; charset=utf-8" if filename.endswith(".md") else "text/csv; charset=utf-8",
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    )
+
+
 # --- /v1/roast | /v1/oracle | /v1/tldr (universal LLM-paid endpoints) -------
 
 
@@ -2175,4 +2426,14 @@ def public_config():
     return {"wcProjectId": os.getenv("WC_PROJECT_ID", "")}
 
 
-handler = Mangum(app)
+_mangum = Mangum(app)
+
+
+def handler(event: Any, context: Any) -> Any:
+    # Self-invoked async path for /v1/ledger/report jobs — the dispatch route
+    # re-invokes this same function with InvocationType=Event and this payload
+    # shape. Everything else is normal API Gateway traffic through Mangum.
+    if isinstance(event, dict) and event.get("ledger_job"):
+        from services import ledger as _ledger
+        return _ledger.run_report_job(event)
+    return _mangum(event, context)

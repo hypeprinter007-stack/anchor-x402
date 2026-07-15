@@ -1,7 +1,7 @@
 {
   "version": "2.0",
   "name": "anchor-x402",
-  "description": "Sixteen x402-paid services for AI agents on three settlement rails — Base USDC, Solana USDC, and JPYC on Polygon (¥1 per anchor call). Nine commodity primitives, one async due-diligence investigator ($1.77 / ¥350), one verifiable signed RNG (drop-in VRF), and five universal LLM endpoints (roast, oracle with on-chain anchored verdict, TL;DR, aura, grade). Plus a hosted chatbot at chat.anchor-x402.com. Pay-per-call, no API keys, no accounts.",
+  "description": "Eighteen x402-paid services for AI agents on three settlement rails — Base USDC, Solana USDC, and JPYC on Polygon (¥1 per anchor call). Nine commodity primitives, one async due-diligence investigator ($1.77 / ¥350), one verifiable signed RNG (drop-in VRF), and five universal LLM endpoints (roast, oracle with on-chain anchored verdict, TL;DR, aura, grade), and a two-endpoint x402 spend-accounting ledger (summary + signed anchored expense report). Plus a hosted chatbot at chat.anchor-x402.com. Pay-per-call, no API keys, no accounts.",
   "description_ja": "AIエージェント向けのx402従量課金サービス16種、3つの決済レール対応 — Baseメインネット USDC、Solanaメインネット USDC、PolygonメインネットJPYC（アンカー1回あたり¥1）。汎用プリミティブ9種、非同期デューデリジェンス調査1種（$1.77 / ¥350）、検証可能な署名付き乱数生成1種（VRF互換）、汎用LLMエンドポイント5種（roast、オンチェーンアンカー判定付きoracle、TL;DR、aura、grade）。さらにchat.anchor-x402.comではホスト型チャットボットも利用可能。コール単位の決済で、APIキー・アカウント登録ともに不要です。",
   "operator": "anchor-x402",
   "homepage": "https://anchor-x402.com",
@@ -43,9 +43,24 @@
     }
   ],
   "free_endpoints": [
-    {"path": "/health", "method": "GET", "description": "Liveness probe — returns {status,service}", "description_ja": "稼働確認プローブ。{status,service}を返却します。"},
-    {"path": "/openapi.json", "method": "GET", "description": "Full OpenAPI 3 spec for all 16 paid services", "description_ja": "16種の有料サービス全てを記述したOpenAPI 3完全仕様。"},
-    {"path": "/docs", "method": "GET", "description": "Swagger UI for interactive exploration", "description_ja": "対話的にサービスを試せるSwagger UI。"}
+    {
+      "path": "/health",
+      "method": "GET",
+      "description": "Liveness probe — returns {status,service}",
+      "description_ja": "稼働確認プローブ。{status,service}を返却します。"
+    },
+    {
+      "path": "/openapi.json",
+      "method": "GET",
+      "description": "Full OpenAPI 3 spec for all 18 paid services",
+      "description_ja": "16種の有料サービス全てを記述したOpenAPI 3完全仕様。"
+    },
+    {
+      "path": "/docs",
+      "method": "GET",
+      "description": "Swagger UI for interactive exploration",
+      "description_ja": "対話的にサービスを試せるSwagger UI。"
+    }
   ],
   "routes": [
     {
@@ -59,12 +74,27 @@
       "input_schema": {
         "type": "object",
         "properties": {
-          "hash": {"type": "string", "description": "Pre-computed 32-byte hex hash (64 chars, no 0x prefix). Mutually exclusive with `data`."},
-          "data": {"description": "Arbitrary JSON to be canonicalized + SHA-256'd by the server. Mutually exclusive with `hash`."},
-          "note": {"type": "string", "description": "Optional 200-char note returned in response (NOT on-chain).", "maxLength": 200}
+          "hash": {
+            "type": "string",
+            "description": "Pre-computed 32-byte hex hash (64 chars, no 0x prefix). Mutually exclusive with `data`."
+          },
+          "data": {
+            "description": "Arbitrary JSON to be canonicalized + SHA-256'd by the server. Mutually exclusive with `hash`."
+          },
+          "note": {
+            "type": "string",
+            "description": "Optional 200-char note returned in response (NOT on-chain).",
+            "maxLength": 200
+          }
         }
       },
-      "tags": ["anchor", "merkle", "timestamp", "audit", "dual-chain"]
+      "tags": [
+        "anchor",
+        "merkle",
+        "timestamp",
+        "audit",
+        "dual-chain"
+      ]
     },
     {
       "path": "/v1/screen",
@@ -75,31 +105,75 @@
       "description": "OFAC SDN sanctions + AML screening for any wallet address. Returns sanctions match boolean, flagged programs (Tornado Cash, Lazarus, etc.), risk level.",
       "description_ja": "任意のウォレットアドレスに対するOFAC SDN制裁＋AMLスクリーニング。制裁マッチの真偽値、該当プログラム名（Tornado Cash、Lazarus等）、リスクレベルを返却します。",
       "params": {
-        "wallet": {"type": "string", "required": true, "description": "EVM 0x… (40 hex) or Solana base58 pubkey"}
+        "wallet": {
+          "type": "string",
+          "required": true,
+          "description": "EVM 0x… (40 hex) or Solana base58 pubkey"
+        }
       },
-      "tags": ["sanctions", "ofac", "aml", "compliance", "kyc"]
+      "tags": [
+        "sanctions",
+        "ofac",
+        "aml",
+        "compliance",
+        "kyc"
+      ]
     },
     {
       "path": "/v1/attest",
       "method": "POST",
-      "price_usd": 0.010,
+      "price_usd": 0.01,
       "price": "$0.010",
       "category": "security",
       "description": "Verify a wallet signature over (input_hash, output_hash, decision) with domain separation, then dual-chain anchor the resulting Merkle root. Returns verified signer + on-chain proof.",
       "description_ja": "(input_hash, output_hash, decision) に対するウォレット署名をドメイン分離付きで検証し、得られたマークルルートをデュアルチェーンへアンカリング。検証済み署名者とオンチェーン証明を返却します。",
       "input_schema": {
         "type": "object",
-        "required": ["input_hash", "output_hash", "decision", "scheme", "signature"],
+        "required": [
+          "input_hash",
+          "output_hash",
+          "decision",
+          "scheme",
+          "signature"
+        ],
         "properties": {
-          "input_hash": {"type": "string", "description": "64-char hex SHA-256 of agent input"},
-          "output_hash": {"type": "string", "description": "64-char hex SHA-256 of agent output"},
-          "decision": {"type": "string", "maxLength": 64, "description": "Free-form short label"},
-          "scheme": {"type": "string", "enum": ["eip191", "ed25519"]},
-          "signature": {"type": "string", "description": "0x-hex (eip191) or base58 (ed25519)"},
-          "signer_pubkey": {"type": "string", "description": "Required for ed25519 (Solana base58 pubkey)"}
+          "input_hash": {
+            "type": "string",
+            "description": "64-char hex SHA-256 of agent input"
+          },
+          "output_hash": {
+            "type": "string",
+            "description": "64-char hex SHA-256 of agent output"
+          },
+          "decision": {
+            "type": "string",
+            "maxLength": 64,
+            "description": "Free-form short label"
+          },
+          "scheme": {
+            "type": "string",
+            "enum": [
+              "eip191",
+              "ed25519"
+            ]
+          },
+          "signature": {
+            "type": "string",
+            "description": "0x-hex (eip191) or base58 (ed25519)"
+          },
+          "signer_pubkey": {
+            "type": "string",
+            "description": "Required for ed25519 (Solana base58 pubkey)"
+          }
         }
       },
-      "tags": ["attestation", "signature", "audit", "ai-decision", "compliance"]
+      "tags": [
+        "attestation",
+        "signature",
+        "audit",
+        "ai-decision",
+        "compliance"
+      ]
     },
     {
       "path": "/v1/decode/tx",
@@ -111,13 +185,30 @@
       "description_ja": "任意のメインネットトランザクションを構造化デコード。EVM（Base/Ethereum）はfrom/to/value/gas/status/calldataを、Solanaはslot/fee/signers/program_callsを返却します。",
       "input_schema": {
         "type": "object",
-        "required": ["chain", "tx_hash"],
+        "required": [
+          "chain",
+          "tx_hash"
+        ],
         "properties": {
-          "chain": {"type": "string", "enum": ["base", "ethereum", "solana"]},
-          "tx_hash": {"type": "string"}
+          "chain": {
+            "type": "string",
+            "enum": [
+              "base",
+              "ethereum",
+              "solana"
+            ]
+          },
+          "tx_hash": {
+            "type": "string"
+          }
         }
       },
-      "tags": ["transaction", "decode", "blockchain", "rpc-proxy"]
+      "tags": [
+        "transaction",
+        "decode",
+        "blockchain",
+        "rpc-proxy"
+      ]
     },
     {
       "path": "/v1/resolve/name",
@@ -128,9 +219,19 @@
       "description": "Cross-chain name resolution: ENS (.eth) and Bonfida SNS (.sol). Returns resolved address(es) per registry.",
       "description_ja": "クロスチェーンの名前解決。ENS（.eth）とBonfida SNS（.sol）に対応し、各レジストリから解決アドレスを返却します。",
       "params": {
-        "name": {"type": "string", "required": true, "description": "Human-readable name"}
+        "name": {
+          "type": "string",
+          "required": true,
+          "description": "Human-readable name"
+        }
       },
-      "tags": ["ens", "sns", "bonfida", "name-service", "resolver"]
+      "tags": [
+        "ens",
+        "sns",
+        "bonfida",
+        "name-service",
+        "resolver"
+      ]
     },
     {
       "path": "/v1/price/token",
@@ -141,11 +242,26 @@
       "description": "USD spot price for any major token by symbol or chain+contract. CoinGecko-backed, 60s cache.",
       "description_ja": "主要トークンのUSDスポット価格を、シンボル指定またはchain+contract指定で取得。CoinGeckoバックエンド、60秒キャッシュ。",
       "params": {
-        "symbol": {"type": "string", "description": "Token symbol (BTC, ETH, etc.). Mutually exclusive with chain+contract."},
-        "chain": {"type": "string", "description": "Chain slug: base, ethereum, solana, polygon, arbitrum, optimism, bsc, avalanche."},
-        "contract": {"type": "string", "description": "Token contract address. Required with chain."}
+        "symbol": {
+          "type": "string",
+          "description": "Token symbol (BTC, ETH, etc.). Mutually exclusive with chain+contract."
+        },
+        "chain": {
+          "type": "string",
+          "description": "Chain slug: base, ethereum, solana, polygon, arbitrum, optimism, bsc, avalanche."
+        },
+        "contract": {
+          "type": "string",
+          "description": "Token contract address. Required with chain."
+        }
       },
-      "tags": ["price", "spot", "coingecko", "usdc", "tokens"]
+      "tags": [
+        "price",
+        "spot",
+        "coingecko",
+        "usdc",
+        "tokens"
+      ]
     },
     {
       "path": "/v1/decode/calldata",
@@ -157,13 +273,32 @@
       "description_ja": "生のEVMコールデータを、openchain.xyzのシグネチャディレクトリとeth_abiを用いて関数名＋型付きパラメータにデコードします。",
       "input_schema": {
         "type": "object",
-        "required": ["chain", "calldata_hex"],
+        "required": [
+          "chain",
+          "calldata_hex"
+        ],
         "properties": {
-          "chain": {"type": "string", "enum": ["ethereum", "solana"], "description": "EVM-only; solana returns 400"},
-          "calldata_hex": {"type": "string", "description": "Raw EVM calldata, with or without 0x prefix"}
+          "chain": {
+            "type": "string",
+            "enum": [
+              "ethereum",
+              "solana"
+            ],
+            "description": "EVM-only; solana returns 400"
+          },
+          "calldata_hex": {
+            "type": "string",
+            "description": "Raw EVM calldata, with or without 0x prefix"
+          }
         }
       },
-      "tags": ["calldata", "abi", "4byte", "openchain", "decode"]
+      "tags": [
+        "calldata",
+        "abi",
+        "4byte",
+        "openchain",
+        "decode"
+      ]
     },
     {
       "path": "/v1/parse/datetime",
@@ -175,14 +310,30 @@
       "description_ja": "任意の自由形式の日時文字列を、構造化されたISO 8601、各構成要素、相対時間、信頼度にパースします。",
       "input_schema": {
         "type": "object",
-        "required": ["input"],
+        "required": [
+          "input"
+        ],
         "properties": {
-          "input": {"type": "string", "maxLength": 500},
-          "base_time": {"type": "string", "description": "Optional ISO 8601 reference"},
-          "timezone": {"type": "string", "description": "Optional IANA tz name"}
+          "input": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "base_time": {
+            "type": "string",
+            "description": "Optional ISO 8601 reference"
+          },
+          "timezone": {
+            "type": "string",
+            "description": "Optional IANA tz name"
+          }
         }
       },
-      "tags": ["datetime", "iso8601", "parser", "natural-language"]
+      "tags": [
+        "datetime",
+        "iso8601",
+        "parser",
+        "natural-language"
+      ]
     },
     {
       "path": "/v1/intel/wallet",
@@ -193,9 +344,19 @@
       "description": "Unified wallet intelligence bundle. ONE call returns balances on Base + Ethereum + Solana, USDC across chains, tx counts, ENS/SNS reverse, sanctions verdict — aggregated from 8-10 parallel sources.",
       "description_ja": "統合ウォレットインテリジェンスバンドル。1回のコールで、Base/Ethereum/Solanaの残高、チェーン横断のUSDC残高、tx数、ENS/SNS逆引き、制裁判定を返却。8〜10件のソースから並列で集約します。",
       "params": {
-        "wallet": {"type": "string", "required": true, "description": "EVM 0x… or Solana base58 pubkey"}
+        "wallet": {
+          "type": "string",
+          "required": true,
+          "description": "EVM 0x… or Solana base58 pubkey"
+        }
       },
-      "tags": ["wallet-intel", "balances", "kyb", "counterparty", "aggregator"]
+      "tags": [
+        "wallet-intel",
+        "balances",
+        "kyb",
+        "counterparty",
+        "aggregator"
+      ]
     },
     {
       "path": "/v1/investigate",
@@ -207,12 +368,24 @@
       "description_ja": "エージェント駆動型のウォレット・デューデリジェンス。複数ステップのLLM調査として、制裁スクリーニング、オンチェーン履歴、アイデンティティ相関、カウンターパーティグラフを実行。署名済みmarkdownレポート＋JSONサイドカー＋Base/Solanaへのデュアルチェーンアンカー証明として納品します。非同期実行のため、job_idを返却し、/v1/investigate/status/{job_id}でポーリング。完了目安は5〜10分。",
       "input_schema": {
         "type": "object",
-        "required": ["address"],
+        "required": [
+          "address"
+        ],
         "properties": {
-          "address": {"type": "string", "description": "EVM 0x… or Solana base58 pubkey to investigate"}
+          "address": {
+            "type": "string",
+            "description": "EVM 0x… or Solana base58 pubkey to investigate"
+          }
         }
       },
-      "tags": ["due-diligence", "kyb", "compliance", "agent", "async", "anchored-report"]
+      "tags": [
+        "due-diligence",
+        "kyb",
+        "compliance",
+        "agent",
+        "async",
+        "anchored-report"
+      ]
     },
     {
       "path": "/v1/roast",
@@ -224,12 +397,24 @@
       "description_ja": "任意のターゲット（ウォレット、ツイート、アイデア、コード、何でも）に対する辛口ロースト。AWS Bedrock上のClaudeで生成。任意のテキスト入力に対応します。",
       "input_schema": {
         "type": "object",
-        "required": ["target"],
+        "required": [
+          "target"
+        ],
         "properties": {
-          "target": {"type": "string", "maxLength": 8000, "description": "Anything to roast"}
+          "target": {
+            "type": "string",
+            "maxLength": 8000,
+            "description": "Anything to roast"
+          }
         }
       },
-      "tags": ["roast", "llm", "viral", "shareable", "agent-flair"]
+      "tags": [
+        "roast",
+        "llm",
+        "viral",
+        "shareable",
+        "agent-flair"
+      ]
     },
     {
       "path": "/v1/oracle",
@@ -241,12 +426,24 @@
       "description_ja": "Base＋Solanaへのデュアルチェーンアンカー判定付きYes/Noオラクル。MAYBE/YES/NO、説明、オンチェーン証明（merkle_root、base_tx、solana_tx）を返却します。",
       "input_schema": {
         "type": "object",
-        "required": ["question"],
+        "required": [
+          "question"
+        ],
         "properties": {
-          "question": {"type": "string", "maxLength": 1000, "description": "A yes/no question"}
+          "question": {
+            "type": "string",
+            "maxLength": 1000,
+            "description": "A yes/no question"
+          }
         }
       },
-      "tags": ["oracle", "llm", "anchored-verdict", "dual-chain", "decision"]
+      "tags": [
+        "oracle",
+        "llm",
+        "anchored-verdict",
+        "dual-chain",
+        "decision"
+      ]
     },
     {
       "path": "/v1/tldr",
@@ -259,11 +456,22 @@
       "input_schema": {
         "type": "object",
         "properties": {
-          "text": {"type": "string", "description": "Pasted text to summarize. Provide either text or url."},
-          "url":  {"type": "string", "description": "URL to fetch and summarize. Provide either text or url."}
+          "text": {
+            "type": "string",
+            "description": "Pasted text to summarize. Provide either text or url."
+          },
+          "url": {
+            "type": "string",
+            "description": "URL to fetch and summarize. Provide either text or url."
+          }
         }
       },
-      "tags": ["tldr", "summarization", "llm", "url-fetch"]
+      "tags": [
+        "tldr",
+        "summarization",
+        "llm",
+        "url-fetch"
+      ]
     },
     {
       "path": "/v1/aura",
@@ -275,12 +483,24 @@
       "description_ja": "任意のターゲットに対するオーラ判定。色（自由形式）、ティア（S/A/B/C/D/F）、スコア（0〜9999）、説明文を返却。スクリーンショット拡散に最適なフォーマット。",
       "input_schema": {
         "type": "object",
-        "required": ["target"],
+        "required": [
+          "target"
+        ],
         "properties": {
-          "target": {"type": "string", "maxLength": 4000, "description": "Anything to read the aura of"}
+          "target": {
+            "type": "string",
+            "maxLength": 4000,
+            "description": "Anything to read the aura of"
+          }
         }
       },
-      "tags": ["aura", "llm", "viral", "shareable", "vibe-check"]
+      "tags": [
+        "aura",
+        "llm",
+        "viral",
+        "shareable",
+        "vibe-check"
+      ]
     },
     {
       "path": "/v1/grade",
@@ -292,12 +512,23 @@
       "description_ja": "任意の対象に対する学業評価風レターグレード＋赤ペン批評。letter_grade（A〜F）、批評の箇条書き、サマリーを返却します。",
       "input_schema": {
         "type": "object",
-        "required": ["target"],
+        "required": [
+          "target"
+        ],
         "properties": {
-          "target": {"type": "string", "maxLength": 6000, "description": "Anything to grade"}
+          "target": {
+            "type": "string",
+            "maxLength": 6000,
+            "description": "Anything to grade"
+          }
         }
       },
-      "tags": ["grade", "llm", "critique", "feedback"]
+      "tags": [
+        "grade",
+        "llm",
+        "critique",
+        "feedback"
+      ]
     },
     {
       "path": "/v1/roll",
@@ -309,16 +540,165 @@
       "description_ja": "呼び出し側が指定した範囲内の暗号学的乱数を、トレジャリーEOAでEIP-191署名のうえ返却。ゲームスタジオ、抽選、DAO投票者選定、NFTミントの結果生成向けのVRF互換実装です。オプションの32バイト事前コミットメントを署名ペイロードへ組み込むことで、フロントランニングの攻撃面を閉じます。",
       "input_schema": {
         "type": "object",
-        "required": ["low", "high"],
+        "required": [
+          "low",
+          "high"
+        ],
         "properties": {
-          "low":        {"type": "integer", "description": "Inclusive low bound"},
-          "high":       {"type": "integer", "description": "Inclusive high bound. Must be >= low."},
-          "count":      {"type": "integer", "minimum": 1, "maximum": 100, "default": 1, "description": "How many integers to sample. 1-100."},
-          "commitment": {"type": "string", "description": "Optional 32-byte hex pre-commitment included in the signed payload."},
-          "label":      {"type": "string", "maxLength": 200, "description": "Optional caller tag included in the signed payload."}
+          "low": {
+            "type": "integer",
+            "description": "Inclusive low bound"
+          },
+          "high": {
+            "type": "integer",
+            "description": "Inclusive high bound. Must be >= low."
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 1,
+            "description": "How many integers to sample. 1-100."
+          },
+          "commitment": {
+            "type": "string",
+            "description": "Optional 32-byte hex pre-commitment included in the signed payload."
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Optional caller tag included in the signed payload."
+          }
         }
       },
-      "tags": ["vrf", "rng", "randomness", "gaming", "raffle", "signed", "verifiable"]
+      "tags": [
+        "vrf",
+        "rng",
+        "randomness",
+        "gaming",
+        "raffle",
+        "signed",
+        "verifiable"
+      ]
+    },
+    {
+      "path": "/v1/ledger/summary",
+      "method": "POST",
+      "price_usd": 0.01,
+      "price": "$0.01",
+      "category": "finance",
+      "description": "x402 spend accounting for any Base wallet — totals, per-service breakdown, and daily series reconstructed from on-chain USDC transfers at request time. Services labeled via a versioned registry; unregistered x402 payments detected by EIP-3009 calldata.",
+      "description_ja": "任意のBaseウォレットのx402支出会計 — オンチェーンのUSDC送金からリクエスト時に集計・サービス別内訳・日次推移を再構築します。サービス名はバージョン管理されたレジストリで判別し、未登録のx402支払いはEIP-3009コールデータで検出します。",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "wallet": {
+            "type": "string",
+            "description": "EVM address (Base) whose x402 spend to reconstruct."
+          },
+          "from": {
+            "type": "string",
+            "description": "ISO date, start of range. Default: 30 days before `to`."
+          },
+          "to": {
+            "type": "string",
+            "description": "ISO date, end of range. Default: now."
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "outbound",
+              "inbound",
+              "both"
+            ],
+            "description": "outbound = spend (default), inbound = revenue."
+          },
+          "min_amount": {
+            "type": "string",
+            "description": "Minimum USDC per transfer, e.g. 0.001."
+          },
+          "group_by": {
+            "type": "string",
+            "enum": [
+              "service",
+              "recipient",
+              "day"
+            ]
+          }
+        },
+        "required": [
+          "wallet"
+        ]
+      },
+      "tags": [
+        "accounting",
+        "expenses",
+        "x402",
+        "usdc",
+        "ledger"
+      ]
+    },
+    {
+      "path": "/v1/ledger/report",
+      "method": "POST",
+      "price_usd": 0.35,
+      "price": "$0.35",
+      "category": "finance",
+      "description": "Signed x402 expense report (markdown + CSV) for any Base wallet — deterministic, EIP-191 signed, SHA-256 anchored to Base + Solana mainnet. Async: returns job_id, poll /v1/ledger/report/{job_id}. Audit artifact, not just a CSV export.",
+      "description_ja": "任意のBaseウォレットの署名付きx402経費レポート（markdown + CSV）— 決定論的生成、EIP-191署名、SHA-256をBaseとSolanaメインネットにアンカー。非同期：job_idを返却し /v1/ledger/report/{job_id} をポーリング。単なるCSV出力ではなく監査アーティファクトです。",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "wallet": {
+            "type": "string",
+            "description": "EVM address (Base) whose x402 spend to report on."
+          },
+          "from": {
+            "type": "string",
+            "description": "ISO date, start of range. Default: 30 days before `to`."
+          },
+          "to": {
+            "type": "string",
+            "description": "ISO date, end of range. Default: now."
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "outbound",
+              "inbound",
+              "both"
+            ]
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "markdown",
+              "csv",
+              "both"
+            ],
+            "description": "Which report files to produce. Default both."
+          },
+          "title": {
+            "type": "string",
+            "description": "Report title for the markdown header."
+          },
+          "prepared_for": {
+            "type": "string",
+            "description": "Optional client name for the report header."
+          }
+        },
+        "required": [
+          "wallet"
+        ]
+      },
+      "tags": [
+        "accounting",
+        "expenses",
+        "report",
+        "signed",
+        "anchored",
+        "audit"
+      ]
     }
   ],
   "discovery": {

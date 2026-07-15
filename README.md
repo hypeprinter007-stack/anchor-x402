@@ -1,6 +1,6 @@
 # anchor-x402
 
-> Sixteen x402-paid services for AI agents — nine commodity primitives, one agent-driven wallet investigator, five universal LLM endpoints (roast, oracle, tldr, aura, grade), and a signed on-chain RNG (roll). Plus a hosted-agent chatbot at [chat.anchor-x402.com](https://chat.anchor-x402.com) for users without their own agent. One AWS Lambda, one OpenAPI spec, indexed across a dozen-plus agent-discovery surfaces ([CDP Bazaar](https://docs.cdp.coinbase.com/x402/bazaar), [agentic.market](https://agentic.market), [x402scan](https://www.x402scan.com), [PayAPI Market](https://payapi.market), [Poncho](https://tryponcho.com), [MCP Registry](https://registry.modelcontextprotocol.io), [Glama](https://glama.ai) — see [Listings](#listings)). Pay per call in **USDC on Base or Solana**, or in **JPYC on Polygon** (¥1 per anchor call) — no API keys, no accounts, no subscriptions.
+> Eighteen x402-paid services for AI agents — nine commodity primitives, one agent-driven wallet investigator, five universal LLM endpoints (roast, oracle, tldr, aura, grade), a signed on-chain RNG (roll), and a two-endpoint x402 spend-accounting ledger. Plus a hosted-agent chatbot at [chat.anchor-x402.com](https://chat.anchor-x402.com) for users without their own agent. One AWS Lambda, one OpenAPI spec, indexed across a dozen-plus agent-discovery surfaces ([CDP Bazaar](https://docs.cdp.coinbase.com/x402/bazaar), [agentic.market](https://agentic.market), [x402scan](https://www.x402scan.com), [PayAPI Market](https://payapi.market), [Poncho](https://tryponcho.com), [MCP Registry](https://registry.modelcontextprotocol.io), [Glama](https://glama.ai) — see [Listings](#listings)). Pay per call in **USDC on Base or Solana**, or in **JPYC on Polygon** (¥1 per anchor call) — no API keys, no accounts, no subscriptions.
 
 **Site:** https://anchor-x402.com
 **Trust portal:** https://anchor-x402.com/trust/
@@ -30,6 +30,8 @@
 | `/v1/aura` | POST | $0.010 | Aura/vibe tier score |
 | `/v1/grade` | POST | $0.010 | Graded feedback on text |
 | `/v1/roll` | POST | $0.001 | Signed verifiable RNG (dice/range roll) |
+| `/v1/ledger/summary` | POST | $0.010 | x402 spend accounting for any Base wallet — reconstructed from chain data at request time |
+| `/v1/ledger/report` | POST | $0.350 | Signed + dual-chain-anchored x402 expense report (markdown + CSV) — async job |
 
 All endpoints accept payment on **Base** or **Solana** mainnet in USDC, and — when a Polygon treasury is configured — in **JPYC** on Polygon (Japan's first FSA-licensed yen stablecoin, settled via an in-process EIP-3009 facilitator; `/v1/anchor` is priced at ¥1 per call on this rail). All return v2 `PaymentRequired` with `extensions.bazaar` so they're auto-indexed by the CDP facilitator on settlement.
 
@@ -182,7 +184,7 @@ client agent              │  AWS Lambda (Python 3.12)         │
    │                      │    ↓                              │
    │ x402 USDC ─────────▶ │  FastAPI + x402 middleware        │
    │ (Base or Solana)     │    ↓                              │
-   │                      │  16 routes, 1 OpenAPI spec        │
+   │                      │  18 routes, 1 OpenAPI spec        │
    │                      │    ↓                              │
    │                      │  services/*.py                    │
    │                      │    │                              │
@@ -202,7 +204,7 @@ The commodity, trust, and LLM/RNG routes are stateless. The one exception is `/v
 
 ```
 anchor-x402/
-├── app.py                              # FastAPI + x402 + 16 routes
+├── app.py                              # FastAPI + x402 + 18 routes
 ├── models.py                           # Pydantic request/response schemas
 ├── services/
 │   ├── anchor.py                       # dual-chain hash anchoring
@@ -284,8 +286,8 @@ anchor-x402 is the public-utility commodity tier. An **institutional tier** with
 
 | Catalog | Type | Status |
 |---|---|---|
-| **CDP Bazaar** | x402 service registry (auto-indexed via `extensions.bazaar`) | 16 services live |
-| **agentic.market** | x402 service search API | 16 services live |
+| **CDP Bazaar** | x402 service registry (auto-indexed via `extensions.bazaar`) | 18 services live |
+| **agentic.market** | x402 service search API | 18 services live |
 | **x402scan** | x402 explorer + marketplace | auto-indexed from on-chain activity |
 | **PayAPI Market** | curated x402 + MCP marketplace | live (approved 2026-06) |
 | **Poncho / AgentCash** | buyer-side x402 agent (tool catalog) | listed — [tryponcho.com/m/api.anchor-x402.com](https://tryponcho.com/m/api.anchor-x402.com/) |

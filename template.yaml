@@ -161,6 +161,10 @@ Resources:
     Properties:
       CodeUri: ./
       Handler: app.handler
+      # 300s (not the 60s global): /v1/ledger/report jobs run in this same
+      # function via async self-invoke and scan up to 366 days of Base logs.
+      # Interactive API traffic is still capped at 29s by API Gateway.
+      Timeout: 300
       Environment:
         Variables:
           TREASURY_ADDRESS: !Ref TreasuryAddress
@@ -181,6 +185,7 @@ Resources:
           PUBLIC_BASE_URL: !Ref PublicBaseUrl
           WC_PROJECT_ID: !Ref WcProjectId
           BEDROCK_REGION: !Ref BedrockRegion
+          LEDGER_REPORTS_BUCKET: !Ref LedgerReportsBucket
       Events:
         ApiEvent:
           Type: HttpApi
@@ -218,6 +223,37 @@ Resources:
               Resource:
                 - !Sub "arn:aws:bedrock:*::foundation-model/anthropic.claude-*"
                 - !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.anthropic.claude-*"
+        # /v1/ledger/report: self-invoke for the async job path (wildcard on
+        # the generated function name — a self-reference would be circular),
+        # plus read/write on the rendered report files.
+        - Statement:
+            - Effect: Allow
+              Action: lambda:InvokeFunction
+              Resource: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${AWS::StackName}-AnchorFunction-*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+                - s3:GetObject
+              Resource: !Sub "${LedgerReportsBucket.Arn}/ledger/*"
+
+  # Rendered /v1/ledger/report files (markdown + CSV), served back through
+  # GET /reports/ledger/{job_id}.{md,csv} on the main function. Private
+  # bucket; the unguessable job-id URL is the access control. Files expire
+  # after ~13 months (docs promise 12); the on-chain anchor is permanent.
+  LedgerReportsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-reports
+            Status: Enabled
+            ExpirationInDays: 400
 
   # ---------------------------------------------------------------------
   # Gateway shim: Node Lambda that terminates Circle Gateway x402 payments

@@ -24,6 +24,8 @@ BASE_RPC_URL = os.environ.get("BASE_RPC_URL", "https://mainnet.base.org")
 USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
 USDC_DECIMALS = 6
 # $1.77 USDC in 6-decimal atomic units. Mirrors the /v1/investigate price.
+# Fallback only: jobs that carry price_atomic (e.g. $0.35 ledger reports)
+# refund their own amount instead.
 REFUND_AMOUNT_ATOMIC = 1_770_000
 
 _ERC20_TRANSFER_ABI = [
@@ -126,16 +128,17 @@ def refund_failed_job(job_id: str) -> dict[str, Any]:
         )
         return {"skipped": f"non-Base network {buyer_network}", "refund_pending": "manual"}
 
-    tx_hash = _send_usdc(buyer_wallet, REFUND_AMOUNT_ATOMIC)
-    log.info("refunded job=%s amount=%d to=%s tx=%s", job_id, REFUND_AMOUNT_ATOMIC, buyer_wallet, tx_hash)
+    amount_atomic = int(item.get("price_atomic") or REFUND_AMOUNT_ATOMIC)
+    tx_hash = _send_usdc(buyer_wallet, amount_atomic)
+    log.info("refunded job=%s amount=%d to=%s tx=%s", job_id, amount_atomic, buyer_wallet, tx_hash)
 
     table.update_item(
         Key={"job_id": job_id},
         UpdateExpression="SET refund_tx = :t, refund_amount_atomic = :a, refunded_at = :ts",
         ExpressionAttributeValues={
             ":t": tx_hash,
-            ":a": REFUND_AMOUNT_ATOMIC,
+            ":a": amount_atomic,
             ":ts": int(time.time()),
         },
     )
-    return {"refund_tx": tx_hash, "refund_amount_atomic": REFUND_AMOUNT_ATOMIC}
+    return {"refund_tx": tx_hash, "refund_amount_atomic": amount_atomic}
