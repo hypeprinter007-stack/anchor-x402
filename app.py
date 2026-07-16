@@ -1099,6 +1099,18 @@ def _agentcash_openapi():
         operation = (paths.get(path) or {}).get(method.lower())
         if not operation:
             continue
+        # Entries without a bazaar extension are the GET/POST wrapper twins
+        # for function-like callers (Virtuals ACP, crawler probes). Keep them
+        # functional but out of the agent contract: their 402s carry no
+        # extensions.bazaar input/output schema, so discovery validators flag
+        # them, and they'd double every listing. The canonical method stays.
+        # (Every route gets the builder-code extension injected, so test for
+        # the bazaar key specifically, not extension presence.)
+        if "bazaar" not in (route_cfg.extensions or {}):
+            del paths[path][method.lower()]
+            if not paths[path]:
+                del paths[path]
+            continue
         amount = _route_usd_amount(route_cfg)
         if amount is not None:
             operation["x-payment-info"] = {
@@ -2082,7 +2094,7 @@ def roll_get(
 # is the real cost-amplification DoS guard (Bedrock-backed, unauthenticated).
 
 
-@app.post("/v1/chat", response_model=ChatResponse)
+@app.post("/v1/chat", response_model=ChatResponse, include_in_schema=False)
 def chat(req: ChatRequest) -> ChatResponse:
     try:
         turn = chat_svc.chat_turn(req.messages)
