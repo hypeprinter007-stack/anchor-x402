@@ -336,6 +336,7 @@ _screen_bazaar_ext = declare_discovery_extension(
         },
         "required": ["wallet"],
     },
+    body_type="json",
     output=OutputConfig(example={
         "wallet": "0x8589427373d6d84e98730d7795d8f6f8731fda16",
         "chain_inferred": "ethereum",
@@ -404,6 +405,7 @@ _name_resolve_bazaar_ext = declare_discovery_extension(
         },
         "required": ["name"],
     },
+    body_type="json",
     output=OutputConfig(example={
         "name": "vitalik.eth",
         "addresses": [{"chain": "ethereum", "address": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045", "ttl_hint_seconds": 3600}],
@@ -423,6 +425,7 @@ _token_price_bazaar_ext = declare_discovery_extension(
             "contract": {"type": "string", "description": "Token contract address. Required with chain."},
         },
     },
+    body_type="json",
     output=OutputConfig(example={
         "symbol": "ETH", "name": "Ethereum", "contract": None, "chain": None,
         "usd": 3120.55, "usd_24h_change_pct": 1.23, "market_cap_usd": 375000000000.0,
@@ -464,6 +467,7 @@ _intel_wallet_bazaar_ext = declare_discovery_extension(
         "properties": {"wallet": {"type": "string", "description": "EVM 0x… (40 hex) or Solana base58 pubkey."}},
         "required": ["wallet"],
     },
+    body_type="json",
     output=OutputConfig(example={
         "wallet": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
         "chain_inferred": "ethereum",
@@ -732,7 +736,6 @@ x402_routes = {
     "GET /v1/screen": RouteConfig(
         accepts=_accepts_at("$0.001"),
         description="Sanctions + AML screening for any wallet address — $0.001 USDC",
-        extensions={**_screen_bazaar_ext},
     ),
     "POST /v1/attest": RouteConfig(
         accepts=_accepts_at("$0.01"),
@@ -747,12 +750,10 @@ x402_routes = {
     "GET /v1/resolve/name": RouteConfig(
         accepts=_accepts_at("$0.001"),
         description="Cross-chain name resolver (ENS, Bonfida SNS) — $0.001 USDC",
-        extensions={**_name_resolve_bazaar_ext},
     ),
     "GET /v1/price/token": RouteConfig(
         accepts=_accepts_at("$0.001"),
         description="USD price for any major token by symbol or chain+contract — $0.001 USDC",
-        extensions={**_token_price_bazaar_ext},
     ),
     "POST /v1/decode/calldata": RouteConfig(
         accepts=_accepts_at("$0.001"),
@@ -767,7 +768,6 @@ x402_routes = {
     "GET /v1/intel/wallet": RouteConfig(
         accepts=_accepts_at("$0.005"),
         description="Unified wallet intelligence bundle (balances + activity + identity + sanctions) — $0.005 USDC",
-        extensions={**_intel_wallet_bazaar_ext},
     ),
     "POST /v1/investigate": RouteConfig(
         accepts=_accepts_at("$1.77"),
@@ -845,18 +845,22 @@ x402_routes = {
     "POST /v1/screen": RouteConfig(
         accepts=_accepts_at("$0.001"),
         description="Sanctions + AML screening (POST wrapper, body: {wallet}) — $0.001 USDC",
+        extensions={**_screen_bazaar_ext},
     ),
     "POST /v1/resolve/name": RouteConfig(
         accepts=_accepts_at("$0.001"),
         description="Cross-chain name resolver (POST wrapper, body: {name}) — $0.001 USDC",
+        extensions={**_name_resolve_bazaar_ext},
     ),
     "POST /v1/price/token": RouteConfig(
         accepts=_accepts_at("$0.001"),
         description="USD token price (POST wrapper, body: {symbol} or {chain, contract}) — $0.001 USDC",
+        extensions={**_token_price_bazaar_ext},
     ),
     "POST /v1/intel/wallet": RouteConfig(
         accepts=_accepts_at("$0.005"),
         description="Unified wallet intelligence (POST wrapper, body: {wallet}) — $0.005 USDC",
+        extensions={**_intel_wallet_bazaar_ext},
     ),
     # GET wrappers for POST-only endpoints (LLM + investigate). Same price, no
     # bazaar extensions to avoid duplicate listings.
