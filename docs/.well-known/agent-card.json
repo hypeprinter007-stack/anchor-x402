@@ -16,20 +16,33 @@
     "streaming": false,
     "pushNotifications": false,
     "x402": true,
-    "supportedMessageParts": ["text", "data"]
+    "supportedMessageParts": [
+      "text",
+      "data"
+    ]
   },
   "authentication": {
-    "schemes": ["x402"],
+    "schemes": [
+      "x402"
+    ],
     "x402": {
       "version": 2,
       "facilitator": "https://api.cdp.coinbase.com/platform/v2/x402",
-      "networks": ["eip155:8453", "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"],
+      "networks": [
+        "eip155:8453",
+        "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"
+      ],
       "asset": "USDC",
       "discovery_extension": "bazaar"
     }
   },
-  "defaultInputModes": ["application/json", "application/x-www-form-urlencoded"],
-  "defaultOutputModes": ["application/json"],
+  "defaultInputModes": [
+    "application/json",
+    "application/x-www-form-urlencoded"
+  ],
+  "defaultOutputModes": [
+    "application/json"
+  ],
   "skills": [
     {
       "id": "anchor_hash",
@@ -38,12 +51,30 @@
       "url": "https://api.anchor-x402.com/v1/anchor",
       "method": "POST",
       "price_usd": 0.005,
-      "inputModes": ["application/json"],
-      "outputModes": ["application/json"],
-      "tags": ["anchor", "merkle", "timestamp", "audit", "dual-chain"],
+      "inputModes": [
+        "application/json"
+      ],
+      "outputModes": [
+        "application/json"
+      ],
+      "tags": [
+        "anchor",
+        "merkle",
+        "timestamp",
+        "audit",
+        "dual-chain"
+      ],
       "examples": [
-        {"hash": "ab0898397c86fbf97c99c6f8b29e55ab697315705777ee1d106e2dcb9bd686b3"},
-        {"data": {"vendor": "Acme", "decision": "APPROVED"}, "note": "Q2 vendor diligence"}
+        {
+          "hash": "ab0898397c86fbf97c99c6f8b29e55ab697315705777ee1d106e2dcb9bd686b3"
+        },
+        {
+          "data": {
+            "vendor": "Acme",
+            "decision": "APPROVED"
+          },
+          "note": "Q2 vendor diligence"
+        }
       ]
     },
     {
@@ -53,10 +84,23 @@
       "url": "https://api.anchor-x402.com/v1/screen",
       "method": "GET",
       "price_usd": 0.001,
-      "inputModes": ["query"],
-      "outputModes": ["application/json"],
-      "tags": ["sanctions", "ofac", "aml", "compliance"],
-      "examples": [{"wallet": "0x8589427373d6d84e98730d7795d8f6f8731fda16"}]
+      "inputModes": [
+        "query"
+      ],
+      "outputModes": [
+        "application/json"
+      ],
+      "tags": [
+        "sanctions",
+        "ofac",
+        "aml",
+        "compliance"
+      ],
+      "examples": [
+        {
+          "wallet": "0x8589427373d6d84e98730d7795d8f6f8731fda16"
+        }
+      ]
     },
     {
       "id": "attest_decision",
@@ -64,10 +108,19 @@
       "description": "Verify a wallet signature over (input_hash, output_hash, decision), then dual-chain anchor the result. Returns verified signer + on-chain proof URLs. $0.010 USDC.",
       "url": "https://api.anchor-x402.com/v1/attest",
       "method": "POST",
-      "price_usd": 0.010,
-      "inputModes": ["application/json"],
-      "outputModes": ["application/json"],
-      "tags": ["attestation", "signature", "audit", "ai-decision"]
+      "price_usd": 0.01,
+      "inputModes": [
+        "application/json"
+      ],
+      "outputModes": [
+        "application/json"
+      ],
+      "tags": [
+        "attestation",
+        "signature",
+        "audit",
+        "ai-decision"
+      ]
     },
     {
       "id": "decode_tx",
@@ -76,9 +129,17 @@
       "url": "https://api.anchor-x402.com/v1/decode/tx",
       "method": "POST",
       "price_usd": 0.001,
-      "inputModes": ["application/json"],
-      "outputModes": ["application/json"],
-      "tags": ["transaction", "decode", "rpc"]
+      "inputModes": [
+        "application/json"
+      ],
+      "outputModes": [
+        "application/json"
+      ],
+      "tags": [
+        "transaction",
+        "decode",
+        "rpc"
+      ]
     },
     {
       "id": "resolve_name",
@@ -87,9 +148,17 @@
       "url": "https://api.anchor-x402.com/v1/resolve/name",
       "method": "GET",
       "price_usd": 0.001,
-      "inputModes": ["query"],
-      "outputModes": ["application/json"],
-      "tags": ["ens", "sns", "name-service"]
+      "inputModes": [
+        "query"
+      ],
+      "outputModes": [
+        "application/json"
+      ],
+      "tags": [
+        "ens",
+        "sns",
+        "name-service"
+      ]
     },
     {
       "id": "token_price",
@@ -98,9 +167,17 @@
       "url": "https://api.anchor-x402.com/v1/price/token",
       "method": "GET",
       "price_usd": 0.001,
-      "inputModes": ["query"],
-      "outputModes": ["application/json"],
-      "tags": ["price", "coingecko", "tokens"]
+      "inputModes": [
+        "query"
+      ],
+      "outputModes": [
+        "application/json"
+      ],
+      "tags": [
+        "price",
+        "coingecko",
+        "tokens"
+      ]
     },
     {
       "id": "decode_calldata",
@@ -109,9 +186,17 @@
       "url": "https://api.anchor-x402.com/v1/decode/calldata",
       "method": "POST",
       "price_usd": 0.001,
-      "inputModes": ["application/json"],
-      "outputModes": ["application/json"],
-      "tags": ["calldata", "abi", "4byte"]
+      "inputModes": [
+        "application/json"
+      ],
+      "outputModes": [
+        "application/json"
+      ],
+      "tags": [
+        "calldata",
+        "abi",
+        "4byte"
+      ]
     },
     {
       "id": "parse_datetime",
@@ -120,9 +205,17 @@
       "url": "https://api.anchor-x402.com/v1/parse/datetime",
       "method": "POST",
       "price_usd": 0.001,
-      "inputModes": ["application/json"],
-      "outputModes": ["application/json"],
-      "tags": ["datetime", "iso8601", "parser"]
+      "inputModes": [
+        "application/json"
+      ],
+      "outputModes": [
+        "application/json"
+      ],
+      "tags": [
+        "datetime",
+        "iso8601",
+        "parser"
+      ]
     },
     {
       "id": "intel_wallet",
@@ -131,9 +224,18 @@
       "url": "https://api.anchor-x402.com/v1/intel/wallet",
       "method": "GET",
       "price_usd": 0.005,
-      "inputModes": ["query"],
-      "outputModes": ["application/json"],
-      "tags": ["wallet-intel", "balances", "kyb", "counterparty"]
+      "inputModes": [
+        "query"
+      ],
+      "outputModes": [
+        "application/json"
+      ],
+      "tags": [
+        "wallet-intel",
+        "balances",
+        "kyb",
+        "counterparty"
+      ]
     }
   ],
   "discovery": {
@@ -144,5 +246,13 @@
     "status_page": "https://anchor-x402.betteruptime.com"
   },
   "license": "MIT",
-  "source": "https://github.com/hypeprinter007-stack/anchor-x402"
+  "source": "https://github.com/hypeprinter007-stack/anchor-x402",
+  "extensions": {
+    "agoragentic:federation": {
+      "key_id": "anchor-pilot-2026-01",
+      "public_key_der_base64": "MCowBQYDK2VwAyEAc3PaOglz6Z19niAHIMg9YopEy8f1hINJq0r0kkAJbgQ=",
+      "capability_exchange": true,
+      "federation_consent": true
+    }
+  }
 }
