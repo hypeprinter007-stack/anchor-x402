@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "namespace": "anchor-x402:a2a",
+  "note": "Standing authorization for POST /v1/a2a. This file is the only place a human appears in agent-to-agent traffic: set it once, and verified peers transact without further approval. Every method here is free and side-effect-free; paid work is authorized by x402 payment on the metered /v1/* routes, not by this policy.",
+  "inbound": {
+    "open_methods": [
+      "peer/hello",
+      "capabilities/list",
+      "peer/quote",
+      "peer/receipt"
+    ],
+    "denied_origins": [],
+    "nonce_ttl_s": 300,
+    "quote_ttl_s": 900,
+    "receipt_ttl_s": 86400,
+    "max_body_bytes": 16384,
+    "rate_window_s": 60,
+    "rate_limit_global": 300,
+    "rate_limit_per_peer": 60
+  }
+}

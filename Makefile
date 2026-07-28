@@ -42,6 +42,9 @@ build-AnchorFunction:
 	# x402 service registry for /v1/ledger (regenerate: node scripts/build-registry.mjs)
 	mkdir -p "$(ARTIFACTS_DIR)/data"
 	cp data/x402_registry.json "$(ARTIFACTS_DIR)/data/"
+	# Standing authorization for POST /v1/a2a — read at request time, so it
+	# must ship with the bundle or every peer call fails closed.
+	cp data/a2a-policy.json "$(ARTIFACTS_DIR)/data/"
 	mkdir -p "$(ARTIFACTS_DIR)/static"
 	cp static/chat.html static/chat.bundle.js.gz static/farcaster.json static/icon.png static/splash.png static/s.png "$(ARTIFACTS_DIR)/static/"
 	# Ship the .well-known/x402.json discovery doc + robots.txt + llms.txt
@@ -49,6 +52,9 @@ build-AnchorFunction:
 	# site read the same source files (single source of truth).
 	mkdir -p "$(ARTIFACTS_DIR)/docs/.well-known"
 	cp docs/.well-known/x402.json "$(ARTIFACTS_DIR)/docs/.well-known/x402.json"
+	# Agent card: served on the API origin and read at runtime by /v1/a2a for
+	# the skill catalog + our own key block.
+	cp docs/.well-known/agent-card.json "$(ARTIFACTS_DIR)/docs/.well-known/agent-card.json"
 	cp docs/robots.txt "$(ARTIFACTS_DIR)/docs/robots.txt"
 	cp docs/llms.txt   "$(ARTIFACTS_DIR)/docs/llms.txt"
 	# Strip files Lambda doesn't need (size: 250 MB unzipped limit)

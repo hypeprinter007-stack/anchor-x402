@@ -23,6 +23,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from mangum import Mangum
+from starlette.concurrency import run_in_threadpool
 
 logging.basicConfig(
     level=logging.INFO,
@@ -72,6 +73,7 @@ from models import (
     TxDecodeRequest,
     TxDecodeResponse,
 )
+from services import a2a as a2a_svc
 from services import anchor as anchor_svc
 from services import attest as attest_svc
 from services import aura as aura_svc
@@ -2399,6 +2401,320 @@ def llms_txt():
     )
 
 
+# ---------------------------------------------------------------------------
+# Agent-to-agent door — POST /v1/a2a, signed JSON-RPC 2.0.
+#
+# Free and side-effect-free by design: identity, capability discovery, quoting,
+# receipts. Money never moves through this route. A quote points the peer at the
+# metered /v1/* endpoint it should pay, so there stays exactly one payment code
+# path (x402_mw) and an unpaid door can never yield paid work. Trust model,
+# replay defense, and the SSRF constraints on peer origins live in
+# services/a2a.py.
+# ---------------------------------------------------------------------------
+
+_AGENT_CARD_PATH = os.path.join(_DOCS_DIR, ".well-known", "agent-card.json")
+
+
+@app.api_route("/.well-known/agent-card.json", methods=["GET", "HEAD"], include_in_schema=False)
+def agent_card():
+    """The A2A card on the API origin, not just the apex site. A peer that
+    discovered a paid endpoint here can now resolve our signing key from the
+    same host it is already talking to — no human telling it which of our two
+    domains publishes the card."""
+    if not os.path.exists(_AGENT_CARD_PATH):
+        raise HTTPException(status_code=404, detail="agent card not bundled")
+    return FileResponse(
+        _AGENT_CARD_PATH,
+        media_type="application/json",
+        headers={"Cache-Control": "public, max-age=300"},
+    )
+
+
+def _a2a_log(method: str, peer: str, ok: bool, detail: str = "") -> None:
+    """Same shape as the CHALLENGE / PAID_CALL funnel lines so peer traffic is
+    greppable in CloudWatch without a new tool. Failures carry their own
+    `A2A_FAIL` prefix: a CloudWatch JSON filter (`{ $.ok IS FALSE }`) cannot
+    parse a prefixed line, and matching an embedded `"ok":false` needs escaped
+    quotes in the filter pattern — a distinct prefix keeps the metric filter in
+    template.yaml a plain substring match. Best-effort, never raises."""
+    try:
+        entry = {
+            "ts": int(time.time()),
+            "method": a2a_svc.log_safe(method, 32),
+            "peer": a2a_svc.log_safe(peer, 120),
+            "ok": ok,
+        }
+        if detail:
+            # Our own strings, but several interpolate peer-supplied values.
+            # Sanitize at the sink rather than auditing every interpolation site.
+            entry["detail"] = a2a_svc.log_safe(detail, 160)
+        print(("A2A " if ok else "A2A_FAIL ") + json.dumps(entry, separators=(",", ":")))
+    except Exception:
+        pass
+
+
+def _a2a_skill(skill_id: Any) -> dict[str, Any]:
+    for skill in a2a_svc.our_card().get("skills", []):
+        if skill.get("id") == skill_id:
+            return skill
+    raise a2a_svc.A2AError(
+        a2a_svc.ERR_NOT_FOUND,
+        f"no skill '{a2a_svc.safe_echo(skill_id)}' — call capabilities/list for the current set",
+    )
+
+
+def _a2a_hello(origin: str, body: Any) -> dict[str, Any]:
+    card = a2a_svc.our_card()
+    return {
+        "agent": card.get("name"),
+        "peer_verified": origin,
+        "card_url": f"{_RESOURCE_BASE}/.well-known/agent-card.json",
+        "endpoint": f"{_RESOURCE_BASE}/v1/a2a",
+        "namespace": a2a_svc.NAMESPACE,
+        "key_id": a2a_svc.active_key_id(),
+        # Full set, so a peer can verify a signature made by a key we have
+        # since rotated away from without re-fetching the card.
+        "keys": a2a_svc.our_keys(),
+        "methods": list(a2a_svc.METHODS),
+        "signature": {
+            "algorithm": "ed25519",
+            "digest": "sha256-canonical-json",
+            "signed_fields": ["body", "exp", "method", "nonce", "origin"],
+        },
+        "policy_digest": a2a_svc.digest_of(a2a_svc.policy()),
+        "x402": (card.get("authentication") or {}).get("x402", {}),
+    }
+
+
+def _a2a_capabilities(origin: str, body: Any) -> dict[str, Any]:
+    card = a2a_svc.our_card()
+    skills = card.get("skills", [])
+    return {
+        "count": len(skills),
+        "skills": skills,
+        "x402": (card.get("authentication") or {}).get("x402", {}),
+        "payment_is_authorization": True,
+    }
+
+
+def _a2a_route_price(skill: dict[str, Any]) -> float:
+    """Price from x402_routes — the table that actually charges — not from the
+    agent card. The card is a published catalog and can drift; quoting from it
+    means signing a price we might not charge. The card stays the source for
+    discovery, and scripts/test_a2a.py asserts the two agree."""
+    # urlparse, not a string replace against _RESOURCE_BASE: the card hardcodes
+    # https://api.anchor-x402.com/... so any PublicBaseUrl override (staging host,
+    # trailing slash, empty) made the replace a no-op and every quote failed while
+    # capabilities/list kept advertising the skill.
+    path = _urlparse(str(skill.get("url", ""))).path
+    cfg = x402_routes.get(f"{skill.get('method')} {path}")
+    # A route carries one PaymentOption per rail. Collect all USD-denominated
+    # ones instead of trusting the first: if the rails ever disagree, quoting
+    # whichever happens to be listed first would sign a price we may not charge.
+    prices = {
+        float(getattr(opt, "price")[1:])
+        for opt in (getattr(cfg, "accepts", None) or [])
+        if isinstance(getattr(opt, "price", None), str) and getattr(opt, "price").startswith("$")
+    }
+    if not prices:
+        raise a2a_svc.A2AError(
+            a2a_svc.ERR_NOT_FOUND,
+            f"skill {a2a_svc.safe_echo(skill.get('id'))} has no payable route price",
+        )
+    if len(prices) > 1:
+        logging.getLogger("anchor.a2a").error(
+            "route %s prices disagree across rails: %s — quoting the highest",
+            path, sorted(prices),
+        )
+    return max(prices)
+
+
+def _a2a_quote(origin: str, body: Any, *, key_id: str, nonce: str) -> dict[str, Any]:
+    skill = _a2a_skill((body or {}).get("skill") if isinstance(body, dict) else None)
+    price_usd = _a2a_route_price(skill)
+    if price_usd != skill.get("price_usd"):
+        logging.getLogger("anchor.a2a").error(
+            "price drift: card says %s, route charges %s for %s",
+            skill.get("price_usd"), price_usd, skill.get("id"),
+        )
+    pol = a2a_svc.inbound_policy()
+    now = int(time.time())
+    # Derived from the peer's single-use nonce plus our own timestamp. The
+    # timestamp is what stops receipt aliasing: nonce uniqueness expires with the
+    # nonce record, but receipts live far longer, so a nonce-only derivation let a
+    # peer reusing a counter value much later collide with an old exchange and be
+    # handed the *previous* exchange's receipt.
+    exchange_id = "ax-" + a2a_svc.digest_of(
+        {"nonce": nonce, "origin": origin, "quoted_at": now, "skill": skill["id"]}
+    ).split(":")[1][:24]
+    quote = {
+        "type": a2a_svc.TYPE_QUOTE,
+        "exchange_id": exchange_id,
+        "peer": origin,
+        "peer_key_id": key_id,
+        "skill": skill["id"],
+        "url": skill.get("url"),
+        "http_method": skill.get("method"),
+        "price_usd": price_usd,
+        "quoted_at": now,
+        "expires_at": now + pol["quote_ttl_s"],
+        "pay_with": "x402",
+        "instructions": (
+            "Call url directly with an x402 payment. The 402 challenge on that "
+            "route carries the accepted rails and amounts. Then call peer/receipt "
+            "with this exchange_id for a signed record of the exchange."
+        ),
+    }
+    a2a_svc.put_quote(exchange_id, quote, pol["quote_ttl_s"])
+    return a2a_svc.sign(quote)
+
+
+def _a2a_with_anchor(receipt: dict[str, Any]) -> dict[str, Any]:
+    """Attach on-chain proof as a sibling of the signed payload, never inside it.
+
+    A receipt is signed the moment it is minted; the root that covers it is
+    anchored later by the daily job, so the anchor cannot be part of the signed
+    bytes without invalidating the signature. Kept outside, it stays independently
+    verifiable — the reader checks the root on Base or Solana, not our word.
+    """
+    proof = a2a_svc.get_anchored(receipt.get("digest", ""))
+    if proof is None:
+        return receipt
+    out = dict(receipt)   # copy: the stored receipt must not gain unsigned fields
+    out["anchor"] = proof
+    return out
+
+
+def _a2a_receipt(origin: str, body: Any) -> dict[str, Any]:
+    raw_id = (body or {}).get("exchange_id") if isinstance(body, dict) else None
+    if not raw_id:
+        raise a2a_svc.A2AError(a2a_svc.ERR_PARAMS, "body.exchange_id is required")
+    exchange_id = a2a_svc.clean_exchange_id(raw_id)
+
+    # Exactly one receipt per exchange. Returned before re-minting so a repeat
+    # call yields the identical signed artifact rather than a second, differing
+    # one — dispute evidence with two valid versions is not evidence.
+    existing = a2a_svc.get_receipt(exchange_id)
+    if existing is not None:
+        if existing.get("peer") != origin:
+            raise a2a_svc.A2AError(a2a_svc.ERR_POLICY, "receipt belongs to a different peer")
+        return _a2a_with_anchor(existing)
+
+    quote = a2a_svc.get_quote(exchange_id)
+    if quote is None:
+        raise a2a_svc.A2AError(
+            a2a_svc.ERR_NOT_FOUND,
+            f"no live quote {exchange_id} — quotes expire after "
+            f"{a2a_svc.inbound_policy()['quote_ttl_s']}s; request a fresh one",
+        )
+    if quote.get("peer") != origin:
+        # Otherwise peer B could mint receipts against peer A's quotes.
+        raise a2a_svc.A2AError(a2a_svc.ERR_POLICY, "quote belongs to a different peer")
+
+    settlement = a2a_svc.clean_settlement(
+        (body or {}).get("settlement") if isinstance(body, dict) else None
+    )
+    receipt = {
+        "type": a2a_svc.TYPE_RECEIPT,
+        "exchange_id": quote["exchange_id"],
+        "peer": origin,
+        "peer_key_id": quote.get("peer_key_id"),
+        "skill": quote.get("skill"),
+        "price_usd": quote.get("price_usd"),
+        "quote_digest": a2a_svc.digest_of(quote),
+        "quoted_at": quote.get("quoted_at"),
+        "receipted_at": int(time.time()),
+        "peer_asserted_settlement": settlement,
+        # State plainly what this artifact is worth, so a consuming agent does
+        # not over-trust it. We witnessed the quote and the peer's identity; we
+        # did not independently verify their settlement reference here.
+        "proves": [
+            "anchor-x402 issued this quote, for this skill, at this price, to this peer",
+            "the peer controls the key published in its agent card at `peer`",
+            "the peer asserted the settlement reference in peer_asserted_settlement",
+        ],
+        "does_not_prove": [
+            "on-chain settlement — resolve peer_asserted_settlement against the rail to confirm",
+        ],
+    }
+    signed = a2a_svc.put_receipt(
+        exchange_id, a2a_svc.sign(receipt), a2a_svc.inbound_policy()["receipt_ttl_s"]
+    )
+    # Log the identifiers and the digest, not the artifact. The full receipt
+    # carries peer-supplied fields, and at the route's throttle ceiling logging
+    # it whole is a meaningful CloudWatch ingest bill.
+    print("A2A_RECEIPT " + json.dumps(
+        {k: signed.get(k) for k in ("exchange_id", "peer", "skill", "price_usd", "digest", "signed")},
+        separators=(",", ":"), default=str))
+    return _a2a_with_anchor(signed)
+
+
+@app.post("/v1/a2a", include_in_schema=False)
+async def a2a_rpc(request: Request):
+    """JSON-RPC 2.0. Application errors return HTTP 200 with an `error` object
+    per the spec; only unparseable JSON is a 400."""
+    try:
+        envelope = json.loads(await request.body())
+        if not isinstance(envelope, dict):
+            raise ValueError("envelope must be an object")
+    except Exception:
+        return JSONResponse(
+            status_code=400,
+            content={"jsonrpc": "2.0", "id": None,
+                     "error": {"code": -32700, "message": "parse error"}},
+        )
+
+    rpc_id = envelope.get("id")
+    method = envelope.get("method")
+    params = envelope.get("params") or {}
+    # Sanitized, not merely truncated: this is pre-verification, attacker-chosen
+    # text, and it reaches a log line that the CloudWatch metric filters match on
+    # by substring. Unsanitized, one unauthenticated POST naming an origin that
+    # contains the literal signing-failure token forges that alarm.
+    peer = str(params.get("origin", ""))[:120] if isinstance(params, dict) else ""
+
+    def fail(code: int, message: str):
+        _a2a_log(str(method), peer, False, message)
+        return JSONResponse(
+            content={"jsonrpc": "2.0", "id": rpc_id,
+                     "error": {"code": code, "message": message}},
+        )
+
+    if method not in a2a_svc.METHODS:
+        return fail(a2a_svc.ERR_METHOD,
+                    f"unknown method {method!r}; supported: {', '.join(a2a_svc.METHODS)}")
+    if method not in a2a_svc.inbound_policy()["open_methods"]:
+        return fail(a2a_svc.ERR_POLICY, f"method {method} is not open under the current policy")
+
+    def _dispatch() -> tuple[str, dict[str, Any]]:
+        """Returns (verified_origin, result) — the caller needs the origin for the
+        success log line, which the verified value is the only correct source for."""
+        origin = a2a_svc.verify(method, params)
+        if method == "peer/hello":
+            return origin, _a2a_hello(origin, params.get("body"))
+        if method == "capabilities/list":
+            return origin, _a2a_capabilities(origin, params.get("body"))
+        if method == "peer/quote":
+            return origin, _a2a_quote(origin, params.get("body"),
+                                      key_id=str(params["key_id"]), nonce=str(params["nonce"]))
+        return origin, _a2a_receipt(origin, params.get("body"))
+
+    try:
+        # Verification does blocking work — getaddrinfo plus a card fetch with a 5s
+        # timeout — so it runs in a worker thread. Harmless under Lambda (one
+        # request per container) but a SERVFAIL domain would otherwise stall
+        # co-tenant requests on any multi-request runtime.
+        origin, result = await run_in_threadpool(_dispatch)
+    except a2a_svc.A2AError as e:
+        return fail(e.code, e.message)
+    except Exception:
+        logging.getLogger("anchor.a2a").exception("a2a %s failed", method)
+        return fail(-32603, "internal error")
+
+    _a2a_log(method, origin, True)
+    return {"jsonrpc": "2.0", "id": rpc_id, "result": result}
+
+
 @app.get("/icon.png", include_in_schema=False)
 def chat_icon():
     return FileResponse(os.path.join(_STATIC_DIR, "icon.png"), media_type="image/png",
@@ -2458,4 +2774,9 @@ def handler(event: Any, context: Any) -> Any:
     if isinstance(event, dict) and event.get("ledger_job"):
         from services import ledger as _ledger
         return _ledger.run_report_job(event)
+    # Daily EventBridge schedule — anchors a signed root over the live A2A
+    # receipt set to Base + Solana. Same dispatch pattern as ledger_job above.
+    if isinstance(event, dict) and event.get("a2a_root"):
+        from services import a2a_cron as _a2a_cron
+        return _a2a_cron.anchor_receipt_root_handler(event)
     return _mangum(event, context)

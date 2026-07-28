@@ -78,6 +78,15 @@ Parameters:
     Type: String
     Default: https://api.anchor-x402.com
     Description: Public base URL used to construct status_url in /v1/investigate responses.
+  A2aKmsKeyAlias:
+    Type: String
+    Default: alias/anchor-x402-a2a
+    Description: >-
+      KMS alias of the Ed25519 key that signs A2A quotes and receipts (keyspec
+      ECC_NIST_EDWARDS25519, ED25519_SHA_512). Deliberately created outside this
+      stack — the published identity must outlive any stack teardown, and KMS
+      deletion is irreversible after a 7-30 day window. Provision with
+      scripts/a2a-keygen.py --provision. Identity only: cannot move funds.
   WcProjectId:
     Type: String
     Default: ""
@@ -186,12 +195,29 @@ Resources:
           WC_PROJECT_ID: !Ref WcProjectId
           BEDROCK_REGION: !Ref BedrockRegion
           LEDGER_REPORTS_BUCKET: !Ref LedgerReportsBucket
+          # POST /v1/a2a replay + quote store. Unset locally → in-memory
+          # fallback in services/a2a.py, so dev needs no AWS.
+          A2A_STATE_TABLE: !Ref A2AStateTable
+          # KMS-held Ed25519 identity key that signs quotes + receipts.
+          A2A_KMS_KEY_ID: !Ref A2aKmsKeyAlias
       Events:
         ApiEvent:
           Type: HttpApi
           Properties:
             Path: /{proxy+}
             Method: ANY
+        # Anchors a signed root over the live A2A receipt set to Base + Solana,
+        # making a receipt's existence provable against two L1s rather than only
+        # against our signature. Runs in this function via the a2a_root branch in
+        # handler(), the same self-dispatch pattern ledger_job uses. Idempotent:
+        # the root is content-addressed, so an unchanged receipt set is skipped
+        # and a double-fire costs nothing on-chain.
+        A2AReceiptRootSchedule:
+          Type: Schedule
+          Properties:
+            Schedule: cron(30 0 * * ? *)
+            Description: Daily 00:30 UTC — dual-chain anchor of the A2A receipt root.
+            Input: '{"a2a_root": true}'
       Policies:
         # Secrets Manager: only the runtime composite secret. CloudTrail
         # logs every GetSecretValue, KMS-encrypted at rest, scoped by ARN.
@@ -236,6 +262,54 @@ Resources:
                 - s3:PutObject
                 - s3:GetObject
               Resource: !Sub "${LedgerReportsBucket.Arn}/ledger/*"
+        # POST /v1/a2a: conditional PutItem is the replay defense, GetItem
+        # resolves a quote when a peer asks for its receipt, UpdateItem drives the
+        # atomic rate-limit counters. No delete — records expire by TTL only, so
+        # nothing can retire a nonce early.
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:PutItem
+                - dynamodb:GetItem
+                - dynamodb:UpdateItem
+                # Scan: the daily root job collects the live receipt set. Table is
+                # small and short-TTL'd, so a filtered scan is cheaper than
+                # maintaining an index for one reader per day.
+                - dynamodb:Scan
+              Resource: !GetAtt A2AStateTable.Arn
+        # A2A identity signing. Sign only — never GetPublicKey (the public key
+        # is already in the agent card), never Decrypt, and no key admin. The
+        # RequestAlias condition means this grant follows the alias, so
+        # rotating the key is a repoint with no redeploy and no IAM edit; a
+        # different key in the same account is not reachable through it.
+        - Statement:
+            - Effect: Allow
+              Action: kms:Sign
+              Resource: !Sub "arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/*"
+              Condition:
+                StringEquals:
+                  kms:RequestAlias: !Ref A2aKmsKeyAlias
+
+  # Agent-to-agent replay + quote + receipt store. Three record kinds keyed by
+  # prefix: `nonce#<origin>#<nonce>` (single-use envelope guard, scoped per peer
+  # so one peer cannot burn another's nonce values), `quote#<exchange_id>` (what
+  # we quoted a peer, so its receipt is more than the peer's own word), and
+  # `receipt#<exchange_id>` (first-write-wins, so exactly one signed receipt can
+  # exist per exchange). All short-lived and reconstructible — losing this table
+  # costs a replay window, not data. The service refuses to serve without it.
+  A2AStateTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
 
   # Rendered /v1/ledger/report files (markdown + CSV), served back through
   # GET /reports/ledger/{job_id}.{md,csv} on the main function. Private
@@ -255,6 +329,15 @@ Resources:
             Status: Enabled
             ExpirationInDays: 400
 
+  # Note on rate limiting /v1/a2a: API Gateway per-route throttling is NOT
+  # available here. This stack's API is a single greedy `ANY /{proxy+}` route, so
+  # a RouteSettings key of "POST /v1/a2a" matches nothing, and declaring
+  # ServerlessHttpApi to configure the implicit API does not take effect — both
+  # were confirmed by inspecting the processed template of a real changeset, in
+  # which the stage came back with no RouteSettings at all. Throttling the
+  # catch-all route instead would cap all 18 paid endpoints, and AWS WAF does not
+  # support HTTP APIs (only REST). The limit therefore lives in the application,
+  # in services/a2a.py, backed by A2AStateTable so it holds across containers.
   # ---------------------------------------------------------------------
   # Gateway shim: Node Lambda that terminates Circle Gateway x402 payments
   # and forwards to api.anchor-x402.com with an internal-auth header that
@@ -584,6 +667,78 @@ Resources:
       Period: 300
       EvaluationPeriods: 1
       Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+      OKActions:
+        - !Ref AlarmTopic
+
+  # Peer-facing failures on POST /v1/a2a: signature rejects, replayed nonces,
+  # denied origins, unresolvable peer cards. A trickle is healthy — that is the
+  # door refusing bad envelopes — so the threshold is set for a sustained spike,
+  # which means either a peer broke its signing or someone is probing. app.py
+  # emits the A2A_FAIL prefix on failures only, so this stays a substring match
+  # (a JSON filter cannot parse the prefixed log line).
+  A2APeerFailuresMetricFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AnchorFunction}'
+      FilterPattern: '"A2A_FAIL"'
+      MetricTransformations:
+        - MetricNamespace: anchor-x402
+          MetricName: A2APeerFailures
+          MetricValue: '1'
+          DefaultValue: 0
+
+  A2APeerFailuresAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-A2APeerFailuresElevated'
+      AlarmDescription: 'A2A_FAIL log occurrences > 30 per 5 minutes — a peer broke its signing, or someone is probing /v1/a2a'
+      Namespace: anchor-x402
+      MetricName: A2APeerFailures
+      Statistic: Sum
+      Period: 300
+      # Deliberately well above normal refusal noise. The route throttle caps
+      # /v1/a2a at 5 rps, so this fires on a sustained pattern, not a burst —
+      # the 5xx alarm above had to be retuned twice for exactly that reason.
+      EvaluationPeriods: 1
+      Threshold: 30
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+      OKActions:
+        - !Ref AlarmTopic
+
+  # A2A signing failures. services/a2a.py deliberately degrades to an unsigned
+  # payload when KMS is unreachable — availability over non-repudiation — which
+  # means a wrong kms:Sign grant or a bad alias would ship `signed: false`
+  # forever with no other symptom. Any occurrence is a configuration fault, so
+  # this alarms on the first one rather than on a rate.
+  A2ASignFailuresMetricFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AnchorFunction}'
+      FilterPattern: '"A2A_SIGN_FAIL"'
+      MetricTransformations:
+        - MetricNamespace: anchor-x402
+          MetricName: A2ASignFailures
+          MetricValue: '1'
+          DefaultValue: 0
+
+  A2ASignFailuresAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-A2ASigningBroken'
+      AlarmDescription: 'KMS signing failed for /v1/a2a — quotes and receipts are shipping unsigned. Check the kms:Sign grant and the alias.'
+      Namespace: anchor-x402
+      MetricName: A2ASignFailures
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
       ComparisonOperator: GreaterThanThreshold
       TreatMissingData: notBreaching
       AlarmActions:

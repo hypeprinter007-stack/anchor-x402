@@ -28,3 +28,6 @@ node_modules/
 # Runtime logs (e.g. uagents_core writes uagents_core.log on registration error paths)
 *.log
 docs/_preview.html
+
+# Dev-only A2A signing key (production custody is KMS — see scripts/a2a-keygen.py)
+.a2a-dev-key.pem

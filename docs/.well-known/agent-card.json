@@ -248,6 +248,26 @@
   "license": "MIT",
   "source": "https://github.com/hypeprinter007-stack/anchor-x402",
   "extensions": {
+    "anchor-x402:a2a": {
+      "endpoint": "https://api.anchor-x402.com/v1/a2a",
+      "transport": "json-rpc-2.0",
+      "keys": [
+        {
+          "key_id": "anchor-a2a-2026-01",
+          "public_key_der_base64": "MCowBQYDK2VwAyEAmkSQNeLBAltBCfr39EG25OAVXyOH0zdzFQO+4/+dSig=",
+          "status": "active",
+          "custody": "aws-kms"
+        }
+      ],
+      "signature_algorithm": "ed25519",
+      "digest": "sha256-canonical-json",
+      "signed_fields": ["body", "exp", "method", "nonce", "origin"],
+      "methods": ["peer/hello", "capabilities/list", "peer/quote", "peer/receipt"],
+      "authorization": "standing policy — these methods are open to any peer that verifies; paid work is authorized by x402 payment on the metered /v1/* routes",
+      "identity_only": true,
+      "scope_excludes": ["payments", "treasury", "admin", "credentials", "user_data", "partnership_claims"],
+      "open_to": "any agent publishing an Ed25519 key in its own /.well-known/agent-card.json"
+    },
     "agoragentic:federation": {
       "key_id": "anchor-pilot-2026-01",
       "public_key_der_base64": "MCowBQYDK2VwAyEAc3PaOglz6Z19niAHIMg9YopEy8f1hINJq0r0kkAJbgQ=",
