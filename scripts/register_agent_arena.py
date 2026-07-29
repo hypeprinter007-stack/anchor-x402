@@ -1,6 +1,17 @@
 """Register anchor-x402 on Agent Arena (ERC-8004 on-chain agent registry, Base).
 
-Pays $0.05 USDC via x402 from the gavel CLIENT_PRIVATE_KEY wallet.
+WARNING: POST /api/register MINTS A NEW AGENT. It does not update an existing
+one. Running this against an already-listed agent creates a duplicate listing —
+which is how agentId 60138 came to exist alongside the older 47261 on
+2026-07-29. There is no DELETE on the API (OPTIONS reports only POST, PUT), so a
+duplicate cannot be undone without registry-side help. PUT /api/register is the
+documented update path, but it returns the same $0.05 402 challenge with the
+same "Register a new AI agent" description, so whether it updates or mints again
+is unverified — do not assume.
+
+Canonical listing is agentId 60138. Pays $0.05 USDC via x402 from the gavel
+CLIENT_PRIVATE_KEY wallet (EIP-3009 signed authorization, so the payer needs
+USDC but no ETH — the facilitator covers gas).
 Mints an ERC-8004 NFT at 0x8004A169FB4a3325136EB29fA0ceB6D2e539a432.
 
 Usage:

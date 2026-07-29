@@ -146,6 +146,7 @@ except ImportError:
 # Free, machine-facing paths where knowing the caller is the point.
 _DISCOVERY_PATHS = frozenset({
     "/.well-known/agent-card.json",
+    "/.well-known/agent-registration.json",
     "/.well-known/x402.json",
     "/.well-known/x402",
     "/v1/a2a",
@@ -2444,6 +2445,29 @@ def llms_txt():
 # ---------------------------------------------------------------------------
 
 _AGENT_CARD_PATH = os.path.join(_DOCS_DIR, ".well-known", "agent-card.json")
+
+
+_AGENT_REGISTRATION_PATH = os.path.join(_DOCS_DIR, ".well-known", "agent-registration.json")
+
+
+@app.api_route("/.well-known/agent-registration.json", methods=["GET", "HEAD"],
+               include_in_schema=False)
+def agent_registration():
+    """ERC-8004 registration file, proving this domain controls agentId 60138.
+
+    Hosting it is what flips domainVerified on the registry: the on-chain NFT
+    claims a domain, and this file served from that domain claims the agentId
+    back. That two-way binding is the out-of-band key distribution the agent
+    card's own signature otherwise lacks — a client that trusts the registry can
+    reach our card through a path we cannot forge alone.
+    """
+    if not os.path.exists(_AGENT_REGISTRATION_PATH):
+        raise HTTPException(status_code=404, detail="agent registration file not bundled")
+    return FileResponse(
+        _AGENT_REGISTRATION_PATH,
+        media_type="application/json",
+        headers={"Cache-Control": "public, max-age=300"},
+    )
 
 
 @app.api_route("/.well-known/agent-card.json", methods=["GET", "HEAD"], include_in_schema=False)

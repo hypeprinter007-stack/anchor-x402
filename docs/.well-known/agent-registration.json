@@ -1,17 +1,29 @@
 {
   "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
   "name": "anchor-x402",
-  "description": "Sixteen x402-paid services for AI agents — pay-per-call in USDC on Base or Solana mainnet, no accounts, no API keys. Skills: dual-chain hash anchoring, OFAC sanctions screening, signed decision attestation, mainnet tx + EVM calldata decode, ENS/SNS resolution, USD spot price, freeform datetime parsing, bundled wallet intelligence, async wallet due-diligence investigator ($1.77, signed + dual-chain-anchored report), plus universal LLM endpoints — roast, oracle (anchored verdict), TL;DR, aura, grade. Hosted chatbot at chat.anchor-x402.com; MCP server published as anchor-x402-mcp.",
-  "image": "https://anchor-x402.com/icon.png",
+  "description": "Eighteen x402-paid services for AI agents. One AWS Lambda, one OpenAPI spec. Pay per call in USDC on Base or Solana mainnet — no API keys, no accounts, no subscriptions. Hash anchoring to Base+Solana ($0.005), OFAC sanctions screening ($0.001), signed decision attestation with dual-chain anchor ($0.010), transaction and calldata decode ($0.001), ENS/SNS resolution ($0.001), token price ($0.001), datetime parsing ($0.001), bundled wallet intel ($0.005), verifiable signed RNG ($0.001), x402 spend accounting ($0.01), agent-driven wallet due diligence ($1.77), and five LLM endpoints ($0.01-$0.05). Also exposes a free agent-to-agent door at POST /v1/a2a: signed JSON-RPC 2.0, no API key, authenticate with an Ed25519 key in your own agent card. Quotes, receipts and daily receipt roots anchored to Base + Solana. Sources: github.com/hypeprinter007-stack/anchor-x402. MCP: anchor-x402-mcp on npm.",
+  "image": "https://anchor-x402.com/og.png",
   "services": [
     {
-      "name": "web",
+      "name": "x402",
       "endpoint": "https://api.anchor-x402.com"
     },
     {
       "name": "A2A",
       "endpoint": "https://anchor-x402.com/.well-known/agent-card.json",
-      "version": "0.3.0"
+      "version": "0.3.0",
+      "rpcEndpoint": "https://api.anchor-x402.com/v1/a2a",
+      "transport": "json-rpc-2.0",
+      "signedCard": true
+    },
+    {
+      "name": "MCP",
+      "endpoint": "https://www.npmjs.com/package/anchor-x402-mcp",
+      "version": "2025-06-18"
+    },
+    {
+      "name": "web",
+      "endpoint": "https://anchor-x402.com"
     }
   ],
   "active": true,
@@ -23,7 +35,150 @@
     {
       "agentId": "BhVu2TgFrSnKtTjhmVjSxu4Vqwi1NmfHhqBq78kHY52P",
       "agentRegistry": "solana:101:metaplex"
+    },
+    {
+      "agentId": 60138,
+      "agentRegistry": "eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432"
     }
   ],
-  "supportedTrust": ["reputation", "crypto-economic"]
+  "supportedTrust": [
+    "reputation",
+    "crypto-economic"
+  ],
+  "pricing": {
+    "per_task": 0.005,
+    "currency": "USDC",
+    "chain": "base"
+  },
+  "x402Support": true,
+  "a2a": {
+    "cardUrl": "https://agentarena.site/api/agent/8453/60138/a2a",
+    "ipfsUri": "ipfs://QmYBm8yPbz9emZjUZSZvH4ohxHFpmqVyW9sv6E9kgybcji",
+    "card": {
+      "id": "eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432#60138",
+      "name": "anchor-x402",
+      "description": "Eighteen x402-paid services for AI agents. One AWS Lambda, one OpenAPI spec. Pay per call in USDC on Base or Solana mainnet — no API keys, no accounts, no subscriptions. Hash anchoring to Base+Solana ($0.005), OFAC sanctions screening ($0.001), signed decision attestation with dual-chain anchor ($0.010), transaction and calldata decode ($0.001), ENS/SNS resolution ($0.001), token price ($0.001), datetime parsing ($0.001), bundled wallet intel ($0.005), verifiable signed RNG ($0.001), x402 spend accounting ($0.01), agent-driven wallet due diligence ($1.77), and five LLM endpoints ($0.01-$0.05). Also exposes a free agent-to-agent door at POST /v1/a2a: signed JSON-RPC 2.0, no API key, authenticate with an Ed25519 key in your own agent card. Quotes, receipts and daily receipt roots anchored to Base + Solana. Sources: github.com/hypeprinter007-stack/anchor-x402. MCP: anchor-x402-mcp on npm. | Pricing: $0.005 USDC per task",
+      "provider": {
+        "name": "anchor-x402",
+        "url": "https://agentarena.site/api/agent/8453/60138"
+      },
+      "iconUrl": "https://anchor-x402.com/og.png",
+      "version": "1.0.0",
+      "documentationUrl": "https://agentarena.site/api/agent/8453/60138",
+      "capabilities": {
+        "streaming": false,
+        "pushNotifications": false,
+        "extendedAgentCard": false
+      },
+      "defaultInputModes": [
+        "application/json",
+        "text/plain"
+      ],
+      "defaultOutputModes": [
+        "application/json"
+      ],
+      "skills": [
+        {
+          "id": "x402",
+          "name": "anchor-x402 — x402, a2a, mcp",
+          "description": "Eighteen x402-paid services for AI agents. One AWS Lambda, one OpenAPI spec. Pay per call in USDC on Base or Solana mainnet — no API keys, no accounts, no subscriptions. Hash anchoring to Base+Solana ($0.005), OFAC sanctions screening ($0.001), signed decision attestation with dual-chain anchor ($0.010), transaction and calldata decode ($0.001), ENS/SNS resolution ($0.001), token price ($0.001), datetime parsing ($0.001), bundled wallet intel ($0.005), verifiable signed RNG ($0.001), x402 spend accounting ($0.01), agent-driven wallet due diligence ($1.77), and five LLM endpoints ($0.01-$0.05). Also exposes a free agent-to-agent door at POST /v1/a2a: signed JSON-RPC 2.0, no API key, authenticate with an Ed25519 key in your own agent card. Quotes, receipts and daily receipt roots anchored to Base + Solana. Sources: github.com/hypeprinter007-stack/anchor-x402. MCP: anchor-x402-mcp on npm.",
+          "tags": [
+            "x402",
+            "a2a",
+            "mcp",
+            "web",
+            "reputation",
+            "crypto-economic",
+            "data"
+          ],
+          "inputModes": [
+            "application/json",
+            "text/plain"
+          ],
+          "outputModes": [
+            "application/json"
+          ]
+        }
+      ],
+      "interfaces": [
+        {
+          "type": "json-rpc",
+          "url": "https://anchor-x402.com/.well-known/agent-card.json",
+          "version": "1.0"
+        },
+        {
+          "type": "http+json",
+          "url": "https://api.anchor-x402.com",
+          "version": "1.0"
+        },
+        {
+          "type": "mcp",
+          "url": "https://www.npmjs.com/package/anchor-x402-mcp",
+          "version": "2025-06-18"
+        }
+      ],
+      "securitySchemes": {
+        "x402": {
+          "type": "http",
+          "scheme": "x402",
+          "description": "Pay $0.005 USDC per task via x402 protocol (EIP-3009 gasless payment on Base)"
+        }
+      },
+      "extensions": {
+        "agentArena": {
+          "globalId": "eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432#60138",
+          "chainId": 8453,
+          "chain": "base",
+          "agentId": "60138",
+          "reputationScore": 0,
+          "profileUrl": "https://agentarena.site/api/agent/8453/60138",
+          "erc8004Registry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432"
+        }
+      }
+    }
+  },
+  "mcp": {
+    "cardUrl": "https://agentarena.site/api/agent/8453/60138/.well-known/mcp/server-card.json",
+    "card": {
+      "$schema": "https://static.modelcontextprotocol.io/schemas/mcp-server-card/v1.json",
+      "version": "1.0",
+      "protocolVersion": "2025-06-18",
+      "serverInfo": {
+        "name": "anchor-x402",
+        "title": "anchor-x402",
+        "version": "1.0.0"
+      },
+      "description": "Eighteen x402-paid services for AI agents. One AWS Lambda, one OpenAPI spec. Pay per call in USDC on Base or Solana mainnet — no API keys, no accounts, no subscriptions. Hash anchoring to Base+Solana ($0.005), OFAC sanctions screening ($0.001), signed decision attestation with dual-chain anchor ($0.010), transaction and calldata decode ($0.001), ENS/SNS resolution ($0.001), token price ($0.001), datetime parsing ($0.001), bundled wallet intel ($0.005), verifiable signed RNG ($0.001), x402 spend accounting ($0.01), agent-driven wallet due diligence ($1.77), and five LLM endpoints ($0.01-$0.05). Also exposes a free agent-to-agent door at POST /v1/a2a: signed JSON-RPC 2.0, no API key, authenticate with an Ed25519 key in your own agent card. Quotes, receipts and daily receipt roots anchored to Base + Solana. Sources: github.com/hypeprinter007-stack/anchor-x402. MCP: anchor-x402-mcp on npm.",
+      "iconUrl": "https://anchor-x402.com/og.png",
+      "documentationUrl": "https://agentarena.site/api/agent/8453/60138",
+      "transport": {
+        "type": "streamable-http",
+        "endpoint": "https://www.npmjs.com/package/anchor-x402-mcp"
+      },
+      "capabilities": {
+        "tools": {
+          "listChanged": false
+        }
+      },
+      "authentication": {
+        "required": true,
+        "schemes": [
+          "x402"
+        ]
+      },
+      "instructions": "Eighteen x402-paid services for AI agents. One AWS Lambda, one OpenAPI spec. Pay per call in USDC on Base or Solana mainnet — no API keys, no accounts, no subscriptions. Hash anchoring to Base+Solana ($0.005), OFAC sanctions screening ($0.001), signed decision attestation with dual-chain anchor ($0.010), transaction and calldata decode ($0.001), ENS/SNS resolution ($0.001), token price ($0.001), datetime parsing ($0.001), bundled wallet intel ($0.005), verifiable signed RNG ($0.001), x402 spend accounting ($0.01), agent-driven wallet due diligence ($1.77), and five LLM endpoints ($0.01-$0.05). Also exposes a free agent-to-agent door at POST /v1/a2a: signed JSON-RPC 2.0, no API key, authenticate with an Ed25519 key in your own agent card. Quotes, receipts and daily receipt roots anchored to Base + Solana. Sources: github.com/hypeprinter007-stack/anchor-x402. MCP: anchor-x402-mcp on npm. Pricing: 0.005 USDC per task. Native x402 endpoint: https://api.anchor-x402.com Submit a review after hiring: POST https://agentarena.site/api/review with proofOfPayment.",
+      "extensions": {
+        "agentArena": {
+          "globalId": "eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432#60138",
+          "chainId": 8453,
+          "chainName": "base",
+          "agentId": "60138",
+          "profileUrl": "https://agentarena.site/api/agent/8453/60138",
+          "cardType": "native"
+        }
+      }
+    },
+    "generatedAt": "2026-07-29T21:24:43.694Z"
+  },
+  "documentation": "https://agentarena.site/skill.md"
 }

@@ -58,6 +58,8 @@ build-AnchorFunction:
 	# Agent card: served on the API origin and read at runtime by /v1/a2a for
 	# the skill catalog + our own key block.
 	cp docs/.well-known/agent-card.json "$(ARTIFACTS_DIR)/docs/.well-known/agent-card.json"
+	# ERC-8004 registration file — proves this domain controls the registry agentId.
+	cp docs/.well-known/agent-registration.json "$(ARTIFACTS_DIR)/docs/.well-known/agent-registration.json"
 	cp docs/robots.txt "$(ARTIFACTS_DIR)/docs/robots.txt"
 	cp docs/llms.txt   "$(ARTIFACTS_DIR)/docs/llms.txt"
 	# Strip files Lambda doesn't need (size: 250 MB unzipped limit)

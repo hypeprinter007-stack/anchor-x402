@@ -88,7 +88,7 @@ Or call the HTTP API directly using any x402 v2 client SDK ([@x402/fetch on npm]
 
 - [CDP Bazaar](https://docs.cdp.coinbase.com/x402/bazaar) — 18 services live, auto-indexed
 - [agentic.market](https://api.agentic.market/v1/services/search?q=api.anchor-x402.com) — 18 services live
-- [Agent Arena](https://agentarena.site/api/agent/8453/47261) — ERC-8004 on-chain agent registry (Base, agentId 47261)
+- [Agent Arena](https://agentarena.site/api/agent/8453/60138) — ERC-8004 on-chain agent registry (Base, agentId 60138). Carries `a2aEndpoint` + `protocols.a2a`; A2A card mirrored at `/api/agent/8453/60138/a2a`. Supersedes agentId 47261, which is stale and pending removal.
 - [Virtuals ACP](https://app.virtuals.io) — 9 GET resource offerings + investigateWallet Job
 - [Official MCP Registry](https://registry.modelcontextprotocol.io/v0/servers?search=anchor-x402)
 - [Glama](https://glama.ai/mcp/servers/hypeprinter007-stack/anchor-x402-mcp)
