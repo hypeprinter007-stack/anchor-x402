@@ -622,6 +622,73 @@ def main() -> None:
     ok("F16 card states the 402 header is authoritative on price",
        "authoritative" in card["extensions"]["anchor-x402:x402"]["price_authority"])
 
+    # F17 — the card carries a detached JWS per A2A 0.3.0 `signatures`. Its value
+    # is tamper-evidence for copies that travel outside TLS (registries, mirrors,
+    # a peer's cache), so what matters is that mutation is detected — a signature
+    # that verifies but doesn't discriminate would be decoration.
+    print("\nregressions: signed agent card")
+    import copy as _copy
+    import importlib.util as _ilu
+    from cryptography.hazmat.primitives import hashes as _h
+    from cryptography.hazmat.primitives.asymmetric import ec as _ec
+    from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature as _dss
+    from cryptography.hazmat.primitives.serialization import load_der_public_key as _ldpk
+
+    _spec = _ilu.spec_from_file_location(
+        "signer", os.path.join(os.path.dirname(os.path.abspath(__file__)), "sign_agent_card.py"))
+    signer = _ilu.module_from_spec(_spec)
+    _spec.loader.exec_module(signer)
+
+    signed_card = signer.load_card()
+    sigs = signed_card.get("signatures") or []
+    ok("F17 card carries a signature", len(sigs) == 1, f"{len(sigs)} signatures")
+    if sigs:
+        prot = json.loads(signer.b64u_decode(sigs[0]["protected"]).decode())
+        entry = next(k for k in signed_card["extensions"]["anchor-x402:a2a"]["card_signing_keys"]
+                     if k["key_id"] == prot["kid"])
+        pubkey = _ldpk(base64.b64decode(entry["public_key_der_base64"]))
+        raw_sig = signer.b64u_decode(sigs[0]["signature"])
+        der_sig = _dss(int.from_bytes(raw_sig[:32], "big"), int.from_bytes(raw_sig[32:], "big"))
+
+        def card_verifies(c):
+            try:
+                pubkey.verify(der_sig, signer.signing_input(c, prot), _ec.ECDSA(_h.SHA256()))
+                return True
+            except Exception:
+                return False
+
+        ok("F17 signature is ES256 over a JCS-canonicalized payload", prot.get("alg") == "ES256")
+        ok("F17 pristine card verifies against its published key", card_verifies(signed_card))
+        ok("F17 raw signature is JWS-shaped (64 bytes, not DER)", len(raw_sig) == 64, str(len(raw_sig)))
+
+        for label, mutate in {
+            "price raised": lambda c: c["skills"][0].__setitem__("price_usd", 9.99),
+            "endpoint swapped": lambda c: c["skills"][0].__setitem__("url", "https://evil.example/x"),
+            "request key swapped": lambda c: c["extensions"]["anchor-x402:a2a"]["keys"][0]
+                .__setitem__("public_key_der_base64", "MCowBQYDK2VwAyEA" + "A" * 28 + "="),
+            "audience redirected": lambda c: c["extensions"]["anchor-x402:a2a"]
+                .__setitem__("audience", "https://evil.example"),
+            "retired key reactivated": lambda c: c["extensions"]["agoragentic:federation"]
+                .__setitem__("status", "active"),
+        }.items():
+            mutated = _copy.deepcopy(signed_card)
+            mutate(mutated)
+            ok(f"F17 tamper detected: {label}", not card_verifies(mutated))
+
+    # F18 — the Agoragentic pilot key stayed published as active long after the
+    # pilot closed. It is software-held, so unlike the request key it is
+    # extractable; an active claim we could not back was live attack surface.
+    fed = signed_card["extensions"]["agoragentic:federation"]
+    ok("F18 pilot key is published as retired", fed["status"] == "retired", fed["status"])
+    ok("F18 pilot key consent flags are withdrawn",
+       fed["capability_exchange"] is False and fed["federation_consent"] is False)
+    a2a_svc._cards[PEER] = (time.time() + 3600, {"extensions": {"f": {
+        "key_id": "anchor-pilot-2026-01", "public_key_der_base64": der_b64(_key),
+        "status": "retired"}}})
+    expect_error(client, envelope("peer/hello", key_id="anchor-pilot-2026-01"),
+                 a2a_svc.ERR_PEER_CARD, "F18 a retired key is refused by our own reader")
+    prime_card()
+
     print("\nreceipt root anchoring")
     from services import a2a_cron
 

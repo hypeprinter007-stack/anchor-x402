@@ -138,19 +138,26 @@ def sign() -> None:
             "Note: KMS keys cannot be deleted immediately (7-30 day pending window)."
         )
 
-    pub_der = kms.get_public_key(KeyId=CARD_KMS_ALIAS)["PublicKey"]
+    # Confirm the key we just signed with is the one the card tells clients to
+    # verify against. A mismatch here would publish a card nobody can verify.
+    published = next((k for k in card["extensions"]["anchor-x402:a2a"]["card_signing_keys"]
+                      if k["key_id"] == kid), None)
+    if published is None:
+        sys.exit(f"card publishes no card_signing_keys entry for {kid}")
+    live = base64.b64encode(kms.get_public_key(KeyId=CARD_KMS_ALIAS)["PublicKey"]).decode()
+    if live != published["public_key_der_base64"]:
+        sys.exit(
+            f"{CARD_KMS_ALIAS} public key does not match the one published for {kid}.\n"
+            f"  published: {published['public_key_der_base64'][:44]}...\n"
+            f"  live:      {live[:44]}...\n"
+            "Update card_signing_keys in scripts/gen_agent_card.py and regenerate."
+        )
+
+    # Only `signatures` is added here. Everything else comes from the generator,
+    # so `gen_agent_card.py --check` can still tell a hand edit from a signature.
     card["signatures"] = [{
         "protected": b64u(jcs(protected)),
         "signature": b64u(der_to_raw_ecdsa(der)),
-    }]
-    ext = card["extensions"]["anchor-x402:a2a"]
-    ext["card_signing_keys"] = [{
-        "key_id": kid,
-        "public_key_der_base64": base64.b64encode(pub_der).decode(),
-        "alg": "ES256",
-        "status": "active",
-        "custody": "aws-kms",
-        "purpose": "verifies this card's `signatures`; not used for request signing",
     }]
     with open(CARD_PATH, "w") as f:
         json.dump(card, f, indent=2, ensure_ascii=False)

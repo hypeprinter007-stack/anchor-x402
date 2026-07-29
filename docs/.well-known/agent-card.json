@@ -509,6 +509,16 @@
           "not_after": "2027-07-28T00:00:00Z"
         }
       ],
+      "card_signing_keys": [
+        {
+          "key_id": "anchor-card-2026-01",
+          "public_key_der_base64": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEmm/YYcGVzj3vKlvNlnmtK17hkq5vftvEo4VahGJlE/FjU+4lFovDmWnOR7KXfZ16mtd+02A+PDp12aeh5+TI7A==",
+          "alg": "ES256",
+          "status": "active",
+          "custody": "aws-kms",
+          "purpose": "verifies this card's `signatures`; never used for request signing"
+        }
+      ],
       "revocation": "Keys are revoked by setting status to 'retired' here, or removing the entry. Peers cache this card for at most 3600s, which bounds propagation."
     },
     "anchor-x402:x402": {
@@ -533,13 +543,20 @@
     "agoragentic:federation": {
       "key_id": "anchor-pilot-2026-01",
       "public_key_der_base64": "MCowBQYDK2VwAyEAc3PaOglz6Z19niAHIMg9YopEy8f1hINJq0r0kkAJbgQ=",
-      "status": "active",
+      "status": "retired",
+      "retired_at": "2026-07-29",
       "custody": "aws-secrets-manager",
-      "capability_exchange": true,
-      "federation_consent": true,
-      "scope": "Agoragentic federation pilot only; not used for general A2A traffic."
+      "capability_exchange": false,
+      "federation_consent": false,
+      "scope": "Agoragentic federation pilot only. Pilot closed; key retired."
     }
   },
   "license": "MIT",
-  "source": "https://github.com/hypeprinter007-stack/anchor-x402"
+  "source": "https://github.com/hypeprinter007-stack/anchor-x402",
+  "signatures": [
+    {
+      "protected": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImFuY2hvci1jYXJkLTIwMjYtMDEiLCJ0eXAiOiJKT1NFIn0",
+      "signature": "FjrxUwExgru8NsfQKWeiPNWcxDpxDrJMVYwhbXnvXFcL3udPhpxQ_7xqylQgJNxfH4mV0WFAGllhrMRKsaqvmQ"
+    }
+  ]
 }

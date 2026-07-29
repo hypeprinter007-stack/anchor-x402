@@ -203,11 +203,19 @@ def build() -> dict:
             "agoragentic:federation": {
                 "key_id": "anchor-pilot-2026-01",
                 "public_key_der_base64": "MCowBQYDK2VwAyEAc3PaOglz6Z19niAHIMg9YopEy8f1hINJq0r0kkAJbgQ=",
-                "status": "active",
+                # Retired 2026-07-29: the federation pilot is closed and nothing
+                # operational signs with this key. It stayed published as active
+                # long after the pilot ended, which is a live claim we could not
+                # back — and unlike the request key, it is software-held and
+                # therefore extractable. Left listed rather than deleted so a peer
+                # holding an old signature can still see what the key was and that
+                # it is no longer accepted.
+                "status": "retired",
+                "retired_at": "2026-07-29",
                 "custody": "aws-secrets-manager",
-                "capability_exchange": True,
-                "federation_consent": True,
-                "scope": "Agoragentic federation pilot only; not used for general A2A traffic.",
+                "capability_exchange": False,
+                "federation_consent": False,
+                "scope": "Agoragentic federation pilot only. Pilot closed; key retired.",
             },
         },
         "license": "MIT",
@@ -246,6 +254,24 @@ def _a2a_extension() -> dict:
                 "status": "active",
                 "custody": "aws-kms",
                 "not_after": "2027-07-28T00:00:00Z",
+            }
+        ],
+        # Verifies this card's own `signatures`. Separate key, separate algorithm,
+        # separate job: ES256 because KMS cannot produce a spec-valid Ed25519 JWS
+        # over a payload this size (4096-byte raw Sign limit; DIGEST mode forces
+        # Ed25519ph, for which JOSE registers no alg). Declared statically here so
+        # generation needs no AWS call and sign_agent_card.py only ever adds
+        # `signatures` — which keeps `--check` able to detect hand edits.
+        "card_signing_keys": [
+            {
+                "key_id": "anchor-card-2026-01",
+                "public_key_der_base64":
+                    "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEmm/YYcGVzj3vKlvNlnmtK17hkq5v"
+                    "ftvEo4VahGJlE/FjU+4lFovDmWnOR7KXfZ16mtd+02A+PDp12aeh5+TI7A==",
+                "alg": "ES256",
+                "status": "active",
+                "custody": "aws-kms",
+                "purpose": "verifies this card's `signatures`; never used for request signing",
             }
         ],
         "revocation": (
