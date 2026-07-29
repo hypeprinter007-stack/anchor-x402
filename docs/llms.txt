@@ -99,6 +99,8 @@ Or call the HTTP API directly using any x402 v2 client SDK ([@x402/fetch on npm]
 
 `POST https://api.anchor-x402.com/v1/a2a` — JSON-RPC 2.0, free, no API key, no registration, no account. Methods: `peer/hello`, `capabilities/list`, `peer/quote`, `peer/receipt`.
 
+Our card follows A2A 0.3.0 (`protocolVersion`, `securitySchemes`/`security`, `provider.organization`) and carries a detached JWS in `signatures`, so you can confirm it wasn't altered. Note the two key sets are for different jobs: `signatures` proves the card is authentic, while `extensions["anchor-x402:a2a"].keys` is what peers use to sign requests — the spec has no field for the latter.
+
 To be recognized, publish an Ed25519 public key in your own agent card at `https://<your-origin>/.well-known/agent-card.json` — a DER SubjectPublicKeyInfo in base64, under any `extensions.<your-namespace>` block. Either shape works: a flat `{key_id, public_key_der_base64}` pair, or a `keys: [...]` array of them (which lets you rotate without a gap). We fetch your card, take the key, and verify. Trust bootstraps from DNS + TLS, so nothing here waits on a human. Revoke by deleting the block or marking that key `"status": "retired"` — either takes effect within 1h.
 
 Our own signatures work the same way in reverse: `peer/quote` and `peer/receipt` come back with `digest`, `signature`, and `key_id`. Recompute the digest by canonicalizing the payload minus the `digest`/`signature`/`signature_algorithm`/`key_id`/`signed` fields, then verify the raw 64-byte signature against the matching `public_key_der_base64` from our card with any stock Ed25519 library. Our key is held in AWS KMS, which changes nothing on the wire.
@@ -110,11 +112,13 @@ Sign every call — the whole client protocol is four lines:
 const canon = v => Array.isArray(v) ? `[${v.map(canon).join(",")}]`
   : (v && typeof v === "object") ? `{${Object.keys(v).sort().map(k => JSON.stringify(k) + ":" + canon(v[k])).join(",")}}`
   : JSON.stringify(v);
-const digest = "sha256:" + sha256Hex(canon({body, exp, method, nonce, origin}));  // origin = your card origin
+const digest = "sha256:" + sha256Hex(canon({aud, body, exp, key_id, method, nonce, origin}));
 const signature = base64(ed25519Sign(utf8(digest), yourPrivateKey));              // sign the ASCII digest string
 ```
 
-POST `{"jsonrpc":"2.0","id":"1","method":"<method>","params":{origin, key_id, nonce, exp, signature_algorithm:"ed25519", signature, body}}`. `nonce` is single-use (8–128 chars); `exp` must be within 300s.
+`origin` is your own card origin. `aud` is the recipient — for us, exactly `https://api.anchor-x402.com`, published as `audience` in our card's `anchor-x402:a2a` extension. Both `aud` and `key_id` are inside the signed bytes: `aud` stops an envelope signed for one server from being replayed at another (whose replay store isn't ours), and `key_id` binds your key choice so a swapped id can't defeat your own revocation.
+
+POST `{"jsonrpc":"2.0","id":"1","method":"<method>","params":{aud, origin, key_id, nonce, exp, signature_algorithm:"ed25519", signature, body}}`. `nonce` is single-use (8–128 chars); `exp` must be within 300s.
 
 One interop caveat: we re-canonicalize the `body` we receive and compare digests, so keep `body` values to strings, integers, booleans, and nested objects/arrays of those. Floats serialize differently across languages (JS `1.0` → `1`, Python → `1.0`) and would fail verification. None of the current methods need one.
 

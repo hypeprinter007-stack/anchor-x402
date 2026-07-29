@@ -2482,7 +2482,7 @@ def _a2a_hello(origin: str, body: Any) -> dict[str, Any]:
             "signed_fields": ["body", "exp", "method", "nonce", "origin"],
         },
         "policy_digest": a2a_svc.digest_of(a2a_svc.policy()),
-        "x402": (card.get("authentication") or {}).get("x402", {}),
+        "x402": (card.get("extensions") or {}).get("anchor-x402:x402", {}),
     }
 
 
@@ -2492,7 +2492,7 @@ def _a2a_capabilities(origin: str, body: Any) -> dict[str, Any]:
     return {
         "count": len(skills),
         "skills": skills,
-        "x402": (card.get("authentication") or {}).get("x402", {}),
+        "x402": (card.get("extensions") or {}).get("anchor-x402:x402", {}),
         "payment_is_authorization": True,
     }
 

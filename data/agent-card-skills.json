@@ -1,0 +1,234 @@
+{
+  "anchor_hash": {
+    "description": "Anchor a 32-byte hash to Base + Solana mainnet in parallel. Returns both tx URLs as cryptographic proof of when the hash existed. $0.005 USDC.",
+    "examples": [
+      {
+        "hash": "ab0898397c86fbf97c99c6f8b29e55ab697315705777ee1d106e2dcb9bd686b3"
+      },
+      {
+        "data": {
+          "decision": "APPROVED",
+          "vendor": "Acme"
+        },
+        "note": "Q2 vendor diligence"
+      }
+    ],
+    "name": "anchor",
+    "tags": [
+      "anchor",
+      "merkle",
+      "timestamp",
+      "audit",
+      "dual-chain"
+    ]
+  },
+  "attest_decision": {
+    "description": "Verify a wallet signature over (input_hash, output_hash, decision), then dual-chain anchor the result. Returns verified signer + on-chain proof URLs. $0.010 USDC.",
+    "name": "attest",
+    "tags": [
+      "attestation",
+      "signature",
+      "audit",
+      "ai-decision"
+    ]
+  },
+  "aura_read": {
+    "examples": [
+      {
+        "target": "0x1234567890123456789012345678901234567890"
+      }
+    ],
+    "name": "aura",
+    "tags": [
+      "llm",
+      "score",
+      "novelty"
+    ]
+  },
+  "decode_calldata": {
+    "description": "Decode raw EVM calldata into function name + typed parameters via openchain.xyz + eth_abi. EVM-only. $0.001 USDC.",
+    "name": "decode/calldata",
+    "tags": [
+      "calldata",
+      "abi",
+      "4byte"
+    ]
+  },
+  "decode_tx": {
+    "description": "Structured decode of any mainnet transaction by hash. Supports Base, Ethereum, Solana. Mined txs cached. $0.001 USDC.",
+    "name": "decode/tx",
+    "tags": [
+      "transaction",
+      "decode",
+      "rpc"
+    ]
+  },
+  "grade_target": {
+    "examples": [
+      {
+        "target": "def f(x): return x*2"
+      }
+    ],
+    "name": "grade",
+    "tags": [
+      "llm",
+      "evaluation",
+      "score"
+    ]
+  },
+  "intel_wallet": {
+    "description": "Unified wallet intelligence bundle. ONE call: balances on Base + Ethereum + Solana, USDC, tx counts, ENS/SNS reverse, sanctions verdict. 8-10 parallel sources. $0.005 USDC.",
+    "name": "intel/wallet",
+    "tags": [
+      "wallet-intel",
+      "balances",
+      "kyb",
+      "counterparty"
+    ]
+  },
+  "investigate_wallet": {
+    "examples": [
+      {
+        "address": "0x1234567890123456789012345678901234567890",
+        "depth": "standard"
+      }
+    ],
+    "name": "investigate",
+    "tags": [
+      "due-diligence",
+      "aml",
+      "report",
+      "async",
+      "anchored"
+    ]
+  },
+  "ledger_report": {
+    "examples": [
+      {
+        "wallet": "0x1234567890123456789012345678901234567890"
+      }
+    ],
+    "name": "ledger/report",
+    "tags": [
+      "accounting",
+      "report",
+      "anchored",
+      "async"
+    ]
+  },
+  "ledger_summary": {
+    "examples": [
+      {
+        "from": "2026-06-01",
+        "wallet": "0x1234567890123456789012345678901234567890"
+      }
+    ],
+    "name": "ledger/summary",
+    "tags": [
+      "accounting",
+      "x402",
+      "spend"
+    ]
+  },
+  "oracle_verdict": {
+    "examples": [
+      {
+        "question": "Is this contract a proxy?"
+      }
+    ],
+    "name": "oracle",
+    "tags": [
+      "llm",
+      "decision",
+      "anchored",
+      "yes-no"
+    ]
+  },
+  "parse_datetime": {
+    "description": "Parse freeform datetime strings into ISO 8601 + components + relative time + confidence. $0.001 USDC.",
+    "name": "parse/datetime",
+    "tags": [
+      "datetime",
+      "iso8601",
+      "parser"
+    ]
+  },
+  "resolve_name": {
+    "description": "Cross-chain name resolution: ENS (.eth) and Bonfida SNS (.sol). Returns resolved address(es). 1h cache. $0.001 USDC.",
+    "name": "resolve/name",
+    "tags": [
+      "ens",
+      "sns",
+      "name-service"
+    ]
+  },
+  "roast_target": {
+    "examples": [
+      {
+        "target": "my portfolio"
+      }
+    ],
+    "name": "roast",
+    "tags": [
+      "llm",
+      "humor",
+      "text"
+    ]
+  },
+  "roll_random": {
+    "examples": [
+      {
+        "count": 1,
+        "max": 100,
+        "min": 1
+      }
+    ],
+    "name": "roll",
+    "tags": [
+      "rng",
+      "verifiable",
+      "signed",
+      "anchored"
+    ]
+  },
+  "screen_wallet": {
+    "description": "OFAC SDN sanctions + AML screening for any wallet address. Returns sanctions match, flagged programs, risk level. $0.001 USDC.",
+    "examples": [
+      {
+        "wallet": "0x8589427373d6d84e98730d7795d8f6f8731fda16"
+      }
+    ],
+    "name": "screen",
+    "tags": [
+      "sanctions",
+      "ofac",
+      "aml",
+      "compliance"
+    ]
+  },
+  "tldr_text": {
+    "examples": [
+      {
+        "url": "https://example.com/long-post"
+      },
+      {
+        "text": "\u2026pasted text\u2026"
+      }
+    ],
+    "name": "tldr",
+    "tags": [
+      "llm",
+      "summarize",
+      "url"
+    ]
+  },
+  "token_price": {
+    "description": "USD spot price for any major token. By symbol or chain+contract. CoinGecko-backed, 60s cache. $0.001 USDC.",
+    "name": "price/token",
+    "tags": [
+      "price",
+      "coingecko",
+      "tokens"
+    ]
+  }
+}

@@ -1,44 +1,35 @@
 {
-  "schemaVersion": "1.0.0",
+  "protocolVersion": "0.3.0",
   "name": "anchor-x402",
-  "description": "Eighteen x402-paid services for AI agents — pay-per-call USDC on Base or Solana mainnet. Skills: dual-chain hash anchoring, OFAC sanctions screening, signed decision attestation, mainnet tx decode, ENS/SNS resolution, USD spot price, EVM calldata decode, freeform datetime parsing, bundled wallet intelligence, async due-diligence investigator ($1.77), plus five universal LLM endpoints — roast, oracle (with on-chain anchored verdict), TL;DR, aura, grade. Hosted chatbot front-end at chat.anchor-x402.com.",
-  "version": "1.0.0",
-  "url": "https://api.anchor-x402.com",
+  "description": "18 x402-paid services for AI agents — pay-per-call USDC on Base or Solana mainnet. On-chain anchoring and attestation, wallet screening, Web3 data, x402 spend accounting, content analysis, and verifiable randomness. No API keys, no accounts; settle per request.",
+  "version": "0.4.0",
+  "url": "https://api.anchor-x402.com/v1/a2a",
+  "preferredTransport": "JSONRPC",
   "documentationUrl": "https://anchor-x402.com",
   "provider": {
-    "name": "anchor-x402",
-    "url": "https://anchor-x402.com",
-    "support_contact": "hello@anchor-x402.com"
+    "organization": "anchor-x402",
+    "url": "https://anchor-x402.com"
   },
   "capabilities": {
-    "a2aVersion": "1.0",
-    "mcpVersion": "1.0",
     "streaming": false,
     "pushNotifications": false,
-    "x402": true,
-    "supportedMessageParts": [
-      "text",
-      "data"
-    ]
+    "stateTransitionHistory": false
   },
-  "authentication": {
-    "schemes": [
-      "x402"
-    ],
+  "securitySchemes": {
     "x402": {
-      "version": 2,
-      "facilitator": "https://api.cdp.coinbase.com/platform/v2/x402",
-      "networks": [
-        "eip155:8453",
-        "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"
-      ],
-      "asset": "USDC",
-      "discovery_extension": "bazaar"
+      "type": "apiKey",
+      "in": "header",
+      "name": "PAYMENT-SIGNATURE",
+      "description": "x402 v2 pay-per-call. Request without payment to receive a 402 challenge carrying the accepted rails and exact amounts, then retry with the signed payment payload. No account or API key exists."
     }
   },
+  "security": [
+    {
+      "x402": []
+    }
+  ],
   "defaultInputModes": [
-    "application/json",
-    "application/x-www-form-urlencoded"
+    "application/json"
   ],
   "defaultOutputModes": [
     "application/json"
@@ -70,35 +61,10 @@
         },
         {
           "data": {
-            "vendor": "Acme",
-            "decision": "APPROVED"
+            "decision": "APPROVED",
+            "vendor": "Acme"
           },
           "note": "Q2 vendor diligence"
-        }
-      ]
-    },
-    {
-      "id": "screen_wallet",
-      "name": "screen",
-      "description": "OFAC SDN sanctions + AML screening for any wallet address. Returns sanctions match, flagged programs, risk level. $0.001 USDC.",
-      "url": "https://api.anchor-x402.com/v1/screen",
-      "method": "GET",
-      "price_usd": 0.001,
-      "inputModes": [
-        "query"
-      ],
-      "outputModes": [
-        "application/json"
-      ],
-      "tags": [
-        "sanctions",
-        "ofac",
-        "aml",
-        "compliance"
-      ],
-      "examples": [
-        {
-          "wallet": "0x8589427373d6d84e98730d7795d8f6f8731fda16"
         }
       ]
     },
@@ -123,12 +89,12 @@
       ]
     },
     {
-      "id": "decode_tx",
-      "name": "decode/tx",
-      "description": "Structured decode of any mainnet transaction by hash. Supports Base, Ethereum, Solana. Mined txs cached. $0.001 USDC.",
-      "url": "https://api.anchor-x402.com/v1/decode/tx",
+      "id": "aura_read",
+      "name": "aura",
+      "description": "Read the aura of anything — color, tier (S/A/B/C/D/F), score 0-9999, description. $0.01 USDC.",
+      "url": "https://api.anchor-x402.com/v1/aura",
       "method": "POST",
-      "price_usd": 0.001,
+      "price_usd": 0.01,
       "inputModes": [
         "application/json"
       ],
@@ -136,47 +102,14 @@
         "application/json"
       ],
       "tags": [
-        "transaction",
-        "decode",
-        "rpc"
-      ]
-    },
-    {
-      "id": "resolve_name",
-      "name": "resolve/name",
-      "description": "Cross-chain name resolution: ENS (.eth) and Bonfida SNS (.sol). Returns resolved address(es). 1h cache. $0.001 USDC.",
-      "url": "https://api.anchor-x402.com/v1/resolve/name",
-      "method": "GET",
-      "price_usd": 0.001,
-      "inputModes": [
-        "query"
+        "llm",
+        "score",
+        "novelty"
       ],
-      "outputModes": [
-        "application/json"
-      ],
-      "tags": [
-        "ens",
-        "sns",
-        "name-service"
-      ]
-    },
-    {
-      "id": "token_price",
-      "name": "price/token",
-      "description": "USD spot price for any major token. By symbol or chain+contract. CoinGecko-backed, 60s cache. $0.001 USDC.",
-      "url": "https://api.anchor-x402.com/v1/price/token",
-      "method": "GET",
-      "price_usd": 0.001,
-      "inputModes": [
-        "query"
-      ],
-      "outputModes": [
-        "application/json"
-      ],
-      "tags": [
-        "price",
-        "coingecko",
-        "tokens"
+      "examples": [
+        {
+          "target": "0x1234567890123456789012345678901234567890"
+        }
       ]
     },
     {
@@ -199,6 +132,171 @@
       ]
     },
     {
+      "id": "decode_tx",
+      "name": "decode/tx",
+      "description": "Structured decode of any mainnet transaction by hash. Supports Base, Ethereum, Solana. Mined txs cached. $0.001 USDC.",
+      "url": "https://api.anchor-x402.com/v1/decode/tx",
+      "method": "POST",
+      "price_usd": 0.001,
+      "inputModes": [
+        "application/json"
+      ],
+      "outputModes": [
+        "application/json"
+      ],
+      "tags": [
+        "transaction",
+        "decode",
+        "rpc"
+      ]
+    },
+    {
+      "id": "grade_target",
+      "name": "grade",
+      "description": "Academic letter grade with red-pen marginalia for anything. $0.01 USDC.",
+      "url": "https://api.anchor-x402.com/v1/grade",
+      "method": "POST",
+      "price_usd": 0.01,
+      "inputModes": [
+        "application/json"
+      ],
+      "outputModes": [
+        "application/json"
+      ],
+      "tags": [
+        "llm",
+        "evaluation",
+        "score"
+      ],
+      "examples": [
+        {
+          "target": "def f(x): return x*2"
+        }
+      ]
+    },
+    {
+      "id": "intel_wallet",
+      "name": "intel/wallet",
+      "description": "Unified wallet intelligence bundle. ONE call: balances on Base + Ethereum + Solana, USDC, tx counts, ENS/SNS reverse, sanctions verdict. 8-10 parallel sources. $0.005 USDC.",
+      "url": "https://api.anchor-x402.com/v1/intel/wallet",
+      "method": "GET",
+      "price_usd": 0.005,
+      "inputModes": [
+        "application/json"
+      ],
+      "outputModes": [
+        "application/json"
+      ],
+      "tags": [
+        "wallet-intel",
+        "balances",
+        "kyb",
+        "counterparty"
+      ]
+    },
+    {
+      "id": "investigate_wallet",
+      "name": "investigate",
+      "description": "Agent-driven wallet due diligence — multi-step investigation, signed markdown report + JSON sidecar, dual-chain anchored. Async — returns job_id; poll /v1/investigate/status/{job_id} for the deliverable. ETA 5-10 min. $1.77 USDC.",
+      "url": "https://api.anchor-x402.com/v1/investigate",
+      "method": "POST",
+      "price_usd": 1.77,
+      "inputModes": [
+        "application/json"
+      ],
+      "outputModes": [
+        "application/json"
+      ],
+      "tags": [
+        "due-diligence",
+        "aml",
+        "report",
+        "async",
+        "anchored"
+      ],
+      "examples": [
+        {
+          "address": "0x1234567890123456789012345678901234567890",
+          "depth": "standard"
+        }
+      ]
+    },
+    {
+      "id": "ledger_report",
+      "name": "ledger/report",
+      "description": "Signed + dual-chain-anchored x402 expense report (markdown + CSV, async job). $0.35 USDC.",
+      "url": "https://api.anchor-x402.com/v1/ledger/report",
+      "method": "POST",
+      "price_usd": 0.35,
+      "inputModes": [
+        "application/json"
+      ],
+      "outputModes": [
+        "application/json"
+      ],
+      "tags": [
+        "accounting",
+        "report",
+        "anchored",
+        "async"
+      ],
+      "examples": [
+        {
+          "wallet": "0x1234567890123456789012345678901234567890"
+        }
+      ]
+    },
+    {
+      "id": "ledger_summary",
+      "name": "ledger/summary",
+      "description": "x402 spend accounting for any Base wallet — totals + per-service breakdown reconstructed from chain data. $0.01 USDC.",
+      "url": "https://api.anchor-x402.com/v1/ledger/summary",
+      "method": "POST",
+      "price_usd": 0.01,
+      "inputModes": [
+        "application/json"
+      ],
+      "outputModes": [
+        "application/json"
+      ],
+      "tags": [
+        "accounting",
+        "x402",
+        "spend"
+      ],
+      "examples": [
+        {
+          "from": "2026-06-01",
+          "wallet": "0x1234567890123456789012345678901234567890"
+        }
+      ]
+    },
+    {
+      "id": "oracle_verdict",
+      "name": "oracle",
+      "description": "Yes/no oracle with dual-chain anchored verdict (Base + Solana). $0.05 USDC.",
+      "url": "https://api.anchor-x402.com/v1/oracle",
+      "method": "POST",
+      "price_usd": 0.05,
+      "inputModes": [
+        "application/json"
+      ],
+      "outputModes": [
+        "application/json"
+      ],
+      "tags": [
+        "llm",
+        "decision",
+        "anchored",
+        "yes-no"
+      ],
+      "examples": [
+        {
+          "question": "Is this contract a proxy?"
+        }
+      ]
+    },
+    {
       "id": "parse_datetime",
       "name": "parse/datetime",
       "description": "Parse freeform datetime strings into ISO 8601 + components + relative time + confidence. $0.001 USDC.",
@@ -218,61 +316,230 @@
       ]
     },
     {
-      "id": "intel_wallet",
-      "name": "intel/wallet",
-      "description": "Unified wallet intelligence bundle. ONE call: balances on Base + Ethereum + Solana, USDC, tx counts, ENS/SNS reverse, sanctions verdict. 8-10 parallel sources. $0.005 USDC.",
-      "url": "https://api.anchor-x402.com/v1/intel/wallet",
+      "id": "resolve_name",
+      "name": "resolve/name",
+      "description": "Cross-chain name resolution: ENS (.eth) and Bonfida SNS (.sol). Returns resolved address(es). 1h cache. $0.001 USDC.",
+      "url": "https://api.anchor-x402.com/v1/resolve/name",
       "method": "GET",
-      "price_usd": 0.005,
+      "price_usd": 0.001,
       "inputModes": [
-        "query"
+        "application/json"
       ],
       "outputModes": [
         "application/json"
       ],
       "tags": [
-        "wallet-intel",
-        "balances",
-        "kyb",
-        "counterparty"
+        "ens",
+        "sns",
+        "name-service"
+      ]
+    },
+    {
+      "id": "roast_target",
+      "name": "roast",
+      "description": "Witty roast of any target — wallet, tweet, idea, code, anything. $0.05 USDC.",
+      "url": "https://api.anchor-x402.com/v1/roast",
+      "method": "POST",
+      "price_usd": 0.05,
+      "inputModes": [
+        "application/json"
+      ],
+      "outputModes": [
+        "application/json"
+      ],
+      "tags": [
+        "llm",
+        "humor",
+        "text"
+      ],
+      "examples": [
+        {
+          "target": "my portfolio"
+        }
+      ]
+    },
+    {
+      "id": "roll_random",
+      "name": "roll",
+      "description": "Verifiable RNG — cryptographically-random integer(s) signed by the treasury key. Drop-in VRF for game studios. $0.001 USDC.",
+      "url": "https://api.anchor-x402.com/v1/roll",
+      "method": "POST",
+      "price_usd": 0.001,
+      "inputModes": [
+        "application/json"
+      ],
+      "outputModes": [
+        "application/json"
+      ],
+      "tags": [
+        "rng",
+        "verifiable",
+        "signed",
+        "anchored"
+      ],
+      "examples": [
+        {
+          "count": 1,
+          "max": 100,
+          "min": 1
+        }
+      ]
+    },
+    {
+      "id": "screen_wallet",
+      "name": "screen",
+      "description": "OFAC SDN sanctions + AML screening for any wallet address. Returns sanctions match, flagged programs, risk level. $0.001 USDC.",
+      "url": "https://api.anchor-x402.com/v1/screen",
+      "method": "GET",
+      "price_usd": 0.001,
+      "inputModes": [
+        "application/json"
+      ],
+      "outputModes": [
+        "application/json"
+      ],
+      "tags": [
+        "sanctions",
+        "ofac",
+        "aml",
+        "compliance"
+      ],
+      "examples": [
+        {
+          "wallet": "0x8589427373d6d84e98730d7795d8f6f8731fda16"
+        }
+      ]
+    },
+    {
+      "id": "tldr_text",
+      "name": "tldr",
+      "description": "Summarize a URL or pasted text into 3-5 concise bullets. $0.01 USDC.",
+      "url": "https://api.anchor-x402.com/v1/tldr",
+      "method": "POST",
+      "price_usd": 0.01,
+      "inputModes": [
+        "application/json"
+      ],
+      "outputModes": [
+        "application/json"
+      ],
+      "tags": [
+        "llm",
+        "summarize",
+        "url"
+      ],
+      "examples": [
+        {
+          "url": "https://example.com/long-post"
+        },
+        {
+          "text": "…pasted text…"
+        }
+      ]
+    },
+    {
+      "id": "token_price",
+      "name": "price/token",
+      "description": "USD spot price for any major token. By symbol or chain+contract. CoinGecko-backed, 60s cache. $0.001 USDC.",
+      "url": "https://api.anchor-x402.com/v1/price/token",
+      "method": "GET",
+      "price_usd": 0.001,
+      "inputModes": [
+        "application/json"
+      ],
+      "outputModes": [
+        "application/json"
+      ],
+      "tags": [
+        "price",
+        "coingecko",
+        "tokens"
       ]
     }
   ],
-  "discovery": {
-    "openapi": "https://api.anchor-x402.com/openapi.json",
-    "x402": "https://anchor-x402.com/.well-known/x402.json",
-    "mcp_server": "https://www.npmjs.com/package/anchor-x402-mcp",
-    "trust_portal": "https://anchor-x402.com/trust/",
-    "status_page": "https://anchor-x402.betteruptime.com"
-  },
-  "license": "MIT",
-  "source": "https://github.com/hypeprinter007-stack/anchor-x402",
+  "additionalInterfaces": [
+    {
+      "url": "https://api.anchor-x402.com/v1/a2a",
+      "transport": "JSONRPC"
+    }
+  ],
   "extensions": {
     "anchor-x402:a2a": {
       "endpoint": "https://api.anchor-x402.com/v1/a2a",
       "transport": "json-rpc-2.0",
+      "signature_algorithm": "ed25519",
+      "digest": "sha256-canonical-json",
+      "signed_fields": [
+        "aud",
+        "body",
+        "exp",
+        "key_id",
+        "method",
+        "nonce",
+        "origin"
+      ],
+      "audience": "https://api.anchor-x402.com",
+      "methods": [
+        "peer/hello",
+        "capabilities/list",
+        "peer/quote",
+        "peer/receipt"
+      ],
+      "artifact_types": [
+        "a2a.quote.v1",
+        "a2a.receipt.v1",
+        "a2a.receipt-root.v1"
+      ],
+      "identity_only": true,
+      "scope_excludes": [
+        "payments",
+        "treasury",
+        "admin",
+        "credentials",
+        "user_data",
+        "partnership_claims"
+      ],
+      "open_to": "any agent publishing an Ed25519 key in its own /.well-known/agent-card.json",
       "keys": [
         {
           "key_id": "anchor-a2a-2026-01",
           "public_key_der_base64": "MCowBQYDK2VwAyEAmkSQNeLBAltBCfr39EG25OAVXyOH0zdzFQO+4/+dSig=",
           "status": "active",
-          "custody": "aws-kms"
+          "custody": "aws-kms",
+          "not_after": "2027-07-28T00:00:00Z"
         }
       ],
-      "signature_algorithm": "ed25519",
-      "digest": "sha256-canonical-json",
-      "signed_fields": ["body", "exp", "method", "nonce", "origin"],
-      "methods": ["peer/hello", "capabilities/list", "peer/quote", "peer/receipt"],
-      "authorization": "standing policy — these methods are open to any peer that verifies; paid work is authorized by x402 payment on the metered /v1/* routes",
-      "identity_only": true,
-      "scope_excludes": ["payments", "treasury", "admin", "credentials", "user_data", "partnership_claims"],
-      "open_to": "any agent publishing an Ed25519 key in its own /.well-known/agent-card.json"
+      "revocation": "Keys are revoked by setting status to 'retired' here, or removing the entry. Peers cache this card for at most 3600s, which bounds propagation."
+    },
+    "anchor-x402:x402": {
+      "version": 2,
+      "facilitator": "https://api.cdp.coinbase.com/platform/v2/x402",
+      "networks": [
+        "eip155:8453",
+        "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"
+      ],
+      "asset": "USDC",
+      "discovery_extension": "bazaar",
+      "price_authority": "The 402 challenge response is authoritative for price. skills[].price_usd is indicative and a cached card may be stale — never pay from it."
+    },
+    "anchor-x402:discovery": {
+      "openapi": "https://api.anchor-x402.com/openapi.json",
+      "x402": "https://anchor-x402.com/.well-known/x402.json",
+      "mcp_server": "https://www.npmjs.com/package/anchor-x402-mcp",
+      "trust_portal": "https://anchor-x402.com/trust/",
+      "status_page": "https://anchor-x402.betteruptime.com",
+      "llms_txt": "https://anchor-x402.com/llms.txt"
     },
     "agoragentic:federation": {
       "key_id": "anchor-pilot-2026-01",
       "public_key_der_base64": "MCowBQYDK2VwAyEAc3PaOglz6Z19niAHIMg9YopEy8f1hINJq0r0kkAJbgQ=",
+      "status": "active",
+      "custody": "aws-secrets-manager",
       "capability_exchange": true,
-      "federation_consent": true
+      "federation_consent": true,
+      "scope": "Agoragentic federation pilot only; not used for general A2A traffic."
     }
-  }
+  },
+  "license": "MIT",
+  "source": "https://github.com/hypeprinter007-stack/anchor-x402"
 }

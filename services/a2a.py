@@ -55,6 +55,10 @@ log = logging.getLogger("anchor.a2a")
 NAMESPACE = "anchor-x402:a2a"
 KEY_ID = "anchor-a2a-2026-01"
 
+# The value peers must put in `aud`. Must match extensions[NAMESPACE].audience in
+# the published card, which scripts/gen_agent_card.py emits from the same base.
+AUDIENCE = os.getenv("PUBLIC_BASE_URL", "https://api.anchor-x402.com")
+
 METHODS = ("peer/hello", "capabilities/list", "peer/quote", "peer/receipt")
 
 _ROOT = os.path.dirname(os.path.dirname(__file__))
@@ -117,20 +121,29 @@ def digest_of(obj: Any) -> str:
     return "sha256:" + hashlib.sha256(canonical(obj).encode()).hexdigest()
 
 
-def request_digest(*, method: str, origin: str, nonce: str, exp: int, body: Any) -> str:
+def request_digest(*, method: str, origin: str, nonce: str, exp: int, body: Any,
+                   aud: str, key_id: str) -> str:
     """The exact bytes a peer signs. Every field that changes the meaning of
     the call is covered: method (so a signature for `peer/hello` cannot be
     replayed onto `peer/quote`), origin (so it cannot be reattributed to
     another peer), nonce + exp (replay window), body (arguments).
+
+    `aud` names the intended recipient. Without it an envelope signed for us
+    verifies at any other server running this scheme — their replay store is not
+    ours — so any recipient could relay a sender's authenticated requests
+    onward. `key_id` binds the signer's key choice: unauthenticated, a peer that
+    published one key under two ids (one active, one retired) could have its
+    revocation defeated by swapping the id.
 
     Note the body is re-canonicalized from the parsed JSON, so float values
     would be a cross-language interop hazard (JS emits `1`, Python `1.0`).
     Documented in llms.txt: bodies stay strings/ints/bools. No current method
     takes a number.
     """
-    return digest_of(
-        {"body": body, "exp": exp, "method": method, "nonce": nonce, "origin": origin}
-    )
+    return digest_of({
+        "aud": aud, "body": body, "exp": exp, "key_id": key_id,
+        "method": method, "nonce": nonce, "origin": origin,
+    })
 
 
 # --------------------------------------------------------------------------
@@ -830,9 +843,18 @@ def verify(method: str, params: dict[str, Any]) -> str:
 
     if not isinstance(params, dict):
         raise A2AError(ERR_PARAMS, "params must be an object")
-    for field in ("origin", "key_id", "nonce", "exp", "signature"):
+    for field in ("aud", "origin", "key_id", "nonce", "exp", "signature"):
         if field not in params:
             raise A2AError(ERR_PARAMS, f"params.{field} is required")
+
+    # Reject envelopes addressed elsewhere before doing any work. This is what
+    # stops a signed envelope from being replayed at a different server.
+    aud = str(params["aud"])
+    if aud != AUDIENCE:
+        raise A2AError(
+            ERR_PARAMS,
+            f"aud must be exactly {AUDIENCE} — this envelope is addressed to {safe_echo(aud, 60)}",
+        )
 
     body = params.get("body")
     if len(canonical(body).encode()) > pol["max_body_bytes"]:
@@ -863,8 +885,10 @@ def verify(method: str, params: dict[str, Any]) -> str:
     # Before peer_key(), which may fetch the peer's card — that outbound request
     # is the expensive, abusable part, so the limit has to precede it.
     rate_check(origin)
-    key = peer_key(origin, clean_key_id(params["key_id"]))
-    expected = request_digest(method=method, origin=origin, nonce=nonce, exp=exp, body=body)
+    key_id = clean_key_id(params["key_id"])
+    key = peer_key(origin, key_id)
+    expected = request_digest(method=method, origin=origin, nonce=nonce, exp=exp,
+                              body=body, aud=aud, key_id=key_id)
     try:
         key.verify(base64.b64decode(params["signature"]), expected.encode("ascii"))
     except (InvalidSignature, ValueError, TypeError) as e:

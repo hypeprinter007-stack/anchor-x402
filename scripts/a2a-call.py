@@ -44,6 +44,8 @@ def main() -> None:
     ap.add_argument("--to", default=DEFAULT_TO, help="peer A2A endpoint URL")
     ap.add_argument("--body", default="null", help="JSON method arguments")
     ap.add_argument("--origin", default=OUR_ORIGIN, help="our card origin (what the peer verifies)")
+    ap.add_argument("--aud", default=DEFAULT_TO.rsplit("/v1/a2a", 1)[0],
+                    help="recipient origin; must equal the peer's declared audience")
     ap.add_argument("--ttl", type=int, default=120, help="seconds until the envelope expires")
     args = ap.parse_args()
 
@@ -52,8 +54,9 @@ def main() -> None:
     exp = int(time.time()) + args.ttl
 
     # --- the entire client-side protocol -----------------------------------
-    signed_fields = {"body": body, "exp": exp, "method": args.method,
-                     "nonce": nonce, "origin": args.origin}
+    key_id = a2a_svc.active_key_id()
+    signed_fields = {"aud": args.aud, "body": body, "exp": exp, "key_id": key_id,
+                     "method": args.method, "nonce": nonce, "origin": args.origin}
     canonical = json.dumps(signed_fields, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     digest = "sha256:" + hashlib.sha256(canonical.encode()).hexdigest()
     raw = a2a_svc.sign_digest(digest)          # KMS, or local PEM in dev
@@ -68,8 +71,9 @@ def main() -> None:
         "id": nonce[:8],
         "method": args.method,
         "params": {
+            "aud": args.aud,
             "origin": args.origin,
-            "key_id": a2a_svc.active_key_id(),
+            "key_id": key_id,
             "nonce": nonce,
             "exp": exp,
             "signature_algorithm": "ed25519",

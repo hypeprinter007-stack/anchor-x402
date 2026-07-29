@@ -132,15 +132,18 @@ def _serve_card_once(pub_der_b64: str, close_conn: bool) -> dict | None:
 _n = 0
 
 
-def envelope(method, body=None, *, key=None, exp_delta=60, nonce=None, origin=PEER, tamper=None):
+def envelope(method, body=None, *, key=None, exp_delta=60, nonce=None, origin=PEER, tamper=None,
+             aud=None, key_id=PEER_KEY_ID):
     global _n
     _n += 1
     nonce = nonce or f"test-nonce-{_n:04d}-{method.replace('/', '-')}"
     exp = int(time.time()) + exp_delta
-    d = a2a_svc.request_digest(method=method, origin=origin, nonce=nonce, exp=exp, body=body)
+    aud = a2a_svc.AUDIENCE if aud is None else aud
+    d = a2a_svc.request_digest(method=method, origin=origin, nonce=nonce, exp=exp, body=body,
+                               aud=aud, key_id=key_id)
     sig = (key or _key).sign(d.encode("ascii"))
     params = {
-        "origin": origin, "key_id": PEER_KEY_ID, "nonce": nonce, "exp": exp,
+        "aud": aud, "origin": origin, "key_id": key_id, "nonce": nonce, "exp": exp,
         "signature_algorithm": "ed25519", "signature": base64.b64encode(sig).decode(),
         "body": tamper if tamper is not None else body,
     }
@@ -364,9 +367,7 @@ def main() -> None:
         ("k" * 65, "F4b over-long key_id refused"),
         ("key\nwith-newline", "F4b control characters in key_id refused"),
     ]:
-        env = envelope("peer/hello")
-        env["params"]["key_id"] = bad_key
-        expect_error(client, env, a2a_svc.ERR_PARAMS, label)
+        expect_error(client, envelope("peer/hello", key_id=bad_key), a2a_svc.ERR_PARAMS, label)
 
     # Underscore and '#' must be ACCEPTED: base64url JWK thumbprints contain '_'
     # about half the time and DID key references contain '#', so refusing them
@@ -556,6 +557,71 @@ def main() -> None:
     # F12 — receipt roots: a receipt is only as good as our signature until its
     # root is on-chain. The chain writer is stubbed; a real call would spend
     # mainnet funds from the treasury.
+    # F14 — cross-recipient replay. Without `aud`, an envelope signed for us
+    # verifies at any other server running this scheme, whose replay store is not
+    # ours, so any recipient could relay a peer's authenticated requests onward.
+    print("\nregressions: audience + key binding")
+    env = envelope("peer/hello")
+    del env["params"]["aud"]
+    expect_error(client, env, a2a_svc.ERR_PARAMS, "F14 missing aud is refused")
+
+    expect_error(client, envelope("peer/hello", aud="https://other.example"),
+                 a2a_svc.ERR_PARAMS, "F14 envelope addressed to another server is refused")
+
+    # aud is inside the signed bytes: rewriting it in transit must break the
+    # signature, not merely fail the equality check.
+    env = envelope("peer/hello", aud="https://other.example")
+    env["params"]["aud"] = a2a_svc.AUDIENCE
+    expect_error(client, env, a2a_svc.ERR_SIGNATURE,
+                 "F14 rewriting aud to ours breaks the signature")
+    ok("F14 aud is covered by the digest",
+       a2a_svc.request_digest(method="peer/hello", origin=PEER, nonce="n" * 10, exp=1,
+                              body=None, aud="https://a", key_id="k")
+       != a2a_svc.request_digest(method="peer/hello", origin=PEER, nonce="n" * 10, exp=1,
+                                 body=None, aud="https://b", key_id="k"))
+
+    # F15 — key_id binding. A peer publishing one key under two ids (one active,
+    # one retired) could otherwise have its revocation defeated by swapping ids.
+    env = envelope("peer/hello", key_id="other-id")
+    env["params"]["key_id"] = PEER_KEY_ID
+    expect_error(client, env, a2a_svc.ERR_SIGNATURE,
+                 "F15 swapping key_id after signing breaks the signature")
+    ok("F15 key_id is covered by the digest",
+       a2a_svc.request_digest(method="peer/hello", origin=PEER, nonce="n" * 10, exp=1,
+                              body=None, aud="https://a", key_id="k1")
+       != a2a_svc.request_digest(method="peer/hello", origin=PEER, nonce="n" * 10, exp=1,
+                                 body=None, aud="https://a", key_id="k2"))
+
+    # F16 — the card is the discovery contract; it drifted to advertising
+    # eighteen services while listing nine. It is now generated from the routes
+    # that charge, and this fails if anyone edits it by hand.
+    print("\nregressions: agent card conformance (A2A 0.3.0)")
+    card = a2a_svc.our_card()
+    ok("F16 protocolVersion is the spec field", card.get("protocolVersion") == "0.3.0",
+       str(card.get("protocolVersion")))
+    ok("F16 non-spec fields are gone",
+       "schemaVersion" not in card and "authentication" not in card)
+    ok("F16 securitySchemes + security are declared",
+       isinstance(card.get("securitySchemes"), dict) and isinstance(card.get("security"), list))
+    ok("F16 provider uses organization", "organization" in (card.get("provider") or {}))
+    paid_paths = {
+        k.split(" ", 1)[1]
+        for k, c in __import__("app").x402_routes.items()
+        if any(isinstance(getattr(o, "price", None), str) for o in (c.accepts or []))
+    }
+    card_paths = {s["url"].split(".com", 1)[1] for s in card["skills"]}
+    ok("F16 card covers every paid route, and nothing that is not one",
+       card_paths == paid_paths,
+       f"card-only={sorted(card_paths - paid_paths)} route-only={sorted(paid_paths - card_paths)}")
+    ok("F16 description advertises the number it actually lists",
+       card["description"].startswith(f"{len(card['skills'])} "), card["description"][:40])
+    ok("F16 every skill names a real paid route (no prose-only services)",
+       all(_a2a_route_price(s) == s["price_usd"] for s in card["skills"]))
+    ok("F16 card declares the audience peers must sign",
+       card["extensions"]["anchor-x402:a2a"]["audience"] == a2a_svc.AUDIENCE)
+    ok("F16 card states the 402 header is authoritative on price",
+       "authoritative" in card["extensions"]["anchor-x402:x402"]["price_authority"])
+
     print("\nreceipt root anchoring")
     from services import a2a_cron
 
