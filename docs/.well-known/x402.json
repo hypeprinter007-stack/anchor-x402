@@ -2,7 +2,7 @@
   "version": "2.0",
   "name": "anchor-x402",
   "description": "Eighteen x402-paid services for AI agents on three settlement rails — Base USDC, Solana USDC, and JPYC on Polygon (¥1 per anchor call). Nine commodity primitives, one async due-diligence investigator ($1.77 / ¥350), one verifiable signed RNG (drop-in VRF), and five universal LLM endpoints (roast, oracle with on-chain anchored verdict, TL;DR, aura, grade), and a two-endpoint x402 spend-accounting ledger (summary + signed anchored expense report). Plus a hosted chatbot at chat.anchor-x402.com. Pay-per-call, no API keys, no accounts.",
-  "description_ja": "AIエージェント向けのx402従量課金サービス16種、3つの決済レール対応 — Baseメインネット USDC、Solanaメインネット USDC、PolygonメインネットJPYC（アンカー1回あたり¥1）。汎用プリミティブ9種、非同期デューデリジェンス調査1種（$1.77 / ¥350）、検証可能な署名付き乱数生成1種（VRF互換）、汎用LLMエンドポイント5種（roast、オンチェーンアンカー判定付きoracle、TL;DR、aura、grade）。さらにchat.anchor-x402.comではホスト型チャットボットも利用可能。コール単位の決済で、APIキー・アカウント登録ともに不要です。",
+  "description_ja": "AIエージェント向けのx402従量課金サービス18種、3つの決済レール対応 — Baseメインネット USDC、Solanaメインネット USDC、PolygonメインネットJPYC（アンカー1回あたり¥1）。汎用プリミティブ9種、非同期デューデリジェンス調査1種（$1.77 / ¥350）、検証可能な署名付き乱数生成1種（VRF互換）、汎用LLMエンドポイント5種（roast、オンチェーンアンカー判定付きoracle、TL;DR、aura、grade）。さらにchat.anchor-x402.comではホスト型チャットボットも利用可能。コール単位の決済で、APIキー・アカウント登録ともに不要です。",
   "operator": "anchor-x402",
   "homepage": "https://anchor-x402.com",
   "trust_portal": "https://anchor-x402.com/trust/",
@@ -53,13 +53,22 @@
       "path": "/openapi.json",
       "method": "GET",
       "description": "Full OpenAPI 3 spec for all 18 paid services",
-      "description_ja": "16種の有料サービス全てを記述したOpenAPI 3完全仕様。"
+      "description_ja": "18種の有料サービス全てを記述したOpenAPI 3完全仕様。"
     },
     {
       "path": "/docs",
       "method": "GET",
       "description": "Swagger UI for interactive exploration",
       "description_ja": "対話的にサービスを試せるSwagger UI。"
+    },
+    {
+      "path": "/v1/a2a",
+      "method": "POST",
+      "description": "Agent-to-agent door — signed JSON-RPC 2.0, no API key or account. Methods: peer/hello, capabilities/list, peer/quote, peer/receipt. Authenticate with an Ed25519 key published in your own /.well-known/agent-card.json; see the A2A agent card for the signing recipe and required audience.",
+      "description_ja": "エージェント間通信の窓口 — 署名付きJSON-RPC 2.0、APIキーやアカウント不要。自身の/.well-known/agent-card.jsonにEd25519公開鍵を掲載して認証します。",
+      "protocol": "a2a",
+      "agent_card": "https://anchor-x402.com/.well-known/agent-card.json",
+      "a2a_protocol_version": "0.3.0"
     }
   ],
   "routes": [

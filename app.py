@@ -143,6 +143,17 @@ except ImportError:
     pass
 
 
+# Free, machine-facing paths where knowing the caller is the point.
+_DISCOVERY_PATHS = frozenset({
+    "/.well-known/agent-card.json",
+    "/.well-known/x402.json",
+    "/.well-known/x402",
+    "/v1/a2a",
+    "/llms.txt",
+    "/openapi.json",
+})
+
+
 @app.middleware("http")
 async def _access_log(request, call_next):
     """One-line access log per request → Lambda CloudWatch.
@@ -150,6 +161,26 @@ async def _access_log(request, call_next):
     response = await call_next(request)
     host = request.headers.get("host", "").split(":")[0]
     print(f"access host={host} method={request.method} path={request.url.path} status={response.status_code}")
+    # Discovery surfaces get caller attribution, and only they do. Whoever reads
+    # the agent card is the thing we most need to identify — is it an agent, a
+    # directory crawler, or us — and the plain access line above carries no
+    # user-agent or client address, which made "has anyone found us?"
+    # unanswerable. Restricted to a handful of free paths so this does not add a
+    # field to all ~20k daily requests.
+    if request.url.path in _DISCOVERY_PATHS:
+        try:
+            fwd = request.headers.get("x-forwarded-for", "")
+            print("DISCOVERY " + json.dumps({
+                "ts": int(time.time()),
+                "path": request.url.path,
+                "status": response.status_code,
+                "host": host,
+                # First hop only; the rest is proxy chain. Public client address.
+                "ip": fwd.split(",")[0].strip()[:45],
+                "ua": request.headers.get("user-agent", "")[:120],
+            }, separators=(",", ":")))
+        except Exception:
+            pass
     # Settled-payment telemetry. This middleware is innermost (inside x402_mw),
     # so a request carrying X-PAYMENT that reached here has already passed
     # verification — a <400 response means a paid call was delivered. One
@@ -2430,7 +2461,7 @@ def agent_card():
     )
 
 
-def _a2a_log(method: str, peer: str, ok: bool, detail: str = "") -> None:
+def _a2a_log(method: str, peer: str, ok: bool, detail: str = "", ua: str = "") -> None:
     """Same shape as the CHALLENGE / PAID_CALL funnel lines so peer traffic is
     greppable in CloudWatch without a new tool. Failures carry their own
     `A2A_FAIL` prefix: a CloudWatch JSON filter (`{ $.ok IS FALSE }`) cannot
@@ -2444,6 +2475,10 @@ def _a2a_log(method: str, peer: str, ok: bool, detail: str = "") -> None:
             "peer": a2a_svc.log_safe(peer, 120),
             "ok": ok,
         }
+        if ua:
+            # A peer's declared origin is self-asserted until verified; the
+            # user-agent is independent evidence of what software is calling.
+            entry["ua"] = a2a_svc.log_safe(ua, 120)
         if detail:
             # Our own strings, but several interpolate peer-supplied values.
             # Sanitize at the sink rather than auditing every interpolation site.
@@ -2672,9 +2707,10 @@ async def a2a_rpc(request: Request):
     # by substring. Unsanitized, one unauthenticated POST naming an origin that
     # contains the literal signing-failure token forges that alarm.
     peer = str(params.get("origin", ""))[:120] if isinstance(params, dict) else ""
+    ua = request.headers.get("user-agent", "")
 
     def fail(code: int, message: str):
-        _a2a_log(str(method), peer, False, message)
+        _a2a_log(str(method), peer, False, message, ua)
         return JSONResponse(
             content={"jsonrpc": "2.0", "id": rpc_id,
                      "error": {"code": code, "message": message}},
@@ -2711,7 +2747,7 @@ async def a2a_rpc(request: Request):
         logging.getLogger("anchor.a2a").exception("a2a %s failed", method)
         return fail(-32603, "internal error")
 
-    _a2a_log(method, origin, True)
+    _a2a_log(method, origin, True, ua=ua)
     return {"jsonrpc": "2.0", "id": rpc_id, "result": result}
 
 

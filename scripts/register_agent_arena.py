@@ -29,12 +29,16 @@ ENDPOINT = "https://agentarena.site/api/register?a2a=true&mcp=true"
 PAYLOAD = {
     "name": "anchor-x402",
     "description": (
-        "Nine x402-paid commodity services for AI agents. One AWS Lambda, one OpenAPI spec, "
-        "dual-listed on CDP Bazaar and pay.sh. Pay per call in USDC on Base or Solana mainnet — "
-        "no API keys, no accounts, no subscriptions. Services: hash anchoring to Base+Solana ($0.005), "
-        "OFAC sanctions screening ($0.001), signed decision attestation with dual-chain anchor ($0.010), "
-        "transaction decode ($0.001), ENS/SNS resolution ($0.001), USD token price ($0.001), "
-        "calldata 4byte+ABI decode ($0.001), freeform datetime parsing ($0.001), bundled wallet intel ($0.005). "
+        "Eighteen x402-paid services for AI agents. One AWS Lambda, one OpenAPI spec. Pay per "
+        "call in USDC on Base or Solana mainnet — no API keys, no accounts, no subscriptions. "
+        "Hash anchoring to Base+Solana ($0.005), OFAC sanctions screening ($0.001), signed "
+        "decision attestation with dual-chain anchor ($0.010), transaction and calldata decode "
+        "($0.001), ENS/SNS resolution ($0.001), token price ($0.001), datetime parsing ($0.001), "
+        "bundled wallet intel ($0.005), verifiable signed RNG ($0.001), x402 spend accounting "
+        "($0.01), agent-driven wallet due diligence ($1.77), and five LLM endpoints ($0.01-$0.05). "
+        "Also exposes a free agent-to-agent door at POST /v1/a2a: signed JSON-RPC 2.0, no API "
+        "key, authenticate with an Ed25519 key in your own agent card. Quotes, receipts and "
+        "daily receipt roots anchored to Base + Solana. "
         "Sources: github.com/hypeprinter007-stack/anchor-x402. MCP: anchor-x402-mcp on npm."
     ),
     "capabilities": [
@@ -51,6 +55,13 @@ PAYLOAD = {
         "calldata-decode",
         "datetime-parse",
         "wallet-intel",
+        "a2a",
+        "agent-to-agent",
+        "signed-receipts",
+        "verifiable-rng",
+        "spend-accounting",
+        "due-diligence",
+        "llm",
         "x402",
         "base",
         "solana",
@@ -62,6 +73,11 @@ PAYLOAD = {
             "name": "A2A",
             "endpoint": "https://anchor-x402.com/.well-known/agent-card.json",
             "version": "0.3.0",
+            # The card is the discovery document per spec; name the JSON-RPC door
+            # too so a registry consumer does not have to fetch to find it.
+            "rpcEndpoint": "https://api.anchor-x402.com/v1/a2a",
+            "transport": "json-rpc-2.0",
+            "signedCard": True,
         },
         {
             "name": "MCP",
