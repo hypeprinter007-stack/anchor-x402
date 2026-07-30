@@ -56,16 +56,8 @@
         "dual-chain"
       ],
       "examples": [
-        {
-          "hash": "ab0898397c86fbf97c99c6f8b29e55ab697315705777ee1d106e2dcb9bd686b3"
-        },
-        {
-          "data": {
-            "decision": "APPROVED",
-            "vendor": "Acme"
-          },
-          "note": "Q2 vendor diligence"
-        }
+        "{\"hash\": \"ab0898397c86fbf97c99c6f8b29e55ab697315705777ee1d106e2dcb9bd686b3\"}",
+        "{\"data\": {\"decision\": \"APPROVED\", \"vendor\": \"Acme\"}, \"note\": \"Q2 vendor diligence\"}"
       ]
     },
     {
@@ -107,9 +99,7 @@
         "novelty"
       ],
       "examples": [
-        {
-          "target": "0x1234567890123456789012345678901234567890"
-        }
+        "{\"target\": \"0x1234567890123456789012345678901234567890\"}"
       ]
     },
     {
@@ -169,9 +159,7 @@
         "score"
       ],
       "examples": [
-        {
-          "target": "def f(x): return x*2"
-        }
+        "{\"target\": \"def f(x): return x*2\"}"
       ]
     },
     {
@@ -215,10 +203,7 @@
         "anchored"
       ],
       "examples": [
-        {
-          "address": "0x1234567890123456789012345678901234567890",
-          "depth": "standard"
-        }
+        "{\"address\": \"0x1234567890123456789012345678901234567890\", \"depth\": \"standard\"}"
       ]
     },
     {
@@ -241,9 +226,7 @@
         "async"
       ],
       "examples": [
-        {
-          "wallet": "0x1234567890123456789012345678901234567890"
-        }
+        "{\"wallet\": \"0x1234567890123456789012345678901234567890\"}"
       ]
     },
     {
@@ -265,10 +248,7 @@
         "spend"
       ],
       "examples": [
-        {
-          "from": "2026-06-01",
-          "wallet": "0x1234567890123456789012345678901234567890"
-        }
+        "{\"from\": \"2026-06-01\", \"wallet\": \"0x1234567890123456789012345678901234567890\"}"
       ]
     },
     {
@@ -291,9 +271,7 @@
         "yes-no"
       ],
       "examples": [
-        {
-          "question": "Is this contract a proxy?"
-        }
+        "{\"question\": \"Is this contract a proxy?\"}"
       ]
     },
     {
@@ -353,9 +331,7 @@
         "text"
       ],
       "examples": [
-        {
-          "target": "my portfolio"
-        }
+        "{\"target\": \"my portfolio\"}"
       ]
     },
     {
@@ -378,11 +354,7 @@
         "anchored"
       ],
       "examples": [
-        {
-          "count": 1,
-          "max": 100,
-          "min": 1
-        }
+        "{\"count\": 1, \"max\": 100, \"min\": 1}"
       ]
     },
     {
@@ -405,9 +377,7 @@
         "compliance"
       ],
       "examples": [
-        {
-          "wallet": "0x8589427373d6d84e98730d7795d8f6f8731fda16"
-        }
+        "{\"wallet\": \"0x8589427373d6d84e98730d7795d8f6f8731fda16\"}"
       ]
     },
     {
@@ -429,12 +399,8 @@
         "url"
       ],
       "examples": [
-        {
-          "url": "https://example.com/long-post"
-        },
-        {
-          "text": "…pasted text…"
-        }
+        "{\"url\": \"https://example.com/long-post\"}",
+        "{\"text\": \"…pasted text…\"}"
       ]
     },
     {
@@ -479,12 +445,18 @@
         "origin"
       ],
       "audience": "https://api.anchor-x402.com",
-      "methods": [
+      "a2a_methods": [
+        "message/send",
+        "tasks/get",
+        "tasks/cancel"
+      ],
+      "extension_methods": [
         "peer/hello",
         "capabilities/list",
         "peer/quote",
         "peer/receipt"
       ],
+      "extension_methods_note": "The a2a_methods above are the spec methods at the card's top-level `url` and need no signature — authorization is the x402 payment named in securitySchemes. The extension_methods are ours, require the signed envelope described by signed_fields, and are not part of A2A.",
       "artifact_types": [
         "a2a.quote.v1",
         "a2a.receipt.v1",
@@ -556,7 +528,7 @@
   "signatures": [
     {
       "protected": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImFuY2hvci1jYXJkLTIwMjYtMDEiLCJ0eXAiOiJKT1NFIn0",
-      "signature": "FjrxUwExgru8NsfQKWeiPNWcxDpxDrJMVYwhbXnvXFcL3udPhpxQ_7xqylQgJNxfH4mV0WFAGllhrMRKsaqvmQ"
+      "signature": "MHdYLtju6uPWNheuAfjN5-Vu8CdxzCj0AGl0S0arx6HhW0deTXPWu3MAZXWom9GtovlXa1lGuOUZROeORfrb8Q"
     }
   ]
 }

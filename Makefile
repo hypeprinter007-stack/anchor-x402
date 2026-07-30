@@ -48,6 +48,8 @@ build-AnchorFunction:
 	# Hand-authored skill metadata; scripts/gen_agent_card.py merges it with the
 	# charging table. Not read at runtime, but shipped so the --check guard works.
 	cp data/agent-card-skills.json "$(ARTIFACTS_DIR)/data/"
+	# Official A2A 0.3.0 JSON Schema — the card is validated against it in tests.
+	cp data/a2a-0.3.0-schema.json "$(ARTIFACTS_DIR)/data/"
 	mkdir -p "$(ARTIFACTS_DIR)/static"
 	cp static/chat.html static/chat.bundle.js.gz static/farcaster.json static/icon.png static/splash.png static/s.png "$(ARTIFACTS_DIR)/static/"
 	# Ship the .well-known/x402.json discovery doc + robots.txt + llms.txt

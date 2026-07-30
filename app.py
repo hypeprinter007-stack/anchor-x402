@@ -74,6 +74,7 @@ from models import (
     TxDecodeResponse,
 )
 from services import a2a as a2a_svc
+from services import a2a_tasks
 from services import anchor as anchor_svc
 from services import attest as attest_svc
 from services import aura as aura_svc
@@ -2628,6 +2629,39 @@ def _a2a_quote(origin: str, body: Any, *, key_id: str, nonce: str) -> dict[str, 
     return a2a_svc.sign(quote)
 
 
+def _a2a_spec_dispatch(method: str, params: Any) -> dict[str, Any]:
+    """The A2A 0.3.0 core methods. Runs in a worker thread — the store reads are
+    blocking, and the endpoint handler is async."""
+    if method == "agent/getAuthenticatedExtendedCard":
+        # We publish no extended card, and the public card omits
+        # supportsAuthenticatedExtendedCard, so refuse with the code the spec
+        # reserves rather than returning the ordinary card and implying more.
+        raise a2a_svc.A2AError(
+            a2a_tasks.ERR_EXTENDED_CARD_NOT_CONFIGURED,
+            "No authenticated extended card is configured; the public agent card is complete.",
+        )
+    if method == "tasks/get":
+        return a2a_tasks.get_task(params)
+    if method == "tasks/cancel":
+        return a2a_tasks.cancel_task(params)
+
+    # message/send
+    if not isinstance(params, dict) or "message" not in params:
+        raise a2a_svc.A2AError(a2a_svc.ERR_PARAMS, "params.message is required")
+    message = a2a_tasks.validate_message(params["message"])
+
+    card = a2a_svc.our_card()
+    skills = card.get("skills", [])
+    skill = a2a_tasks.resolve_skill(message, skills)
+    if skill is None:
+        return a2a_tasks.clarify_task(message, skills)
+
+    return a2a_tasks.payment_task(
+        message, skill, _a2a_route_price(skill),
+        (card.get("extensions") or {}).get("anchor-x402:x402", {}),
+    )
+
+
 def _a2a_with_anchor(receipt: dict[str, Any]) -> dict[str, Any]:
     """Attach on-chain proof as a sibling of the signed payload, never inside it.
 
@@ -2740,9 +2774,27 @@ async def a2a_rpc(request: Request):
                      "error": {"code": code, "message": message}},
         )
 
+    # Two auth regimes on one endpoint, deliberately. The A2A spec methods are
+    # unsigned because a conformant client will not produce our envelope — the
+    # card declares x402 as the security scheme, and payment happens on the
+    # metered route. Our own peer/* methods keep the signature requirement.
+    if method in a2a_tasks.METHODS:
+        try:
+            # No verified origin to key a limit on, so bound by client address.
+            a2a_svc.rate_check(f"ip:{(request.headers.get('x-forwarded-for','') or 'unknown').split(',')[0].strip()[:45]}")
+            result = await run_in_threadpool(_a2a_spec_dispatch, method, params)
+        except a2a_svc.A2AError as e:
+            return fail(e.code, e.message)
+        except Exception:
+            logging.getLogger("anchor.a2a").exception("a2a spec method %s failed", method)
+            return fail(-32603, "Internal error")
+        _a2a_log(method, "spec", True, ua=ua)
+        return {"jsonrpc": "2.0", "id": rpc_id, "result": result}
+
     if method not in a2a_svc.METHODS:
         return fail(a2a_svc.ERR_METHOD,
-                    f"unknown method {method!r}; supported: {', '.join(a2a_svc.METHODS)}")
+                    f"unknown method {method!r}; supported: "
+                    f"{', '.join(sorted(set(a2a_svc.METHODS) | set(a2a_tasks.METHODS)))}")
     if method not in a2a_svc.inbound_policy()["open_methods"]:
         return fail(a2a_svc.ERR_POLICY, f"method {method} is not open under the current policy")
 

@@ -11,10 +11,18 @@ examples) live in data/agent-card-skills.json.
   .venv/bin/python scripts/gen_agent_card.py            # write the card
   .venv/bin/python scripts/gen_agent_card.py --check     # CI: fail if stale
 
-Targets A2A 0.3.0, which is what implementations in the wild read today. The
-v1.0 deltas are listed in V1_MIGRATION below so the move is mechanical: emit
-supportedInterfaces[] instead of url + preferredTransport + additionalInterfaces,
-and bump PROTOCOL_VERSION. Nothing else in the shape changes.
+Targets A2A 0.3.0 — but NOT because it is what clients read. That was an earlier
+assumption and it was wrong: the SDKs (Python, JS, Java, Go, .NET) are v1.0-native
+with a 0.3 compatibility mode, and v1.0.1 is current stable. 0.3.0 is the target
+because v0.3 is not deprecated, because v1.0 REQUIRES supported_interfaces which
+this card does not yet emit (so claiming 1.0 would be a false claim of exactly the
+kind this file exists to prevent), and because 0.3.0 ships a JSON Schema we
+validate against on every test run — v1.0 replaced it with specification/a2a.proto.
+
+The v1.0 deltas are in V1_MIGRATION below. Adding 1.0 is additive rather than a
+cutover: AgentInterface carries its own required protocol_version, so one card
+advertises an interface per version. The state vocabulary is the only behavioural
+difference and it lives in services/a2a_tasks.STATES.
 
 Run scripts/sign_agent_card.py afterwards — regenerating invalidates the JWS.
 """
@@ -132,7 +140,14 @@ def build() -> dict:
             "inputModes": ["application/json"],
             "outputModes": ["application/json"],
             "tags": m.get("tags", []),
-            **({"examples": m["examples"]} if m.get("examples") else {}),
+            # AgentSkill.examples is string[] in the schema, not object[]. The
+            # sidecar authors them as objects because that is readable and
+            # matches the real request body; they are JSON-encoded here so the
+            # card validates against the official v0.3.0 AgentCard schema while
+            # staying machine-parseable by a client that wants the body.
+            **({"examples": [json.dumps(e, ensure_ascii=False, sort_keys=True)
+                             if not isinstance(e, str) else e
+                             for e in m["examples"]]} if m.get("examples") else {}),
         })
 
     return {
@@ -240,7 +255,11 @@ def _a2a_extension() -> dict:
         # replay store is not ours. key_id binds the signer's key choice.
         "signed_fields": ["aud", "body", "exp", "key_id", "method", "nonce", "origin"],
         "audience": BASE,
-        "methods": ["peer/hello", "capabilities/list", "peer/quote", "peer/receipt"],
+        "a2a_methods": ["message/send", "tasks/get", "tasks/cancel"],
+        "extension_methods": ["peer/hello", "capabilities/list", "peer/quote", "peer/receipt"],
+        "extension_methods_note": (
+            "The a2a_methods above are the spec methods at the card's top-level `url` and need no signature — authorization is the x402 payment named in securitySchemes. The extension_methods are ours, require the signed envelope described by signed_fields, and are not part of A2A."
+        ),
         "artifact_types": ["a2a.quote.v1", "a2a.receipt.v1", "a2a.receipt-root.v1"],
         "identity_only": True,
         "scope_excludes": ["payments", "treasury", "admin", "credentials", "user_data",

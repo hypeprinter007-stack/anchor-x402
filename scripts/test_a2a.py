@@ -622,6 +622,25 @@ def main() -> None:
     ok("F16 card states the 402 header is authoritative on price",
        "authoritative" in card["extensions"]["anchor-x402:x402"]["price_authority"])
 
+    # F16b — validate against the official A2A v0.3.0 JSON Schema, not against my
+    # reading of it. This caught 13 errors a prose review did not: AgentSkill
+    # .examples is string[], and we were emitting request-body objects.
+    schema_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                               "data", "a2a-0.3.0-schema.json")
+    if os.path.exists(schema_path):
+        from jsonschema import Draft202012Validator
+        _s = json.load(open(schema_path))
+        _v = Draft202012Validator({"$ref": "#/definitions/AgentCard",
+                                   "definitions": _s["definitions"]})
+        _errs = sorted(_v.iter_errors(card), key=lambda e: list(e.path))
+        ok("F16b card validates against the official A2A 0.3.0 AgentCard schema",
+           not _errs,
+           "; ".join(f"{'/'.join(str(p) for p in e.path)}: {e.message[:60]}" for e in _errs[:3]))
+        ok("F16b skill examples are strings, as the schema requires",
+           all(isinstance(e, str) for sk in card["skills"] for e in sk.get("examples", [])))
+    else:
+        ok("F16b official schema present for validation", False, f"missing {schema_path}")
+
     # F17 — the card carries a detached JWS per A2A 0.3.0 `signatures`. Its value
     # is tamper-evidence for copies that travel outside TLS (registries, mirrors,
     # a peer's cache), so what matters is that mutation is detected — a signature
@@ -749,6 +768,82 @@ def main() -> None:
     swapped = dict(unsigned, type=a2a_svc.TYPE_RECEIPT_ROOT)
     ok("F13 changing the type breaks the digest (it is signed, not decorative)",
        a2a_svc.digest_of(swapped) != anchored["digest"])
+
+    # F19 — the A2A spec methods. A real client sent message/send four times and
+    # was refused, because the card's `url` points here and here only spoke
+    # methods we invented. Every response is validated against the official
+    # v0.3.0 schema rather than against my reading of it.
+    print("\nregressions: A2A 0.3.0 spec methods")
+    from services import a2a_tasks
+
+    def _schema_val(defname):
+        from jsonschema import Draft202012Validator
+        _s = json.load(open(os.path.join(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))), "data", "a2a-0.3.0-schema.json")))
+        return Draft202012Validator({"$ref": f"#/definitions/{defname}",
+                                     "definitions": _s["definitions"]})
+
+    def _rpc(method, params):
+        return client.post("/v1/a2a", json={"jsonrpc": "2.0", "id": "s1",
+                                            "method": method, "params": params}).json()
+
+    def _msg(parts, **kw):
+        return {"kind": "message", "messageId": "m-" + str(len(parts)),
+                "role": "user", "parts": parts, **kw}
+
+    sent = _rpc("message/send", {"message": _msg([{"kind": "data",
+                                                   "data": {"skill": first}}])})
+    ok("F19 message/send is answered, not refused as unknown", "result" in sent,
+       json.dumps(sent)[:170])
+    spec_task = sent.get("result") or {}
+    ok("F19 result validates as a Task against the official schema",
+       not list(_schema_val("Task").iter_errors(spec_task)),
+       "; ".join(e.message[:60] for e in list(_schema_val("Task").iter_errors(spec_task))[:2]))
+    ok("F19 payment uses the spec's own auth-required state",
+       spec_task.get("status", {}).get("state") == "auth-required")
+    _dp = next((p["data"] for p in spec_task["status"]["message"]["parts"]
+                if p["kind"] == "data"), {})
+    ok("F19 task carries the payable resource, price and scheme",
+       _dp.get("authScheme") == "x402" and str(_dp.get("resource", "")).startswith("https://")
+       and isinstance(_dp.get("priceUsd"), (int, float)), json.dumps(_dp)[:110])
+
+    ok("F19 tasks/get round-trips the task",
+       _rpc("tasks/get", {"id": spec_task["id"]}).get("result", {}).get("id") == spec_task["id"])
+    ok("F19 tasks/cancel reaches canceled",
+       _rpc("tasks/cancel", {"id": spec_task["id"]})
+         .get("result", {}).get("status", {}).get("state") == "canceled")
+    ok("F19 re-cancel is TaskNotCancelable (-32002)",
+       _rpc("tasks/cancel", {"id": spec_task["id"]}).get("error", {}).get("code")
+       == a2a_tasks.ERR_TASK_NOT_CANCELABLE)
+    ok("F19 unknown task is TaskNotFound (-32001)",
+       _rpc("tasks/get", {"id": "task-absent"}).get("error", {}).get("code")
+       == a2a_tasks.ERR_TASK_NOT_FOUND)
+    ok("F19 file parts refused with ContentTypeNotSupported (-32005)",
+       _rpc("message/send", {"message": _msg([{"kind": "file",
+                                              "file": {"uri": "https://x/y"}}])})
+         .get("error", {}).get("code") == a2a_tasks.ERR_CONTENT_TYPE_NOT_SUPPORTED)
+    ok("F19 extended card refused with -32007, not faked",
+       _rpc("agent/getAuthenticatedExtendedCard", {}).get("error", {}).get("code")
+       == a2a_tasks.ERR_EXTENDED_CARD_NOT_CONFIGURED)
+
+    _amb = _rpc("message/send", {"message": _msg([{"kind": "text", "text": "hello"}])})["result"]
+    ok("F19 unresolvable skill asks via input-required rather than erroring",
+       _amb["status"]["state"] == "input-required")
+    ok("F19 clarification lists the full catalogue",
+       len(next(p["data"]["availableSkills"] for p in _amb["status"]["message"]["parts"]
+                if p["kind"] == "data")) == len(card["skills"]))
+
+    # The version boundary must stay in one table, or adding 1.0 becomes a rewrite.
+    ok("F19 state vocabulary is version-mapped (0.3.0 vs 1.0)",
+       a2a_tasks.state("auth_required") == "auth-required"
+       and a2a_tasks.state("auth_required", "1.0") == "TASK_STATE_AUTH_REQUIRED")
+    ok("F19 both versions define every state name",
+       set(a2a_tasks.STATES["0.3.0"]) == set(a2a_tasks.STATES["1.0"]))
+
+    # Two auth regimes on one endpoint: spec methods unsigned, peer/* signed.
+    ok("F19 peer/* still refuses an unsigned envelope",
+       "error" in client.post("/v1/a2a", json={"jsonrpc": "2.0", "id": "u",
+                                               "method": "peer/hello", "params": {}}).json())
 
     print("\ncard on the API origin")
     r = client.get("/.well-known/agent-card.json")

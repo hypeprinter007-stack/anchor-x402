@@ -543,6 +543,18 @@ def _put_once(key: str, exp: int, payload: dict[str, Any] | None = None) -> bool
     return True
 
 
+def _put(key: str, exp: int, payload: dict[str, Any]) -> None:
+    """Unconditional write, for records that are meant to be mutable."""
+    table = _table_name()
+    if not table:
+        _local_gc()
+        _local_store[key] = (exp, payload)
+        return
+    _ddb().put_item(TableName=table, Item={
+        "id": {"S": key}, "ttl": {"N": str(exp)}, "payload": {"S": canonical(payload)},
+    })
+
+
 def _get(key: str) -> dict[str, Any] | None:
     table = _table_name()
     if not table:
@@ -828,6 +840,20 @@ def put_anchored(receipt_digest: str, proof: dict[str, Any], ttl_s: int) -> None
 
 def get_anchored(receipt_digest: str) -> dict[str, Any] | None:
     return _get(f"anchored#{receipt_digest}")
+
+
+def put_task(task_id: str, task: dict[str, Any], ttl_s: int) -> None:
+    """A2A Tasks are mutable (a cancel rewrites status), unlike receipts, so this
+    is a plain write rather than first-write-wins."""
+    _put(f"task#{task_id}", int(time.time()) + ttl_s, task)
+
+
+def replace_task(task_id: str, task: dict[str, Any], ttl_s: int) -> None:
+    _put(f"task#{task_id}", int(time.time()) + ttl_s, task)
+
+
+def get_task(task_id: str) -> dict[str, Any] | None:
+    return _get(f"task#{task_id}")
 
 
 # --------------------------------------------------------------------------
