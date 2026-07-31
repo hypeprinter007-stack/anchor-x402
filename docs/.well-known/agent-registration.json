@@ -18,8 +18,10 @@
     },
     {
       "name": "MCP",
-      "endpoint": "https://www.npmjs.com/package/anchor-x402-mcp",
-      "version": "2025-06-18"
+      "endpoint": "https://api.anchor-x402.com/mcp",
+      "version": "2026-07-28",
+      "transport": "streamable-http",
+      "stdioPackage": "https://www.npmjs.com/package/anchor-x402-mcp"
     },
     {
       "name": "web",
@@ -113,8 +115,8 @@
         },
         {
           "type": "mcp",
-          "url": "https://www.npmjs.com/package/anchor-x402-mcp",
-          "version": "2025-06-18"
+          "url": "https://api.anchor-x402.com/mcp",
+          "version": "2026-07-28"
         }
       ],
       "securitySchemes": {
@@ -138,22 +140,21 @@
     }
   },
   "mcp": {
-    "cardUrl": "https://agentarena.site/api/agent/8453/60138/.well-known/mcp/server-card.json",
+    "cardUrl": "https://anchor-x402.com/.well-known/mcp/server-card.json",
     "card": {
-      "$schema": "https://static.modelcontextprotocol.io/schemas/mcp-server-card/v1.json",
       "version": "1.0",
-      "protocolVersion": "2025-06-18",
+      "protocolVersion": "2026-07-28",
       "serverInfo": {
         "name": "anchor-x402",
         "title": "anchor-x402",
-        "version": "1.0.0"
+        "version": "0.3.0"
       },
       "description": "Eighteen x402-paid services for AI agents. One AWS Lambda, one OpenAPI spec. Pay per call in USDC on Base or Solana mainnet — no API keys, no accounts, no subscriptions. Hash anchoring to Base+Solana ($0.005), OFAC sanctions screening ($0.001), signed decision attestation with dual-chain anchor ($0.010), transaction and calldata decode ($0.001), ENS/SNS resolution ($0.001), token price ($0.001), datetime parsing ($0.001), bundled wallet intel ($0.005), verifiable signed RNG ($0.001), x402 spend accounting ($0.01), agent-driven wallet due diligence ($1.77), and five LLM endpoints ($0.01-$0.05). Also exposes a free agent-to-agent door at POST /v1/a2a: signed JSON-RPC 2.0, no API key, authenticate with an Ed25519 key in your own agent card. Quotes, receipts and daily receipt roots anchored to Base + Solana. Sources: github.com/hypeprinter007-stack/anchor-x402. MCP: anchor-x402-mcp on npm.",
       "iconUrl": "https://anchor-x402.com/og.png",
       "documentationUrl": "https://agentarena.site/api/agent/8453/60138",
       "transport": {
         "type": "streamable-http",
-        "endpoint": "https://www.npmjs.com/package/anchor-x402-mcp"
+        "endpoint": "https://api.anchor-x402.com/mcp"
       },
       "capabilities": {
         "tools": {
@@ -176,7 +177,14 @@
           "profileUrl": "https://agentarena.site/api/agent/8453/60138",
           "cardType": "native"
         }
-      }
+      },
+      "supportedProtocolVersions": [
+        "2026-07-28",
+        "2025-11-25",
+        "2025-06-18",
+        "2025-03-26"
+      ],
+      "stdioPackage": "https://www.npmjs.com/package/anchor-x402-mcp"
     },
     "generatedAt": "2026-07-29T21:24:43.694Z"
   },

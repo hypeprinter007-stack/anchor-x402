@@ -66,7 +66,40 @@ This is the recommended path for non-developers and the canonical demo surface. 
 
 ## How agents use the HTTP API
 
-[anchor-x402-mcp on npm](https://www.npmjs.com/package/anchor-x402-mcp) — MCP server exposing the 9 commodity services as tools. Works with Claude Desktop, Claude Code, Codex CLI (OpenAI), ChatGPT Desktop, Cursor, OpenAI Agents SDK, and any MCP-compatible client.
+There are three ways in. Pick by who holds the wallet key.
+
+### 1. MCP over HTTP — `POST https://api.anchor-x402.com/mcp`
+
+Streamable HTTP, stateless, no install and no API key. All 18 services are exposed as MCP tools. You keep your own key: nothing is handed to us.
+
+Protocol revisions supported: `2026-07-28`, `2025-11-25`, `2025-06-18`, `2025-03-26` — both the stateless era and the `initialize` handshake era, on one endpoint. `server/discover` and `tools/list` are free; `tools/call` is paid.
+
+Payment is the ordinary x402 dance, surfaced inside MCP rather than around it:
+
+1. `tools/call` with no payment returns a **result** (not a JSON-RPC error) with `isError: true` and the 402 challenge in `structuredContent.accepts`.
+2. Sign one of those payment options.
+3. Retry the identical `tools/call` with the signed authorization in an `X-PAYMENT` header.
+
+The challenge is delivered as a result on purpose: an agent can read it and pay, whereas a JSON-RPC error would be swallowed by the client before the model ever saw it.
+
+```bash
+# free — what tools exist
+curl -s https://api.anchor-x402.com/mcp \
+  -H 'Content-Type: application/json' \
+  -H 'MCP-Protocol-Version: 2026-07-28' \
+  -H 'Mcp-Method: tools/list' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"_meta":{
+        "io.modelcontextprotocol/protocolVersion":"2026-07-28",
+        "io.modelcontextprotocol/clientCapabilities":{}}}}'
+```
+
+Note for `2026-07-28`: there is no `initialize` and no session. Every request carries its own `protocolVersion` and `clientCapabilities` in `params._meta`, the `MCP-Protocol-Version` header must match that value, and `Mcp-Method` (plus `Mcp-Name` on `tools/call`) must match the body. Older clients that send `initialize` are served the handshake era instead — no configuration needed.
+
+Server card: [`/.well-known/mcp/server-card.json`](https://anchor-x402.com/.well-known/mcp/server-card.json) (official `server.json` shape, with the endpoint under `remotes[]`).
+
+### 2. MCP over stdio — `anchor-x402-mcp` on npm
+
+[anchor-x402-mcp on npm](https://www.npmjs.com/package/anchor-x402-mcp) — 14 tools. Works with Claude Desktop, Claude Code, Codex CLI (OpenAI), ChatGPT Desktop, Cursor, OpenAI Agents SDK, and any MCP-compatible client.
 
 ```json
 {
@@ -80,9 +113,11 @@ This is the recommended path for non-developers and the canonical demo surface. 
 }
 ```
 
-The MCP wrapper auto-pays each call from the agent's Base wallet via @x402/fetch + @x402/evm. No prepay, no API key, no rate limits beyond what each underlying endpoint implements.
+This transport auto-pays each call from the agent's Base wallet via @x402/fetch + @x402/evm, which is convenient but requires a funded private key inside the local process. If that trade is not one you want to make, use the HTTP endpoint above — it exposes 18 tools instead of 14 and never sees your key.
 
-Or call the HTTP API directly using any x402 v2 client SDK ([@x402/fetch on npm](https://www.npmjs.com/package/@x402/fetch), the Python x402 SDK, Rust). Same payment dance: 402 → sign → retry.
+### 3. Plain HTTP
+
+Call the endpoints directly with any x402 v2 client SDK ([@x402/fetch on npm](https://www.npmjs.com/package/@x402/fetch), the Python x402 SDK, Rust). Same payment dance: 402 → sign → retry.
 
 ## Listings (where this service is indexed)
 

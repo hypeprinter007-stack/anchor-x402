@@ -151,6 +151,8 @@ _DISCOVERY_PATHS = frozenset({
     "/.well-known/x402.json",
     "/.well-known/x402",
     "/v1/a2a",
+    "/mcp",
+    "/.well-known/mcp/server-card.json",
     "/llms.txt",
     "/openapi.json",
 })
@@ -1440,7 +1442,10 @@ app.add_middleware(
     allow_origins=["*"],
     allow_credentials=False,
     allow_methods=["GET", "HEAD", "POST", "OPTIONS"],
-    allow_headers=["content-type", "x-payment", "authorization"],
+    # The MCP request-metadata headers must be listed or a browser-resident MCP
+    # client fails preflight before it ever reaches /mcp.
+    allow_headers=["content-type", "x-payment", "authorization",
+                   "mcp-protocol-version", "mcp-method", "mcp-name"],
     expose_headers=["payment-response", "x-payment-response", "payment-required"],
     max_age=86400,
 )
@@ -1598,21 +1603,29 @@ def intel_wallet(wallet: str) -> IntelWalletResponse:
 # POST wrappers for GET-only endpoints — discovery-aware crawlers probe with
 # POST first; without these we bounce them at 405 before x402 can introduce
 # itself. Now every probe reaches the 402 challenge.
-from pydantic import BaseModel as _BM
+from pydantic import BaseModel as _BM, Field as _F
 
 
+# Field descriptions are load-bearing, not decoration: these models are the
+# source for both the OpenAPI schema and the MCP tool inputSchema, so a bare
+# `wallet: str` tells a calling agent nothing about which address formats work.
 class _WalletBody(_BM):
-    wallet: str
+    wallet: str = _F(..., description="EVM 0x… address (40 hex) or Solana base58 pubkey.")
 
 
 class _NameBody(_BM):
-    name: str
+    name: str = _F(..., description="Human-readable name, e.g. 'vitalik.eth' or 'bonfida.sol'. "
+                                    "ENS (.eth) and Bonfida SNS (.sol) are supported.")
 
 
 class _TokenPriceBody(_BM):
-    symbol: str | None = None
-    chain: str | None = None
-    contract: str | None = None
+    symbol: str | None = _F(
+        None, description="Token symbol like 'ETH', 'BTC', 'SOL', 'USDC'. "
+                          "Mutually exclusive with chain+contract.")
+    chain: str | None = _F(
+        None, description="Chain slug: base, ethereum, solana, polygon, arbitrum, optimism, "
+                          "bsc, avalanche. Use with contract.")
+    contract: str | None = _F(None, description="Token contract address. Requires chain.")
 
 
 @app.post("/v1/screen", response_model=ScreenResponse)
@@ -2940,6 +2953,446 @@ def chat_bundle():
 def public_config():
     """Public, non-sensitive runtime config for the static chat UI."""
     return {"wcProjectId": os.getenv("WC_PROJECT_ID", "")}
+
+
+# --- MCP (Model Context Protocol) over Streamable HTTP ----------------------
+# Built because agents kept knocking: ~216 404s across /mcp, /api/mcp, /v1/mcp,
+# /sse and /.well-known/mcp/server-card.json before any of it existed — the
+# single largest unmet demand in the access log.
+#
+# The npm package anchor-x402-mcp already speaks MCP, but over stdio, which
+# requires handing a funded private key to a local process. Over HTTP the client
+# keeps its key and pays per call with an X-PAYMENT header, so the same catalogue
+# is reachable without trusting us with a wallet.
+from services import mcp as mcp_svc
+
+# Tool -> canonical paid path. Every one of the 18 services has a POST entry
+# (the GET/POST wrapper pairs collapse to one here), so `arguments` maps straight
+# onto the request body with no per-tool marshalling.
+_MCP_TOOLS = {
+    "anchor_hash": "/v1/anchor",
+    "attest_decision": "/v1/attest",
+    "aura_read": "/v1/aura",
+    "decode_calldata": "/v1/decode/calldata",
+    "decode_tx": "/v1/decode/tx",
+    "grade_target": "/v1/grade",
+    "intel_wallet": "/v1/intel/wallet",
+    "investigate_wallet": "/v1/investigate",
+    "ledger_report": "/v1/ledger/report",
+    "ledger_summary": "/v1/ledger/summary",
+    "oracle_verdict": "/v1/oracle",
+    "parse_datetime": "/v1/parse/datetime",
+    "resolve_name": "/v1/resolve/name",
+    "roast_target": "/v1/roast",
+    "roll_random": "/v1/roll",
+    "screen_wallet": "/v1/screen",
+    "tldr_text": "/v1/tldr",
+    "token_price": "/v1/price/token",
+}
+
+# The five short names the published npm server uses. Accepted on tools/call but
+# not advertised in tools/list, so a config written against anchor-x402-mcp keeps
+# working over HTTP without agents seeing two names for one service.
+_MCP_ALIASES = {
+    "roast": "roast_target",
+    "oracle": "oracle_verdict",
+    "tldr": "tldr_text",
+    "aura": "aura_read",
+    "grade": "grade_target",
+}
+
+# Tools that only read: no chain write, no async job dispatch. Lets a client
+# auto-approve them instead of prompting for every price lookup.
+_MCP_READ_ONLY = frozenset({
+    "aura_read", "decode_calldata", "decode_tx", "grade_target", "intel_wallet",
+    "ledger_summary", "parse_datetime", "resolve_name", "roast_target",
+    "screen_wallet", "tldr_text", "token_price",
+})
+
+_MCP_INSTRUCTIONS = (
+    "18 pay-per-call services for agents: on-chain anchoring and attestation, wallet "
+    "sanctions screening, Web3 data (tx/calldata decode, ENS/SNS, token prices), x402 "
+    "spend accounting, content analysis, and verifiable randomness.\n\n"
+    "No API key and no account. Every tool is priced in its description ($0.001-$1.77) and "
+    "settles per call in USDC on Base or Solana via x402. Calling a tool without payment is "
+    "not an error you should give up on: the result comes back with isError=true and a "
+    "structuredContent.accepts array — that is the x402 challenge. Sign one of those "
+    "payment options and retry the identical tools/call with an X-PAYMENT header. Read-only "
+    "tools are marked with annotations.readOnlyHint."
+)
+
+
+def _mcp_build_tools() -> list[dict]:
+    """Tool table from the models that already validate these routes.
+
+    inputSchema comes from each route's Pydantic body model, so a tool's schema
+    cannot drift from what the endpoint actually accepts — and the per-field
+    descriptions agents need come along for free. Price and prose come from
+    x402_routes, the table that actually charges.
+    """
+    from fastapi.routing import APIRoute
+
+    models = {
+        r.path: r.body_field.field_info.annotation
+        for r in app.routes
+        if isinstance(r, APIRoute) and "POST" in r.methods
+        and getattr(r, "body_field", None) is not None
+    }
+    try:
+        with open(os.path.join(os.path.dirname(__file__), "data",
+                               "agent-card-skills.json")) as f:
+            meta = json.load(f)
+    except Exception:
+        meta = {}
+
+    tools = []
+    for name, path in _MCP_TOOLS.items():
+        cfg, model = x402_routes.get(f"POST {path}"), models.get(path)
+        if cfg is None or model is None:
+            continue
+        m = meta.get(name, {})
+        schema = model.model_json_schema()
+        schema.pop("title", None)  # Pydantic's class-name title is noise here.
+        # Hand-authored prose wins, exactly as for the agent card: for the four
+        # GET-canonical services the POST entry's description says "POST wrapper",
+        # which describes plumbing rather than the service. test_mcp.py fails the
+        # build if one of those ever leaks through.
+        tool = {
+            "name": name,
+            "description": m.get("description") or cfg.description or "",
+            "inputSchema": schema,
+            "annotations": {
+                "readOnlyHint": name in _MCP_READ_ONLY,
+                # Everything here reaches mainnet chains or the open web.
+                "openWorldHint": True,
+            },
+        }
+        if m.get("name"):
+            tool["title"] = m["name"]
+        tools.append(tool)
+    # Deterministic order — 2026-07-28 SHOULDs it, so clients can cache the list
+    # and keep their LLM prompt-cache warm across calls.
+    return sorted(tools, key=lambda t: t["name"])
+
+
+_MCP_TOOL_LIST = _mcp_build_tools()
+
+
+def _mcp_log(method: str, tool: str, version: str, client: str, status: str) -> None:
+    """One line per MCP call. Cheap, and the thing that will answer 'is anyone
+    actually using this' — the question that was unanswerable for the agent card
+    until UA logging went in."""
+    try:
+        print("MCP " + json.dumps({
+            "ts": int(time.time()), "method": method[:40], "tool": tool[:40],
+            "v": version, "client": client[:80], "status": status[:40],
+        }, separators=(",", ":")))
+    except Exception:
+        pass
+
+
+async def _mcp_invoke(tool: str, arguments: dict, request: Request) -> tuple[int, dict | str]:
+    """Run a tool by replaying it as an in-process request to its own paid route.
+
+    Deliberately not a direct handler call: going back in through the ASGI app
+    means x402_mw verifies and settles the payment, the builder code is attached,
+    and PAID_CALL telemetry fires — all identical to an external caller. A direct
+    call would need a second copy of the payment path, which is exactly how the
+    price on one surface drifts from the price on another.
+    """
+    import httpx
+
+    path = _MCP_TOOLS[tool]
+    headers = {
+        "content-type": "application/json",
+        # Host must satisfy CanonicalHostMiddleware or it answers 308.
+        "host": _CANONICAL_HOST,
+        "user-agent": request.headers.get("user-agent", "mcp-http")[:200],
+        "x-mcp-tool": tool,
+    }
+    for h in ("x-payment", "x-forwarded-for", "authorization"):
+        v = request.headers.get(h)
+        if v:
+            headers[h] = v
+
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport,
+                                 base_url=f"https://{_CANONICAL_HOST}") as client:
+        r = await client.post(path, content=json.dumps(arguments).encode(),
+                              headers=headers, timeout=120.0)
+    try:
+        return r.status_code, r.json()
+    except Exception:
+        return r.status_code, r.text[:2000]
+
+
+async def _mcp_tools_call(params: dict, version: str, request: Request) -> tuple[dict | None, dict | None]:
+    """Returns (result, error). Tool *execution* failures — including 402 — come
+    back as a result with isError=true rather than a JSON-RPC error, because the
+    spec routes those to the model: an agent that can see the 402 challenge can
+    pay it, whereas a JSON-RPC error is handled by the client and never shown."""
+    name = params.get("name")
+    if not isinstance(name, str) or not name:
+        return None, {"code": mcp_svc.ERR_INVALID_PARAMS, "message": "params.name is required."}
+    tool = _MCP_ALIASES.get(name, name)
+    if tool not in _MCP_TOOLS:
+        return None, {"code": mcp_svc.ERR_INVALID_PARAMS,
+                      "message": (f"Unknown tool {name!r}. Call tools/list for the "
+                                  f"{len(_MCP_TOOL_LIST)} available tools.")}
+
+    args = params.get("arguments")
+    args = args if isinstance(args, dict) else {}
+    status, payload = await _mcp_invoke(tool, args, request)
+
+    if status == 200:
+        result = {"content": mcp_svc.text_content(payload), "isError": False}
+        # structuredContent landed in 2025-06-18; older clients ignore it, but
+        # don't send a field their revision never defined.
+        if isinstance(payload, dict) and version >= "2025-06-18":
+            result["structuredContent"] = payload
+        return result, None
+
+    if status == 402:
+        lead = (f"Payment required for {tool} — this is a paid x402 service. Sign one of the "
+                f"payment options in structuredContent.accepts and retry this identical "
+                f"tools/call with the signed authorization in an X-PAYMENT header.")
+        result = {"content": mcp_svc.text_content(lead if not isinstance(payload, dict) else
+                                                  {"error": "payment_required",
+                                                   "guidance": lead, **payload}),
+                  "isError": True}
+        if isinstance(payload, dict) and version >= "2025-06-18":
+            result["structuredContent"] = payload
+        return result, None
+
+    result = {"content": mcp_svc.text_content(
+        payload if isinstance(payload, (dict, str)) else str(payload)), "isError": True}
+    if isinstance(payload, dict) and version >= "2025-06-18":
+        result["structuredContent"] = payload
+    return result, None
+
+
+@app.post("/mcp", include_in_schema=False)
+async def mcp_endpoint(request: Request):
+    """The MCP endpoint. Streamable HTTP, stateless in both protocol eras.
+
+    We mint no Mcp-Session-Id even for the revisions that permit one: there is no
+    cross-invocation memory on Lambda to hold a session in, and 2026-07-28
+    removes sessions outright, so statelessness is the only shape that is honest
+    on both sides of that break.
+
+    On Origin: the transport spec MUSTs Origin validation against DNS rebinding.
+    That threat model is a *local* server holding ambient credentials, where a
+    hostile page can drive privileged calls from the victim's browser. Here CORS
+    is already deliberately allow_origins=["*"] because there is no ambient
+    credential to steal — spending money requires a wallet-signed X-PAYMENT that
+    a third-party page cannot produce. So an Origin check would reject legitimate
+    browser agents while blocking nothing; we take the reasoned exception rather
+    than pretend to satisfy the MUST.
+    """
+    try:
+        body = json.loads(await request.body())
+        if not isinstance(body, dict):
+            raise ValueError("body must be a JSON-RPC object")
+    except Exception:
+        return JSONResponse(status_code=400, content=mcp_svc.err(
+            None, mcp_svc.ERR_PARSE, "Parse error — body must be a single JSON-RPC object."))
+
+    method = body.get("method")
+    if not isinstance(method, str):
+        return JSONResponse(status_code=400, content=mcp_svc.err(
+            body.get("id"), mcp_svc.ERR_INVALID_REQUEST, "Missing or non-string `method`."))
+
+    # Notifications carry no id and get 202 with an empty body. We hold no
+    # per-connection state, so there is nothing for initialized/cancelled to do.
+    if mcp_svc.is_notification(body):
+        return Response(status_code=202)
+
+    rpc_id = body.get("id")
+    headers = request.headers  # Starlette headers are case-insensitive.
+    client = mcp_svc.client_label(body) or request.headers.get("user-agent", "")[:80]
+
+    version, verr = mcp_svc.negotiate(headers, body)
+    if verr is None:
+        verr = mcp_svc.validate_request(headers, body, version)
+    if verr:
+        _mcp_log(method, "", version, client, f"rejected:{verr['code']}")
+        return JSONResponse(
+            status_code=mcp_svc.http_status(verr["code"]),
+            content=mcp_svc.err(rpc_id, verr["code"], verr["message"], verr.get("data")))
+
+    params = body.get("params")
+    params = params if isinstance(params, dict) else {}
+    modern = mcp_svc.is_modern(version)
+
+    def _reply(result: dict, cache=None):
+        return JSONResponse(content=mcp_svc.ok(rpc_id, result, version, cache=cache))
+
+    def _fail(code: int, message: str):
+        # Status always derived, never hardcoded — one place decides, so the
+        # spec's "404 for an unimplemented method" cannot drift per call site.
+        return JSONResponse(status_code=mcp_svc.http_status(code),
+                            content=mcp_svc.err(rpc_id, code, message))
+
+    # server/discover — mandatory in 2026-07-28. Answered for every revision:
+    # it is the cheapest way for any client to learn what this server speaks.
+    if method == "server/discover":
+        _mcp_log(method, "", version, client, "ok")
+        return JSONResponse(content=mcp_svc.ok(rpc_id, {
+            "resultType": "complete",
+            "supportedVersions": list(mcp_svc.SUPPORTED),
+            "capabilities": mcp_svc.capabilities(),
+            "instructions": _MCP_INSTRUCTIONS,
+            "ttlMs": mcp_svc.DISCOVER_TTL_MS,
+            "cacheScope": mcp_svc.CACHE_PUBLIC,
+            "_meta": {mcp_svc.META_SERVER_INFO: mcp_svc.server_info(version)},
+        }, version))
+
+    if method == "initialize":
+        if modern:
+            # Unreachable via negotiate(), which never resolves initialize to a
+            # modern version — kept so the invariant is stated, not assumed.
+            return _fail(mcp_svc.ERR_METHOD_NOT_FOUND,
+                         f"`initialize` was removed in {version}; send requests directly "
+                         f"with params._meta, or call server/discover.")
+        _mcp_log(method, "", version, client, "ok")
+        return _reply({
+            "protocolVersion": version,
+            "capabilities": mcp_svc.capabilities(),
+            "serverInfo": mcp_svc.server_info(version),
+            "instructions": _MCP_INSTRUCTIONS,
+        })
+
+    if method == "ping":
+        if modern:
+            return _fail(mcp_svc.ERR_METHOD_NOT_FOUND, f"`ping` was removed in {version}.")
+        return _reply({})
+
+    if method == "tools/list":
+        _mcp_log(method, "", version, client, "ok")
+        return _reply({"tools": _MCP_TOOL_LIST},
+                      cache=(mcp_svc.TOOLS_TTL_MS, mcp_svc.CACHE_PUBLIC))
+
+    if method == "tools/call":
+        result, cerr = await _mcp_tools_call(params, version, request)
+        if cerr:
+            _mcp_log(method, str(params.get("name", ""))[:40], version, client,
+                     f"rejected:{cerr['code']}")
+            return _fail(cerr["code"], cerr["message"])
+        _mcp_log(method, str(params.get("name", ""))[:40], version, client,
+                 "error" if result.get("isError") else "ok")
+        return _reply(result)
+
+    # 404, not 200 — the spec uses the status to let a client distinguish a
+    # modern server's -32601 from a legacy 404 with no MCP endpoint at all.
+    _mcp_log(method, "", version, client, "unknown_method")
+    return _fail(mcp_svc.ERR_METHOD_NOT_FOUND,
+                 f"Method {method!r} is not implemented. This server offers tools only: "
+                 f"server/discover, tools/list, tools/call"
+                 f"{'' if modern else ', initialize, ping'}.")
+
+
+@app.api_route("/mcp", methods=["GET", "DELETE"], include_in_schema=False)
+async def mcp_endpoint_rejected():
+    """2026-07-28 removed both the GET notification stream and DELETE session
+    teardown; a server that implements only POST answers 405 for each."""
+    return JSONResponse(status_code=405, content=mcp_svc.err(
+        None, mcp_svc.ERR_INVALID_REQUEST,
+        "The MCP endpoint accepts POST only. The GET stream and DELETE session "
+        "teardown were removed in 2026-07-28, and this server is stateless."),
+        headers={"Allow": "POST"})
+
+
+# The paths agents actually probed. /mcp is canonical; these keep a client that
+# guessed wrong from bouncing off a 404.
+@app.post("/v1/mcp", include_in_schema=False)
+@app.post("/api/mcp", include_in_schema=False)
+async def mcp_endpoint_alias(request: Request):
+    return await mcp_endpoint(request)
+
+
+@app.api_route("/sse", methods=["GET", "HEAD"], include_in_schema=False)
+def mcp_sse_gone():
+    """The 2024-11-05 HTTP+SSE transport, which /sse probes are looking for, has
+    been deprecated since 2025-03-26. Rather than implement a dead transport,
+    say so and point at the endpoint that exists — a client following the
+    documented fallback treats a non-`endpoint` response as 'no legacy here'."""
+    return JSONResponse(status_code=404, content={
+        "error": "transport_not_supported",
+        "detail": ("The HTTP+SSE transport (protocol 2024-11-05) is not implemented — it has "
+                   "been deprecated since 2025-03-26. Use Streamable HTTP at POST /mcp."),
+        "mcp_endpoint": f"{_PUBLIC_BASE}/mcp",
+        "supported_versions": list(mcp_svc.SUPPORTED),
+    })
+
+
+# The registry's own schema, which does resolve — unlike the mcp-server-card/v1
+# URL our ERC-8004 registration was citing, which 404s. `description` is capped
+# at 100 characters there, so the long guidance goes in _meta instead of being
+# silently over-length.
+_MCP_CARD_SCHEMA = "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json"
+_MCP_CARD_SUMMARY = "18 x402-paid agent tools — pay per call in USDC, no API key or account."
+
+
+def _mcp_server_card_doc() -> dict:
+    return {
+        "$schema": _MCP_CARD_SCHEMA,
+        "name": mcp_svc.REGISTRY_NAME,
+        "title": mcp_svc.SERVER_NAME,
+        "description": _MCP_CARD_SUMMARY,
+        "version": mcp_svc.SERVER_VERSION,
+        "websiteUrl": "https://anchor-x402.com",
+        "repository": {
+            "url": "https://github.com/hypeprinter007-stack/anchor-x402",
+            "source": "github",
+        },
+        "remotes": [{"type": "streamable-http", "url": f"{_PUBLIC_BASE}/mcp"}],
+        "packages": [{
+            "registryType": "npm",
+            "registryBaseUrl": "https://registry.npmjs.org",
+            "identifier": "anchor-x402-mcp",
+            "version": "0.2.1",
+            "runtimeHint": "npx",
+            "transport": {"type": "stdio"},
+            "environmentVariables": [{
+                "name": "ANCHOR_WALLET_PRIVATE_KEY",
+                "description": ("EVM private key (0x-prefixed hex) that pays for x402 calls. "
+                                "Required for the stdio transport only — the streamable-http "
+                                "remote takes payment per call instead."),
+                "isRequired": True,
+                "isSecret": True,
+            }],
+        }],
+        "_meta": {
+            "io.modelcontextprotocol.registry/publisher-provided": {
+                "protocolVersions": list(mcp_svc.SUPPORTED),
+                "latestProtocolVersion": mcp_svc.LATEST,
+                "capabilities": mcp_svc.capabilities(),
+                "instructions": _MCP_INSTRUCTIONS,
+                "authentication": {
+                    "type": "x402",
+                    "header": "X-PAYMENT",
+                    "description": ("No API key or account. Each tools/call settles per request "
+                                    "in USDC on Base or Solana. Call without payment to receive "
+                                    "the 402 challenge in structuredContent.accepts, then retry "
+                                    "with a signed X-PAYMENT header."),
+                    "freeMethods": ["server/discover", "initialize", "tools/list"],
+                },
+                "tools": [t["name"] for t in _MCP_TOOL_LIST],
+                "documentation": "https://anchor-x402.com/llms.txt",
+                "agentCard": "https://anchor-x402.com/.well-known/agent-card.json",
+            }
+        },
+    }
+
+
+@app.api_route("/.well-known/mcp/server-card.json", methods=["GET", "HEAD"],
+               include_in_schema=False)
+def mcp_server_card():
+    """Agents probed this path, so serve it — in the official registry
+    server.json shape rather than something ad-hoc, so a tool that already reads
+    server.json can consume it. `remotes[]` is what makes the HTTP transport
+    discoverable; the npm package stays listed under `packages[]`."""
+    return _mcp_server_card_doc()
 
 
 _mangum = Mangum(app)

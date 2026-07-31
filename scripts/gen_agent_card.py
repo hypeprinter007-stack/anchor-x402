@@ -37,6 +37,8 @@ from urllib.parse import urlparse
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
+from services import mcp as _mcp  # noqa: E402 — needs ROOT on sys.path first
+
 CARD_PATH = os.path.join(ROOT, "docs", ".well-known", "agent-card.json")
 SKILL_META_PATH = os.path.join(ROOT, "data", "agent-card-skills.json")
 
@@ -210,7 +212,15 @@ def build() -> dict:
             "anchor-x402:discovery": {
                 "openapi": f"{BASE}/openapi.json",
                 "x402": f"{SITE}/.well-known/x402.json",
+                # Two MCP transports, and the difference matters to a caller:
+                # the npm package needs a funded private key inside the local
+                # process, the HTTP endpoint does not — the client keeps its key
+                # and pays per call with an X-PAYMENT header. `mcp_server` is
+                # kept as-is so anything already reading it does not break.
                 "mcp_server": "https://www.npmjs.com/package/anchor-x402-mcp",
+                "mcp_endpoint": f"{BASE}/mcp",
+                "mcp_transport": "streamable-http",
+                "mcp_protocol_versions": list(_mcp.SUPPORTED),
                 "trust_portal": f"{SITE}/trust/",
                 "status_page": "https://anchor-x402.betteruptime.com",
                 "llms_txt": f"{SITE}/llms.txt",

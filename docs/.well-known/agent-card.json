@@ -513,6 +513,14 @@
       "openapi": "https://api.anchor-x402.com/openapi.json",
       "x402": "https://anchor-x402.com/.well-known/x402.json",
       "mcp_server": "https://www.npmjs.com/package/anchor-x402-mcp",
+      "mcp_endpoint": "https://api.anchor-x402.com/mcp",
+      "mcp_transport": "streamable-http",
+      "mcp_protocol_versions": [
+        "2026-07-28",
+        "2025-11-25",
+        "2025-06-18",
+        "2025-03-26"
+      ],
       "trust_portal": "https://anchor-x402.com/trust/",
       "status_page": "https://anchor-x402.betteruptime.com",
       "llms_txt": "https://anchor-x402.com/llms.txt"
@@ -533,7 +541,7 @@
   "signatures": [
     {
       "protected": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImFuY2hvci1jYXJkLTIwMjYtMDEiLCJ0eXAiOiJKT1NFIn0",
-      "signature": "h0dwNHJZ8SnSvTqT4Xaa1QEhmIPMiDRwPlXk_LpEPSqof4VX19AFQxkPfQYhWQ063KnUMQsybmgnK2AbObZBBg"
+      "signature": "FcLnP3bd5Fd-muXdS5jHQkdUX1D4VscreT1oJF0hZ1F4oHTa3dmQ_5Up3MmQt2txvA-7K0WkVU0OK7tJ5eQ2Bw"
     }
   ]
 }
