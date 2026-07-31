@@ -833,6 +833,38 @@ def main() -> None:
        len(next(p["data"]["availableSkills"] for p in _amb["status"]["message"]["parts"]
                 if p["kind"] == "data")) == len(card["skills"]))
 
+    # F20 — dual-version acceptance. After the spec methods shipped, the same
+    # real client started failing on "message.kind is required": it speaks v1.0,
+    # which has no `kind` field anywhere. Both dialects are now accepted and
+    # answered in kind.
+    v1 = _rpc("message/send", {"message": {"messageId": "v1", "role": "ROLE_USER",
+                                           "parts": [{"data": {"skill": first}}]}})
+    ok("F20 a v1.0 message (no `kind`) is accepted", "result" in v1, json.dumps(v1)[:150])
+    _wrapped = v1.get("result", {})
+    ok("F20 v1.0 result is wrapped in `task` (SendMessageResponse oneof)", "task" in _wrapped)
+    _vt = _wrapped.get("task", {})
+    ok("F20 v1.0 reply carries no kind discriminators",
+       "kind" not in _vt and all("kind" not in p for p in _vt["status"]["message"]["parts"]))
+    ok("F20 v1.0 reply uses proto vocabulary",
+       _vt["status"]["state"] == "TASK_STATE_AUTH_REQUIRED"
+       and _vt["status"]["message"]["role"] == "ROLE_AGENT", _vt["status"]["state"])
+    ok("F20 v1.0 reply still carries the payment data",
+       any("resource" in p.get("data", {}) for p in _vt["status"]["message"]["parts"]))
+    ok("F20 tasks/get answers in the version that created the task",
+       _rpc("tasks/get", {"id": _vt["id"]}).get("result", {})
+         .get("status", {}).get("state") == "TASK_STATE_AUTH_REQUIRED")
+    ok("F20 a v1.0 text oneof part resolves a skill",
+       _rpc("message/send", {"message": {"messageId": "v2", "role": "ROLE_USER",
+            "parts": [{"text": f"run {first}"}]}})
+         .get("result", {}).get("task", {}).get("status", {}).get("state")
+       == "TASK_STATE_AUTH_REQUIRED")
+    ok("F20 0.3.0 callers are unaffected — bare Task, lowercase state",
+       spec_task.get("kind") == "task" and spec_task["status"]["state"] == "auth-required")
+    ok("F20 version detection is shape-based, both directions",
+       a2a_tasks.detect_version({"kind": "message"}) == "0.3.0"
+       and a2a_tasks.detect_version({"messageId": "x", "role": "ROLE_USER",
+                                     "parts": [{"text": "y"}]}) == "1.0")
+
     # The version boundary must stay in one table, or adding 1.0 becomes a rewrite.
     ok("F19 state vocabulary is version-mapped (0.3.0 vs 1.0)",
        a2a_tasks.state("auth_required") == "auth-required"

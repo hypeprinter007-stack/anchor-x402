@@ -256,6 +256,10 @@ def _a2a_extension() -> dict:
         "signed_fields": ["aud", "body", "exp", "key_id", "method", "nonce", "origin"],
         "audience": BASE,
         "a2a_methods": ["message/send", "tasks/get", "tasks/cancel"],
+        "a2a_protocol_versions_accepted": ["0.3.0", "1.0"],
+        "a2a_version_negotiation": (
+            "The endpoint accepts either dialect and replies in the one you sent. v0.3.0 is detected by the required `kind` discriminators; v1.0 by their absence (it is protobuf-derived and has none). A v1.0 caller gets proto enum spellings and the Task wrapped in SendMessageResponse.task; a v0.3.0 caller gets the bare Task with lowercase states. protocolVersion above is 0.3.0 because that is the shape this card itself is validated against — v1.0 requires supported_interfaces, which this card does not yet emit."
+        ),
         "extension_methods": ["peer/hello", "capabilities/list", "peer/quote", "peer/receipt"],
         "extension_methods_note": (
             "The a2a_methods above are the spec methods at the card's top-level `url` and need no signature — authorization is the x402 payment named in securitySchemes. The extension_methods are ours, require the signed envelope described by signed_fields, and are not part of A2A."

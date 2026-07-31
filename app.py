@@ -2648,18 +2648,23 @@ def _a2a_spec_dispatch(method: str, params: Any) -> dict[str, Any]:
     # message/send
     if not isinstance(params, dict) or "message" not in params:
         raise a2a_svc.A2AError(a2a_svc.ERR_PARAMS, "params.message is required")
-    message = a2a_tasks.validate_message(params["message"])
+    # Reply in the dialect the caller spoke. A real client was speaking v1.0 —
+    # no `kind` discriminators, proto enum spellings, Task wrapped in a oneof —
+    # and strict 0.3.0 validation rejected it.
+    version = a2a_tasks.detect_version(params["message"])
+    message = a2a_tasks.validate_message(params["message"], version)
 
     card = a2a_svc.our_card()
     skills = card.get("skills", [])
     skill = a2a_tasks.resolve_skill(message, skills)
     if skill is None:
-        return a2a_tasks.clarify_task(message, skills)
+        return a2a_tasks.send_result(a2a_tasks.clarify_task(message, skills, version), version)
 
-    return a2a_tasks.payment_task(
+    task = a2a_tasks.payment_task(
         message, skill, _a2a_route_price(skill),
-        (card.get("extensions") or {}).get("anchor-x402:x402", {}),
+        (card.get("extensions") or {}).get("anchor-x402:x402", {}), version,
     )
+    return a2a_tasks.send_result(task, version)
 
 
 def _a2a_with_anchor(receipt: dict[str, Any]) -> dict[str, Any]:

@@ -450,6 +450,11 @@
         "tasks/get",
         "tasks/cancel"
       ],
+      "a2a_protocol_versions_accepted": [
+        "0.3.0",
+        "1.0"
+      ],
+      "a2a_version_negotiation": "The endpoint accepts either dialect and replies in the one you sent. v0.3.0 is detected by the required `kind` discriminators; v1.0 by their absence (it is protobuf-derived and has none). A v1.0 caller gets proto enum spellings and the Task wrapped in SendMessageResponse.task; a v0.3.0 caller gets the bare Task with lowercase states. protocolVersion above is 0.3.0 because that is the shape this card itself is validated against — v1.0 requires supported_interfaces, which this card does not yet emit.",
       "extension_methods": [
         "peer/hello",
         "capabilities/list",
@@ -528,7 +533,7 @@
   "signatures": [
     {
       "protected": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImFuY2hvci1jYXJkLTIwMjYtMDEiLCJ0eXAiOiJKT1NFIn0",
-      "signature": "MHdYLtju6uPWNheuAfjN5-Vu8CdxzCj0AGl0S0arx6HhW0deTXPWu3MAZXWom9GtovlXa1lGuOUZROeORfrb8Q"
+      "signature": "h0dwNHJZ8SnSvTqT4Xaa1QEhmIPMiDRwPlXk_LpEPSqof4VX19AFQxkPfQYhWQ063KnUMQsybmgnK2AbObZBBg"
     }
   ]
 }
