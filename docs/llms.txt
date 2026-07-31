@@ -122,6 +122,8 @@ POST `{"jsonrpc":"2.0","id":"1","method":"<method>","params":{aud, origin, key_i
 
 One interop caveat: we re-canonicalize the `body` we receive and compare digests, so keep `body` values to strings, integers, booleans, and nested objects/arrays of those. Floats serialize differently across languages (JS `1.0` → `1`, Python → `1.0`) and would fail verification. None of the current methods need one.
 
+The endpoint also speaks the A2A spec methods themselves — `message/send`, `tasks/get`, `tasks/cancel` — unsigned, since a conformant client won't produce our envelope; authorization there is the x402 payment. `message/send` naming any of the 18 skills returns a Task in `auth-required` carrying that skill's payable URL, price and rails, plus a `correlationId` and the `X-A2A-Exchange` header to echo on the paid request. Send it and the task moves to `completed`; omit it and it stays `auth-required`, because settlement happens on another route and we won't report a state we can't observe. Both A2A 0.3.0 and 1.0 request shapes are accepted and answered in kind.
+
 This endpoint never moves money. `peer/quote` returns the metered `/v1/*` URL and price for a skill plus an `exchange_id`; you pay that URL directly with normal x402 — payment is the authorization, so no mandate, gate, or approval step exists. `peer/receipt` then returns a signed record of the exchange stating exactly what it proves and what it does not. Reference client: [scripts/a2a-call.py](https://github.com/hypeprinter007-stack/anchor-x402/blob/main/scripts/a2a-call.py).
 
 Every signed artifact carries a `type` (`a2a.quote.v1`, `a2a.receipt.v1`, `a2a.receipt-root.v1`) inside the signed bytes — check it, so a signature over one kind can never be read as another.

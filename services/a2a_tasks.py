@@ -11,10 +11,16 @@ Payment maps onto the spec rather than needing an extension. §4.5 defines
 `auth-required` for "I need credentials before proceeding", with the details
 carried in a DataPart. So: message/send names a skill, we return a Task in
 auth-required whose status message carries the payable URL, price and rails, and
-the client pays that route with x402. We deliberately do NOT then report
-`completed` — the paid route returns the result in its own response body, and we
-have no way to observe that settlement, so claiming completion would be a state
-we cannot back.
+the client pays that route with x402.
+
+Completion is now reportable, but only for exchanges that opt in. The Task hands
+out a correlation id and the header to echo it on; a paid request carrying it is
+observable settlement, so settle() moves the task to `completed`. Omit the header
+and it stays in auth-required — the original objection ("we cannot see the
+payment") still holds for anything that does not correlate, and reporting
+completion we could not observe would be a state we cannot back. No Artifact is
+attached either way: the result was delivered inline on the paid response, and
+inventing a copy here would fabricate output we never held.
 
 Both versions are accepted and answered in kind, because live traffic forced it:
 after the methods shipped, the same client's calls started failing on
@@ -72,6 +78,10 @@ STATES = {
     },
 }
 PROTOCOL_VERSION = "0.3.0"
+
+# Header a client echoes on the paid request so we can join the two halves of
+# the funnel. Not a credential — it identifies an exchange, nothing more.
+CORRELATION_HEADER = "X-A2A-Exchange"
 
 TASK_TTL_S = 86400
 TERMINAL = ("completed", "canceled", "failed", "rejected")
@@ -259,12 +269,18 @@ def payment_task(message: dict[str, Any], skill: dict[str, Any], price_usd: floa
     """
     task_id = "task-" + uuid.uuid4().hex
     context_id = message.get("contextId") or "ctx-" + uuid.uuid4().hex
+    # Correlation id, echoed by the client as a header on the paid request. Without
+    # it the funnel is unmeasurable: the A2A log knows the method and user-agent but
+    # no wallet, and PAID_CALL knows the wallet and route but no user-agent, so
+    # "did the agent we quoted actually pay?" could only be guessed from timestamps.
+    exchange_id = "ax-" + uuid.uuid4().hex[:24]
     parts = [
         {"kind": "text", "text": (
             f"{skill['name']} costs ${price_usd} per call. Send a request to {skill['url']} "
             f"with an x402 payment; the response to that request is the result. No account "
             f"or API key exists — request it without payment first to receive a 402 challenge "
-            f"carrying the exact amount and accepted rails."
+            f"carrying the exact amount and accepted rails. Include the header "
+            f"{CORRELATION_HEADER}: {exchange_id} so this task is marked settled."
         )},
         {"kind": "data", "data": {
             "authScheme": "x402",
@@ -272,6 +288,13 @@ def payment_task(message: dict[str, Any], skill: dict[str, Any], price_usd: floa
             "resource": skill["url"],
             "httpMethod": skill.get("method", "POST"),
             "priceUsd": price_usd,
+            "correlationId": exchange_id,
+            "correlationHeader": CORRELATION_HEADER,
+            "correlationNote": (
+                "Optional but recommended. Send it on the paid request and this task moves to "
+                "completed; omit it and the task stays in auth-required because settlement "
+                "happens on another route and is otherwise unobservable from here."
+            ),
             "priceAuthority": (
                 "The 402 challenge on `resource` is authoritative. priceUsd is indicative and a "
                 "cached agent card may be stale — do not pay from it."
@@ -289,8 +312,10 @@ def payment_task(message: dict[str, Any], skill: dict[str, Any], price_usd: floa
     task = _task(task_id, context_id, "auth_required",
                  status_parts=parts, history=[message],
                  metadata={"skillId": skill["id"], "priceUsd": price_usd,
-                           "protocolVersion": version})
+                           "protocolVersion": version, "correlationId": exchange_id})
     a2a.put_task(task_id, task, TASK_TTL_S)
+    a2a.put_exchange(exchange_id, {"taskId": task_id, "skillId": skill["id"],
+                                   "resource": skill["url"], "priceUsd": price_usd}, TASK_TTL_S)
     return task
 
 
@@ -387,3 +412,43 @@ def cancel_task(params: Any) -> dict[str, Any]:
     }
     a2a.replace_task(task_id, task, TASK_TTL_S)
     return render(task, (task.get("metadata") or {}).get("protocolVersion", PROTOCOL_VERSION))
+
+
+def settle(exchange_id: str, settlement: dict[str, Any]) -> bool:
+    """Mark the task behind `exchange_id` completed. Best-effort, never raises.
+
+    This is what makes `completed` honest. The original refusal to report it was
+    "settlement happens on another route and we cannot observe it" — a correlation
+    id removes that objection for exchanges that carry one. No Artifact is
+    attached: the result was delivered inline on the paid response and inventing a
+    copy here would be fabricating output we never held.
+    """
+    try:
+        link = a2a.get_exchange(exchange_id)
+        if not link:
+            return False
+        task = a2a.get_task(link["taskId"])
+        if task is None or task["status"]["state"] in tuple(state(n) for n in TERMINAL):
+            return False
+        task["status"] = {
+            "state": state("completed"),
+            "timestamp": _now_iso(),
+            "message": {
+                "kind": "message", "messageId": "msg-" + uuid.uuid4().hex, "role": "agent",
+                "parts": [
+                    {"kind": "text", "text": (
+                        f"Settled. {link['skillId']} was paid and the result was returned inline "
+                        f"on the response to {link['resource']}; this task records the exchange "
+                        f"rather than duplicating that payload."
+                    )},
+                    {"kind": "data", "data": {"settlement": settlement,
+                                              "correlationId": exchange_id,
+                                              "resource": link["resource"]}},
+                ],
+                "taskId": link["taskId"], "contextId": task["contextId"],
+            },
+        }
+        a2a.replace_task(link["taskId"], task, TASK_TTL_S)
+        return True
+    except Exception:
+        return False

@@ -842,6 +842,16 @@ def get_anchored(receipt_digest: str) -> dict[str, Any] | None:
     return _get(f"anchored#{receipt_digest}")
 
 
+def put_exchange(exchange_id: str, link: dict[str, Any], ttl_s: int) -> None:
+    """Maps a correlation id to the task that issued it, so a paid request
+    carrying the header can be joined back to the quote."""
+    _put(f"a2aex#{exchange_id}", int(time.time()) + ttl_s, link)
+
+
+def get_exchange(exchange_id: str) -> dict[str, Any] | None:
+    return _get(f"a2aex#{exchange_id}")
+
+
 def put_task(task_id: str, task: dict[str, Any], ttl_s: int) -> None:
     """A2A Tasks are mutable (a cancel rewrites status), unlike receipts, so this
     is a plain write rather than first-write-wins."""

@@ -195,6 +195,18 @@ async def _access_log(request, call_next):
             from services import refund as refund_svc
             payer, network = refund_svc.parse_buyer_from_x_payment(pay_header)
             if payer or network:
+                # An A2A correlation id, if the caller echoed the one we handed
+                # out in a Task. This is the join that makes the funnel
+                # measurable: without it PAID_CALL knows the wallet but not who
+                # was quoted, and the A2A log knows the caller but not the wallet.
+                exchange = request.headers.get(a2a_tasks.CORRELATION_HEADER, "")[:64]
+                if exchange and a2a_svc.EXCHANGE_ID_RE.fullmatch(exchange):
+                    if a2a_tasks.settle(exchange, {"payer": payer, "rail": network,
+                                                   "path": request.url.path}):
+                        print("A2A_SETTLED " + json.dumps(
+                            {"ts": int(time.time()), "exchange": exchange,
+                             "path": request.url.path, "payer": payer, "rail": network},
+                            separators=(",", ":")))
                 print("PAID_CALL " + json.dumps(
                     {
                         "ts": int(time.time()),
@@ -203,6 +215,7 @@ async def _access_log(request, call_next):
                         "network": network,
                         "payer": payer,
                         "status": response.status_code,
+                        **({"a2a_exchange": exchange} if exchange else {}),
                     },
                     separators=(",", ":"),
                 ))

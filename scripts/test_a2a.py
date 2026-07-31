@@ -833,6 +833,39 @@ def main() -> None:
        len(next(p["data"]["availableSkills"] for p in _amb["status"]["message"]["parts"]
                 if p["kind"] == "data")) == len(card["skills"]))
 
+    # F21 — correlation. Without it the funnel could only be inferred from
+    # timestamps: the A2A log has the caller but no wallet, PAID_CALL has the
+    # wallet but no caller. The correlation id is also what makes `completed`
+    # honest — the original refusal to report it was that settlement happens on
+    # another route and is unobservable from here.
+    corr_task = _rpc("message/send", {"message": _msg([{"kind": "data",
+                                                       "data": {"skill": first}}])})["result"]
+    corr = next(p["data"] for p in corr_task["status"]["message"]["parts"]
+                if p["kind"] == "data")
+    ok("F21 task carries a correlation id and the header to send it on",
+       a2a_svc.EXCHANGE_ID_RE.fullmatch(corr.get("correlationId", "")) is not None
+       and corr.get("correlationHeader") == a2a_tasks.CORRELATION_HEADER,
+       json.dumps({k: corr.get(k) for k in ("correlationId", "correlationHeader")}))
+    ok("F21 task starts unsettled", corr_task["status"]["state"] == "auth-required")
+
+    settled = a2a_tasks.settle(corr["correlationId"],
+                              {"payer": "0xabc", "rail": "eip155:8453"})
+    ok("F21 settle() resolves the exchange back to its task", settled is True)
+    after = _rpc("tasks/get", {"id": corr_task["id"]})["result"]
+    ok("F21 the task now reports completed", after["status"]["state"] == "completed",
+       after["status"]["state"])
+    ok("F21 completion records the settlement, not a fabricated artifact",
+       "artifacts" not in after
+       and next(p["data"]["settlement"] for p in after["status"]["message"]["parts"]
+                if p["kind"] == "data")["payer"] == "0xabc")
+    ok("F21 settling twice is refused (terminal state)",
+       a2a_tasks.settle(corr["correlationId"], {"payer": "0xdef"}) is False)
+    ok("F21 an unknown correlation id settles nothing",
+       a2a_tasks.settle("ax-" + "0" * 24, {"payer": "0x0"}) is False)
+    ok("F21 settled task still schema-valid",
+       not list(_schema_val("Task").iter_errors(after)),
+       "; ".join(e.message[:60] for e in list(_schema_val("Task").iter_errors(after))[:2]))
+
     # F20 — dual-version acceptance. After the spec methods shipped, the same
     # real client started failing on "message.kind is required": it speaks v1.0,
     # which has no `kind` field anywhere. Both dialects are now accepted and
