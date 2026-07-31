@@ -1274,7 +1274,11 @@ def _log_402(request, kind, err=None):
             except Exception:
                 pass
         if err:
-            entry["err"] = str(err)[:160]
+            # 600, not 160. The facilitator's rejection body is the only place the
+            # actual cause lives (invalidReason, isValid, the reverted call), and
+            # 160 chars cut it off mid-field — three funded payers failed on
+            # 2026-07-31 and the diagnosis had already been truncated away.
+            entry["err"] = str(err)[:600]
         print("CHALLENGE " + json.dumps(entry, separators=(",", ":")))
     except Exception:
         pass
@@ -2421,6 +2425,50 @@ def x402_resources():
 
 
 _DOCS_DIR = os.path.join(os.path.dirname(__file__), "docs")
+
+
+# ---------------------------------------------------------------------------
+# Conventional aliases. Seven days of 404s showed agents reaching for things we
+# already serve, just at the paths their ecosystem expects: /status (174 hits),
+# /.well-known/agent.json (136), /.well-known/agent-card without the suffix (48),
+# /a2a (29), /llms-full.txt (8). Every one of those was a client that found us and
+# then failed to find the document. Aliasing costs nothing and converts the miss.
+#
+# Deliberately NOT aliased: /agents.json and /apis.json name different formats we
+# do not implement, and /.well-known/mcp.json implies an HTTP MCP transport we do
+# not have. Answering those with our own documents would be a false claim.
+# ---------------------------------------------------------------------------
+
+@app.api_route("/status", methods=["GET", "HEAD"], include_in_schema=False)
+@app.api_route("/.well-known/health", methods=["GET", "HEAD"], include_in_schema=False)
+def status_alias():
+    """The single most-requested missing path. Same payload as /health."""
+    return {"status": "ok", "service": "anchor-x402"}
+
+
+@app.api_route("/.well-known/agent.json", methods=["GET", "HEAD"], include_in_schema=False)
+@app.api_route("/.well-known/agent-card", methods=["GET", "HEAD"], include_in_schema=False)
+def agent_card_aliases():
+    """Two spellings agents actually use for the A2A card."""
+    return agent_card()
+
+
+@app.api_route("/.well-known/x402-bazaar.json", methods=["GET", "HEAD"], include_in_schema=False)
+def x402_bazaar_alias():
+    return _serve_x402_discovery()
+
+
+@app.get("/llms-full.txt", include_in_schema=False)
+def llms_full_txt():
+    """The llmstxt convention's long-form name; ours is already the full document."""
+    return llms_txt()
+
+
+@app.api_route("/a2a", methods=["POST", "GET", "HEAD"], include_in_schema=False)
+def a2a_alias(request: Request):
+    """308 preserves method and body, so a JSON-RPC POST to /a2a reaches the real
+    endpoint intact rather than being downgraded to GET."""
+    return RedirectResponse(url=f"{_RESOURCE_BASE}/v1/a2a", status_code=308)
 
 
 @app.get("/robots.txt", include_in_schema=False)
