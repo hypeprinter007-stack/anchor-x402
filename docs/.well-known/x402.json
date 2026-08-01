@@ -39,7 +39,10 @@
       "asset_name": "JPYC",
       "asset_decimals": 18,
       "facilitator": "in-process",
-      "note": "First FSA-licensed Japanese yen stablecoin. Tier mapping: $0.001=¥0.1, $0.005=¥1, $0.01=¥2, $0.05=¥10, $1.77=¥350, $5.00=¥1000."
+      "note": "First FSA-licensed Japanese yen stablecoin. Tier mapping: $0.001=¥0.1, $0.005=¥1, $0.01=¥2, $0.05=¥10, $1.77=¥350, $5.00=¥1000. These are fixed yen amounts, not an FX conversion: they are pegged at an assumed ~¥200/USD and there is no oracle, so the USD-equivalent of a JPYC payment floats with the real rate in both directions. At a spot rate stronger than ¥200/USD a JPYC payment is worth more than the USD price (recently ~+27%); weaker than ¥200/USD it is worth less. The $0.001 tier is snapped to ¥0.1 rather than ¥0.2, so it sits below the other tiers' implied rate. Compare the two accepts entries in the 402 challenge and pay whichever rail suits you — both are honoured at face value.",
+      "pricing_model": "fixed-yen-tiers",
+      "implied_rate_jpy_per_usd": 200,
+      "fx_oracle": false
     }
   ],
   "free_endpoints": [

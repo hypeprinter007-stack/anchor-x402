@@ -6,6 +6,8 @@
 
 anchor-x402 exposes 18 stateless services on AWS Lambda + FastAPI. Each endpoint returns an x402 v2 PaymentRequired challenge with `extensions.bazaar`; clients pay $0.001–$1.77 USDC (or the JPYC equivalent ¥0.1–¥350) per call from any Base, Solana, or Polygon wallet via EIP-3009 transferWithAuthorization. USDC settles via Coinbase's CDP facilitator; JPYC settles via an in-process facilitator on Polygon. Live at https://api.anchor-x402.com.
 
+**On the JPYC rail:** the yen amounts are fixed tiers, not a live FX conversion. They are pegged at an assumed ~¥200/USD with no oracle, so the USD-equivalent of a JPYC payment floats with the real rate in both directions — worth more than the USD price when the yen is stronger than ¥200/USD (recently ~+27%), less when it is weaker. The $0.001 tier is snapped to ¥0.1 rather than ¥0.2 and so sits below the other tiers' implied rate. Both rails are honoured at face value; compare the `accepts` entries in the 402 challenge and pay whichever suits you.
+
 ## Discovery (machine-readable)
 
 - [OpenAPI spec](https://api.anchor-x402.com/openapi.json) — full schema for all 18 services
