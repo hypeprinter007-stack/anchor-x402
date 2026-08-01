@@ -54,23 +54,67 @@ def _ddb_table():
     return _DDB
 
 
+def _svm_payer_from_tx(tx_b64: str) -> str | None:
+    """Buyer pubkey out of an x402 `exact` SVM payment.
+
+    The SVM payload carries a serialized, partially-signed VersionedTransaction
+    instead of the EVM shape's flat authorization object, so there is no `from`
+    field to read — the buyer exists only inside the transaction, and reading it
+    is the difference between knowing who to refund and not.
+
+    The x402 SVM client compiles the message with exactly two signers and pins
+    their order: index 0 is the facilitator's fee payer, index 1 is the buyer
+    (see x402/mechanisms/svm/exact/client.py, which builds
+    `signatures = [Signature.default(), client_signature]`). We require that
+    two-signer shape and return None otherwise, so an unfamiliar layout yields
+    "unknown" rather than a confidently wrong address that a refund is sent to.
+    """
+    from solders.transaction import VersionedTransaction
+
+    tx = VersionedTransaction.from_bytes(base64.b64decode(tx_b64))
+    message = tx.message
+    if message.header.num_required_signatures < 2:
+        return None
+    keys = list(message.account_keys)
+    if len(keys) < 2:
+        return None
+    return str(keys[1])
+
+
 def parse_buyer_from_x_payment(x_payment_header: str | None) -> tuple[str | None, str | None]:
     """Decode a base64 x402 payment header to extract (buyer_wallet, network).
-    Accepts both the V2 `PAYMENT-SIGNATURE` and the legacy V1 `X-PAYMENT`
-    payload shapes — V2 carries the network under `accepted.network`, V1 at the
-    top level; the payer `from` is under `payload.authorization` in both.
-    Returns (None, None) on absent/unparseable header — the caller should treat
-    that as "buyer wallet unknown, no auto-refund possible." Internal-auth
-    bypass calls and missing headers fall through this path silently."""
+
+    Accepts both the V2 `PAYMENT-SIGNATURE` and the legacy V1 `X-PAYMENT` payload
+    shapes — V2 carries the network under `accepted.network`, V1 at the top level.
+    On EVM the payer `from` sits under `payload.authorization`; on Solana there is
+    no such field and the payer is recovered from the serialized transaction.
+
+    Returns (None, None) on an absent or unparseable header — the caller should
+    treat that as "buyer wallet unknown, no auto-refund possible." Internal-auth
+    bypass calls and missing headers fall through this path silently. The network
+    is returned even when the payer cannot be determined, because the refund path
+    keys its manual-followup decision on it.
+    """
     if not x_payment_header:
         return None, None
     try:
         payload = json.loads(base64.b64decode(x_payment_header))
-        network = payload.get("network") or payload.get("accepted", {}).get("network")
-        auth = payload.get("payload", {}).get("authorization", {})
-        return auth.get("from"), network
     except Exception:
         return None, None
+
+    network = payload.get("network") or (payload.get("accepted") or {}).get("network")
+    inner = payload.get("payload") or {}
+    buyer = (inner.get("authorization") or {}).get("from")
+
+    if not buyer and isinstance(inner.get("transaction"), str):
+        # Isolated: a decode failure must not cost us the network too, since that
+        # alone is enough to queue a manual refund.
+        try:
+            buyer = _svm_payer_from_tx(inner["transaction"])
+        except Exception:
+            buyer = None
+
+    return buyer, network
 
 
 def _send_usdc(to_address: str, amount_atomic: int) -> str:
@@ -117,16 +161,24 @@ def refund_failed_job(job_id: str) -> dict[str, Any]:
 
     buyer_wallet = item.get("buyer_wallet")
     buyer_network = item.get("buyer_network")
-    if not buyer_wallet:
-        return {"skipped": "no buyer_wallet captured", "job_id": job_id}
-    if buyer_network != "eip155:8453":
-        # Flag for manual followup; v1 only auto-refunds Base USDC.
+    # Network is checked before the wallet, deliberately. A non-Base payment must
+    # reach the manual-followup flag even when the payer could not be parsed —
+    # checking the wallet first meant every Solana-paid job fell out silently at
+    # the guard below, because the payer is not in the EVM-shaped field and we
+    # never consulted the network we had already recorded. The refund was then
+    # neither sent nor queued for a human. Base behaviour is unchanged.
+    if buyer_network and buyer_network != "eip155:8453":
+        # Flag for manual followup; v1 only auto-refunds Base USDC (_send_usdc is
+        # web3-only, so there is no Solana send path to fall back on).
         table.update_item(
             Key={"job_id": job_id},
             UpdateExpression="SET refund_pending = :p",
             ExpressionAttributeValues={":p": "manual"},
         )
-        return {"skipped": f"non-Base network {buyer_network}", "refund_pending": "manual"}
+        return {"skipped": f"non-Base network {buyer_network}", "refund_pending": "manual",
+                "buyer_wallet": buyer_wallet, "job_id": job_id}
+    if not buyer_wallet:
+        return {"skipped": "no buyer_wallet captured", "job_id": job_id}
 
     amount_atomic = int(item.get("price_atomic") or REFUND_AMOUNT_ATOMIC)
     tx_hash = _send_usdc(buyer_wallet, amount_atomic)
