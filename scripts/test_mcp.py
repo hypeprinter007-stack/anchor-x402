@@ -64,6 +64,11 @@ def ERR(r) -> dict:
         return {}
 
 
+def _app_fwd() -> tuple:
+    import app as _a
+    return _a._MCP_FORWARD_HEADERS
+
+
 def _app_max_batch() -> int:
     import app as _a
     return _a._MCP_MAX_BATCH
@@ -303,6 +308,33 @@ def main() -> None:
     ok("challenge lists at least one payment option", len(sc.get("accepts") or []) >= 1)
     ok("content text tells the agent to retry with X-PAYMENT",
        "X-PAYMENT" in (res.get("content") or [{}])[0].get("text", ""), (res.get("content") or [{}])[0].get("text", "")[:160])
+    # In x402 V2 the base64 `payment-required` header is the canonical challenge
+    # and the JSON body is only a courtesy rendering. Forwarding it is what lets a
+    # stock V2 client pay through /mcp; without it the surface is V1-shaped.
+    ok("the canonical V2 payment-required header is forwarded",
+       bool(r.headers.get("payment-required")), str(sorted(r.headers))[:200])
+    try:
+        decoded = json.loads(base64.b64decode(r.headers.get("payment-required", "")))
+    except Exception:
+        decoded = {}
+    ok("that header decodes to the same challenge as the body",
+       decoded.get("accepts") == sc.get("accepts"), str(sorted(decoded))[:120])
+    ok("it declares x402 V2", decoded.get("x402Version") == 2, str(decoded.get("x402Version")))
+    ok("a free method carries no payment header",
+       not client.post("/mcp", json=modern_body("tools/list"),
+                       headers=modern_headers("tools/list")).headers.get("payment-required"))
+    # Regression guard for a 402 loop that produced no facilitator rejection to
+    # explain it: PAYMENT-SIGNATURE is the x402 V2 request header and X-PAYMENT the
+    # V1 one. Forwarding only V1 silently dropped every V2 client's payment.
+    ok("both the V2 and V1 payment request headers are forwarded",
+       "payment-signature" in _app_fwd() and "x-payment" in _app_fwd(), str(_app_fwd()))
+    cors = next(m for m in app.user_middleware if m.cls.__name__ == "CORSMiddleware")
+    allowed = {h.lower() for h in cors.kwargs.get("allow_headers", [])}
+    ok("browser clients may send PAYMENT-SIGNATURE (CORS allow_headers)",
+       "payment-signature" in allowed, str(sorted(allowed)))
+    exposed = {h.lower() for h in cors.kwargs.get("expose_headers", [])}
+    ok("browser clients may read the challenge back (CORS expose_headers)",
+       "payment-required" in exposed, str(sorted(exposed)))
     r = client.post("/mcp", json=modern_body(
         "tools/call", {"name": "roast", "arguments": {"target": "x"}}),
         headers=modern_headers("tools/call", "roast"))
@@ -499,6 +531,43 @@ def main() -> None:
                                              "arguments": {"symbol": "ETH"}}},
                     headers={"MCP-Protocol-Version": LEGACY})
     check(LEGACY, "CallToolResult", RES(r), "legacy unpaid tools/call")
+
+    print("\nsettlement accounting")
+    # One settlement must produce exactly one PAID_CALL. /mcp forwards the payment
+    # inward, so the outer hop must not also book it — that would double-count paid
+    # calls and revenue in the same ledger /v1/ledger/* reports from.
+    import io, contextlib
+    import app as _app2
+    # PAID_CALL only fires on a <400 response, so a real paid tool would 402 here
+    # and prove nothing. Route the tool at the free POST route instead: the inner
+    # hop returns 200 with a parseable payment header, so PAID_CALL genuinely
+    # fires for it — and the /mcp hop must still not appear.
+    _app2._MCP_TOOLS["__probe"] = "/v1/a2a"
+    signed = base64.b64encode(json.dumps({
+        "x402Version": 2,
+        "accepted": {"network": "eip155:8453"},
+        "payload": {"authorization": {
+            "from": "0x0000000000000000000000000000000000000bad"}},
+    }).encode()).decode()
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            client.post("/mcp", json=modern_body(
+                "tools/call", {"name": "__probe", "arguments": {"jsonrpc": "2.0", "id": 1}}),
+                headers={**modern_headers("tools/call", "__probe"),
+                         "payment-signature": signed})
+    finally:
+        _app2._MCP_TOOLS.pop("__probe", None)
+    lines = [ln for ln in buf.getvalue().splitlines() if ln.startswith("PAID_CALL")]
+    ok("the test payment header does reach the telemetry branch (guard is live)",
+       any('"/v1/a2a"' in ln for ln in lines), str(lines)[:200])
+    ok("the /mcp hop is never booked as a paid call",
+       not [ln for ln in lines if '"path":"/mcp"' in ln], str(lines)[:200])
+    ok("exactly one PAID_CALL per settlement", len(lines) == 1, f"{len(lines)}: {lines}")
+    ok("the surviving line records that it arrived over MCP",
+       any('"via":"mcp"' in ln and '"tool":"__probe"' in ln for ln in lines), str(lines)[:200])
+    ok("all three MCP paths are excluded from settlement accounting",
+       {"/mcp", "/v1/mcp", "/api/mcp"} == set(_app2._MCP_ENDPOINT_PATHS))
 
     print("\nno money path on the protocol surface")
     for p in ("POST /mcp", "POST /v1/mcp", "POST /api/mcp"):

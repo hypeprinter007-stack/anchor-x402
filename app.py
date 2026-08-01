@@ -145,6 +145,10 @@ except ImportError:
 
 
 # Free, machine-facing paths where knowing the caller is the point.
+# The MCP endpoint and its aliases. Declared here because the settled-payment
+# middleware below has to know which paths are transport rather than product.
+_MCP_ENDPOINT_PATHS = frozenset({"/mcp", "/v1/mcp", "/api/mcp"})
+
 _DISCOVERY_PATHS = frozenset({
     "/.well-known/agent-card.json",
     "/.well-known/agent-registration.json",
@@ -192,6 +196,12 @@ async def _access_log(request, call_next):
     # via Insights (the routes are otherwise stateless). Payer is a public
     # on-chain address; best-effort, never raises into the request path.
     pay_header = request.headers.get("payment-signature") or request.headers.get("x-payment")
+    # The MCP endpoint is not itself metered: it forwards the payment inward to the
+    # real route, which logs its own PAID_CALL. Counting the outer hop too would
+    # book one settlement twice — a 2x overstatement of paid calls and revenue for
+    # every MCP-routed payment, in the same ledger /v1/ledger/* reports from.
+    if request.url.path in _MCP_ENDPOINT_PATHS:
+        pay_header = None
     if pay_header and response.status_code < 400:
         try:
             from services import refund as refund_svc
@@ -217,6 +227,12 @@ async def _access_log(request, call_next):
                         "network": network,
                         "payer": payer,
                         "status": response.status_code,
+                        # Set by _mcp_invoke on the forwarded sub-request, so the
+                        # single surviving line still records that this arrived
+                        # over MCP and which tool the caller asked for.
+                        **({"via": "mcp",
+                            "tool": request.headers.get("x-mcp-tool", "")[:40]}
+                           if request.headers.get("x-mcp-tool") else {}),
                         **({"a2a_exchange": exchange} if exchange else {}),
                     },
                     separators=(",", ":"),
@@ -1444,9 +1460,10 @@ app.add_middleware(
     allow_methods=["GET", "HEAD", "POST", "OPTIONS"],
     # The MCP request-metadata headers must be listed or a browser-resident MCP
     # client fails preflight before it ever reaches /mcp.
-    allow_headers=["content-type", "x-payment", "authorization",
+    allow_headers=["content-type", "x-payment", "payment-signature", "authorization",
                    "mcp-protocol-version", "mcp-method", "mcp-name"],
-    expose_headers=["payment-response", "x-payment-response", "payment-required"],
+    expose_headers=["payment-response", "x-payment-response", "payment-required",
+                    "payment-error"],
     max_age=86400,
 )
 
@@ -3095,7 +3112,19 @@ def _mcp_log(method: str, tool: str, version: str, client: str, status: str) -> 
         pass
 
 
-async def _mcp_invoke(tool: str, arguments: dict, request: Request) -> tuple[int, dict | str]:
+# Response headers carried back out of the paid route.
+_MCP_PASSTHRU_HEADERS = ("payment-required", "payment-response", "x-payment-response",
+                         "payment-error")
+# Request headers carried in. PAYMENT-SIGNATURE is the x402 V2 name and X-PAYMENT
+# the V1 one; forwarding only the latter (as this did) meant a V2 client's payment
+# was silently dropped and the route just issued a fresh challenge — a 402 loop
+# with no facilitator rejection anywhere in the logs to explain it.
+_MCP_FORWARD_HEADERS = ("payment-signature", "x-payment",
+                        "x-forwarded-for", "authorization")
+
+
+async def _mcp_invoke(tool: str, arguments: dict,
+                      request: Request) -> tuple[int, dict | str, dict]:
     """Run a tool by replaying it as an in-process request to its own paid route.
 
     Deliberately not a direct handler call: going back in through the ASGI app
@@ -3114,7 +3143,7 @@ async def _mcp_invoke(tool: str, arguments: dict, request: Request) -> tuple[int
         "user-agent": request.headers.get("user-agent", "mcp-http")[:200],
         "x-mcp-tool": tool,
     }
-    for h in ("x-payment", "x-forwarded-for", "authorization"):
+    for h in _MCP_FORWARD_HEADERS:
         v = request.headers.get(h)
         if v:
             headers[h] = v
@@ -3124,29 +3153,38 @@ async def _mcp_invoke(tool: str, arguments: dict, request: Request) -> tuple[int
                                  base_url=f"https://{_CANONICAL_HOST}") as client:
         r = await client.post(path, content=json.dumps(arguments).encode(),
                               headers=headers, timeout=120.0)
+    # The x402 headers are the canonical carrier in V2 — `payment-required` holds
+    # the base64 challenge and `payment-response` the settlement receipt, and the
+    # JSON body is only a courtesy rendering. Dropping them (as this did) left the
+    # MCP surface V1-shaped: a stock V2 client had nothing to trigger on. They are
+    # already in the CORS expose_headers list, so browser agents can read them too.
+    passthru = {k: v for k, v in (
+        (h, r.headers.get(h)) for h in _MCP_PASSTHRU_HEADERS) if v}
     try:
-        return r.status_code, r.json()
+        return r.status_code, r.json(), passthru
     except Exception:
-        return r.status_code, r.text[:2000]
+        return r.status_code, r.text[:2000], passthru
 
 
-async def _mcp_tools_call(params: dict, version: str, request: Request) -> tuple[dict | None, dict | None]:
+async def _mcp_tools_call(params: dict, version: str,
+                          request: Request) -> tuple[dict | None, dict | None, dict]:
     """Returns (result, error). Tool *execution* failures — including 402 — come
     back as a result with isError=true rather than a JSON-RPC error, because the
     spec routes those to the model: an agent that can see the 402 challenge can
     pay it, whereas a JSON-RPC error is handled by the client and never shown."""
     name = params.get("name")
     if not isinstance(name, str) or not name:
-        return None, {"code": mcp_svc.ERR_INVALID_PARAMS, "message": "params.name is required."}
+        return None, {"code": mcp_svc.ERR_INVALID_PARAMS,
+                      "message": "params.name is required."}, {}
     tool = _MCP_ALIASES.get(name, name)
     if tool not in _MCP_TOOLS:
         return None, {"code": mcp_svc.ERR_INVALID_PARAMS,
                       "message": (f"Unknown tool {name!r}. Call tools/list for the "
-                                  f"{len(_MCP_TOOL_LIST)} available tools.")}
+                                  f"{len(_MCP_TOOL_LIST)} available tools.")}, {}
 
     args = params.get("arguments")
     args = args if isinstance(args, dict) else {}
-    status, payload = await _mcp_invoke(tool, args, request)
+    status, payload, passthru = await _mcp_invoke(tool, args, request)
 
     if status == 200:
         result = {"content": mcp_svc.text_content(payload), "isError": False}
@@ -3154,7 +3192,7 @@ async def _mcp_tools_call(params: dict, version: str, request: Request) -> tuple
         # don't send a field their revision never defined.
         if isinstance(payload, dict) and version >= "2025-06-18":
             result["structuredContent"] = payload
-        return result, None
+        return result, None, passthru
 
     if status == 402:
         lead = (f"Payment required for {tool} — this is a paid x402 service. Sign one of the "
@@ -3166,17 +3204,18 @@ async def _mcp_tools_call(params: dict, version: str, request: Request) -> tuple
                   "isError": True}
         if isinstance(payload, dict) and version >= "2025-06-18":
             result["structuredContent"] = payload
-        return result, None
+        return result, None, passthru
 
     result = {"content": mcp_svc.text_content(
         payload if isinstance(payload, (dict, str)) else str(payload)), "isError": True}
     if isinstance(payload, dict) and version >= "2025-06-18":
         result["structuredContent"] = payload
-    return result, None
+    return result, None, passthru
 
 
-async def _mcp_handle_one(body: dict, request: Request) -> tuple[dict | None, int]:
-    """Handle one JSON-RPC message. Returns (response_content, http_status), with
+async def _mcp_handle_one(body: dict,
+                          request: Request) -> tuple[dict | None, int, dict]:
+    """Handle one JSON-RPC message. Returns (content, http_status, headers), with
     content None for a message that takes no response (a notification).
 
     Split out from the endpoint so that a 2025-03-26 batch can reuse it verbatim
@@ -3184,17 +3223,17 @@ async def _mcp_handle_one(body: dict, request: Request) -> tuple[dict | None, in
     """
     if not isinstance(body, dict):
         return mcp_svc.err(None, mcp_svc.ERR_INVALID_REQUEST,
-                           "Each JSON-RPC message must be an object."), 400
+                           "Each JSON-RPC message must be an object."), 400, {}
 
     method = body.get("method")
     if not isinstance(method, str):
         return mcp_svc.err(body.get("id"), mcp_svc.ERR_INVALID_REQUEST,
-                           "Missing or non-string `method`."), 400
+                           "Missing or non-string `method`."), 400, {}
 
     # Notifications carry no id and take no response. We hold no per-connection
     # state, so there is nothing for initialized/cancelled to do.
     if mcp_svc.is_notification(body):
-        return None, 202
+        return None, 202, {}
 
     rpc_id = body.get("id")
     headers = request.headers  # Starlette headers are case-insensitive.
@@ -3206,19 +3245,19 @@ async def _mcp_handle_one(body: dict, request: Request) -> tuple[dict | None, in
     if verr:
         _mcp_log(method, "", version, client, f"rejected:{verr['code']}")
         return (mcp_svc.err(rpc_id, verr["code"], verr["message"], verr.get("data")),
-                mcp_svc.http_status(verr["code"]))
+                mcp_svc.http_status(verr["code"]), {})
 
     params = body.get("params")
     params = params if isinstance(params, dict) else {}
     modern = mcp_svc.is_modern(version)
 
-    def _reply(result: dict, cache=None):
-        return mcp_svc.ok(rpc_id, result, version, cache=cache), 200
+    def _reply(result: dict, cache=None, headers=None):
+        return mcp_svc.ok(rpc_id, result, version, cache=cache), 200, (headers or {})
 
     def _fail(code: int, message: str):
         # Status always derived, never hardcoded — one place decides, so the
         # spec's "404 for an unimplemented method" cannot drift per call site.
-        return mcp_svc.err(rpc_id, code, message), mcp_svc.http_status(code)
+        return mcp_svc.err(rpc_id, code, message), mcp_svc.http_status(code), {}
 
     # server/discover — mandatory in 2026-07-28. Answered for every revision:
     # it is the cheapest way for any client to learn what this server speaks.
@@ -3232,7 +3271,7 @@ async def _mcp_handle_one(body: dict, request: Request) -> tuple[dict | None, in
             "ttlMs": mcp_svc.DISCOVER_TTL_MS,
             "cacheScope": mcp_svc.CACHE_PUBLIC,
             "_meta": {mcp_svc.META_SERVER_INFO: mcp_svc.server_info(version)},
-        }, version), 200
+        }, version), 200, {}
 
     if method == "initialize":
         if modern:
@@ -3260,14 +3299,14 @@ async def _mcp_handle_one(body: dict, request: Request) -> tuple[dict | None, in
                       cache=(mcp_svc.TOOLS_TTL_MS, mcp_svc.CACHE_PUBLIC))
 
     if method == "tools/call":
-        result, cerr = await _mcp_tools_call(params, version, request)
+        result, cerr, passthru = await _mcp_tools_call(params, version, request)
         if cerr:
             _mcp_log(method, str(params.get("name", ""))[:40], version, client,
                      f"rejected:{cerr['code']}")
             return _fail(cerr["code"], cerr["message"])
         _mcp_log(method, str(params.get("name", ""))[:40], version, client,
                  "error" if result.get("isError") else "ok")
-        return _reply(result)
+        return _reply(result, headers=passthru)
 
     # 404, not 200 — the spec uses the status to let a client distinguish a
     # modern server's -32601 from a legacy 404 with no MCP endpoint at all.
@@ -3322,7 +3361,11 @@ async def mcp_endpoint(request: Request):
                 f"Batch of {len(body)} exceeds the {_MCP_MAX_BATCH}-message limit."))
         out = []
         for msg in body:
-            content, _status = await _mcp_handle_one(msg, request)
+            # Batch responses carry no x402 headers: a batch can hold several paid
+            # calls and one header set cannot represent all of them without being
+            # ambiguous about which call it belongs to. Batching exists only for
+            # 2025-03-26, and the challenge is still in each result's body.
+            content, _status, _hdrs = await _mcp_handle_one(msg, request)
             if content is not None:
                 out.append(content)
         # All notifications (or responses, which we never solicit) — 202, no body,
@@ -3331,10 +3374,10 @@ async def mcp_endpoint(request: Request):
             return Response(status_code=202)
         return JSONResponse(content=out)
 
-    content, status = await _mcp_handle_one(body, request)
+    content, status, headers = await _mcp_handle_one(body, request)
     if content is None:
         return Response(status_code=status)
-    return JSONResponse(status_code=status, content=content)
+    return JSONResponse(status_code=status, content=content, headers=headers or None)
 
 
 @app.api_route("/mcp", methods=["GET", "DELETE"], include_in_schema=False)

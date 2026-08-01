@@ -84,25 +84,30 @@ async function mcpPost(method, params, name, extra) {
   return body.result;
 }
 
-// The adapter: present the MCP-embedded challenge to the wrapper as a real 402.
+// The adapter: re-present the MCP-embedded challenge to the wrapper as a real
+// 402. The `payment-required` header is carried over verbatim — in x402 V2 that
+// base64 header is the canonical challenge and what the client actually parses;
+// the JSON body is a courtesy rendering. Rebuilding a 402 from the body alone is
+// not enough, which is exactly how the first version of this failed.
 const payingFetch = wrapFetchWithPaymentFromConfig(
-  async (url, init) => {
-    const res = await fetch(url, init);
-    const clone = res.clone();
-    let body;
-    try {
-      body = await clone.json();
-    } catch {
-      return res;
-    }
-    const challenge = body?.result?.structuredContent;
-    if (body?.result?.isError && Array.isArray(challenge?.accepts)) {
-      return new Response(JSON.stringify(challenge), {
-        status: 402,
-        headers: { "content-type": "application/json" },
-      });
-    }
-    return res;
+  async (a, b) => {
+    // The wrapper hands us a Request as the first argument with the second
+    // undefined. Fetch it via a clone: fetching the Request itself consumes its
+    // body, and the wrapper needs to re-issue that same request once it has
+    // signed the payment. Without the clone the retry goes out bodyless.
+    const req = a instanceof Request && b === undefined ? a : new Request(a, b);
+    const res = await fetch(req.clone());
+    const challengeHeader = res.headers.get("payment-required");
+    if (!challengeHeader) return res;
+    const body = await res.clone().json().catch(() => null);
+    if (!body?.result?.isError) return res;
+    return new Response(JSON.stringify(body.result.structuredContent ?? {}), {
+      status: 402,
+      headers: {
+        "content-type": "application/json",
+        "payment-required": challengeHeader,
+      },
+    });
   },
   { schemes: [{ network: "eip155:8453", client: new ExactEvmScheme(signer) }] },
 );
