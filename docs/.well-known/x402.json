@@ -73,8 +73,8 @@
     {
       "path": "/mcp",
       "method": "POST",
-      "description": "MCP (Model Context Protocol) endpoint — Streamable HTTP, stateless, no API key or account. All 18 paid services are exposed as MCP tools. server/discover, initialize and tools/list are free; tools/call settles per request in USDC on Base or Solana via x402 — call without payment and the 402 challenge comes back in structuredContent.accepts, then retry the identical call with a signed X-PAYMENT header. An alternative stdio transport exists as the npm package anchor-x402-mcp, but that one needs a funded private key in the local process; this endpoint does not.",
-      "description_ja": "MCP（Model Context Protocol）エンドポイント — Streamable HTTP、ステートレス、APIキー・アカウント不要。有料18サービスすべてをMCPツールとして公開します。server/discover・initialize・tools/listは無料。tools/callはx402によりBaseまたはSolanaのUSDCでリクエスト毎に決済します。未払いで呼び出すと402チャレンジがstructuredContent.acceptsで返るので、署名済みX-PAYMENTヘッダーを付けて同じ呼び出しを再送してください。",
+      "description": "MCP (Model Context Protocol) endpoint — Streamable HTTP, stateless, no API key or account. All 18 paid services are exposed as MCP tools. server/discover, initialize and tools/list are free; tools/call settles per request in USDC on Base or Solana via x402 — call without payment and the 402 challenge comes back in structuredContent.accepts, then retry the identical call with a signed PAYMENT-SIGNATURE header (x402 V2; the deprecated V1 X-PAYMENT spelling is also accepted). An alternative stdio transport exists as the npm package anchor-x402-mcp, but that one needs a funded private key in the local process; this endpoint does not.",
+      "description_ja": "MCP（Model Context Protocol）エンドポイント — Streamable HTTP、ステートレス、APIキー・アカウント不要。有料18サービスすべてをMCPツールとして公開します。server/discover・initialize・tools/listは無料。tools/callはx402によりBaseまたはSolanaのUSDCでリクエスト毎に決済します。未払いで呼び出すと402チャレンジがstructuredContent.acceptsで返るので、署名済みPAYMENT-SIGNATUREヘッダー（x402 V2の名称。非推奨のV1 X-PAYMENTも受け付けます）を付けて同じ呼び出しを再送してください。",
       "protocol": "mcp",
       "transport": "streamable-http",
       "mcp_protocol_versions": [
@@ -83,7 +83,8 @@
         "2025-06-18",
         "2025-03-26"
       ],
-      "server_card": "https://anchor-x402.com/.well-known/mcp/server-card.json"
+      "server_card": "https://anchor-x402.com/.well-known/mcp/server-card.json",
+      "payment_header": "PAYMENT-SIGNATURE"
     }
   ],
   "routes": [

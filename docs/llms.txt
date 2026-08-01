@@ -78,7 +78,7 @@ Payment is the ordinary x402 dance, surfaced inside MCP rather than around it:
 
 1. `tools/call` with no payment returns a **result** (not a JSON-RPC error) with `isError: true` and the 402 challenge in `structuredContent.accepts`.
 2. Sign one of those payment options.
-3. Retry the identical `tools/call` with the signed authorization in an `X-PAYMENT` header.
+3. Retry the identical `tools/call` with the signed authorization in a `PAYMENT-SIGNATURE` header (the x402 V2 name; the deprecated V1 `X-PAYMENT` spelling is also accepted).
 
 The challenge is delivered as a result on purpose: an agent can read it and pay, whereas a JSON-RPC error would be swallowed by the client before the model ever saw it.
 

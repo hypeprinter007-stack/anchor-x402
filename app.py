@@ -3038,7 +3038,8 @@ _MCP_INSTRUCTIONS = (
     "settles per call in USDC on Base or Solana via x402. Calling a tool without payment is "
     "not an error you should give up on: the result comes back with isError=true and a "
     "structuredContent.accepts array — that is the x402 challenge. Sign one of those "
-    "payment options and retry the identical tools/call with an X-PAYMENT header. Read-only "
+    "payment options and retry the identical tools/call with a PAYMENT-SIGNATURE header "
+    "(x402 V2; the V1 X-PAYMENT spelling is also accepted). Read-only "
     "tools are marked with annotations.readOnlyHint."
 )
 
@@ -3197,7 +3198,8 @@ async def _mcp_tools_call(params: dict, version: str,
     if status == 402:
         lead = (f"Payment required for {tool} — this is a paid x402 service. Sign one of the "
                 f"payment options in structuredContent.accepts and retry this identical "
-                f"tools/call with the signed authorization in an X-PAYMENT header.")
+                f"tools/call with the signed authorization in a PAYMENT-SIGNATURE header "
+                f"(x402 V2; the V1 X-PAYMENT spelling also works).")
         result = {"content": mcp_svc.text_content(lead if not isinstance(payload, dict) else
                                                   {"error": "payment_required",
                                                    "guidance": lead, **payload}),
@@ -3459,11 +3461,12 @@ def _mcp_server_card_doc() -> dict:
                 "instructions": _MCP_INSTRUCTIONS,
                 "authentication": {
                     "type": "x402",
-                    "header": "X-PAYMENT",
+                    "header": "PAYMENT-SIGNATURE",
+                    "headerLegacy": "X-PAYMENT",
                     "description": ("No API key or account. Each tools/call settles per request "
                                     "in USDC on Base or Solana. Call without payment to receive "
                                     "the 402 challenge in structuredContent.accepts, then retry "
-                                    "with a signed X-PAYMENT header."),
+                                    "with a signed PAYMENT-SIGNATURE header."),
                     "freeMethods": ["server/discover", "initialize", "tools/list"],
                 },
                 "tools": [t["name"] for t in _MCP_TOOL_LIST],
