@@ -64,6 +64,11 @@ def ERR(r) -> dict:
         return {}
 
 
+def _app_max_batch() -> int:
+    import app as _a
+    return _a._MCP_MAX_BATCH
+
+
 def load_named(stem: str):
     with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                            "data", f"{stem}.json")) as f:
@@ -386,6 +391,41 @@ def main() -> None:
            f"{'.'.join(str(x) for x in e.absolute_path)}: {e.message[:200]}")
     ok("card HEAD works for link previews",
        client.head("/.well-known/mcp/server-card.json").status_code == 200)
+
+    print("\nJSON-RPC batching (2025-03-26 only — removed in 2025-06-18)")
+    # 2025-03-26's transport spec lets a client POST an array of requests and
+    # requires the server to answer it. Claiming that revision while rejecting
+    # arrays would be a false claim, so the batch path exists for it alone.
+    batch = [{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}},
+             {"jsonrpc": "2.0", "id": 2, "method": "ping", "params": {}}]
+    r = client.post("/mcp", json=batch)
+    ok("a batch is accepted when no version header is sent (2025-03-26)",
+       r.status_code == 200, str(r.status_code))
+    got = r.json() if r.status_code == 200 else []
+    ok("a batch returns an array of responses", isinstance(got, list) and len(got) == 2,
+       str(got)[:160])
+    ids = sorted(x.get("id") for x in got) if isinstance(got, list) else []
+    ok("every request in the batch gets its own response", ids == [1, 2], str(ids))
+    ok("batched tools/list still returns all 18",
+       any(len((x.get("result") or {}).get("tools", [])) == 18 for x in got)
+       if isinstance(got, list) else False)
+    r = client.post("/mcp", json=[{"jsonrpc": "2.0", "method": "notifications/initialized"}])
+    ok("a batch of only notifications is 202 with no body",
+       r.status_code == 202 and not r.content, str(r.status_code))
+    r = client.post("/mcp", json=batch, headers={"MCP-Protocol-Version": LEGACY})
+    ok("a batch is rejected for 2025-06-18, which removed batching",
+       r.status_code == 400 and ERR(r).get("code") == mcp_svc.ERR_INVALID_REQUEST,
+       f"{r.status_code} {ERR(r)}")
+    r = client.post("/mcp", json=batch, headers={"MCP-Protocol-Version": MODERN})
+    ok("a batch is rejected for 2026-07-28 too", r.status_code == 400)
+    ok("that rejection names the revision that removed it",
+       "2025-06-18" in ERR(r).get("message", ""), ERR(r).get("message", "")[:90])
+    r = client.post("/mcp", json=[])
+    ok("an empty batch is rejected", r.status_code == 400)
+    r = client.post("/mcp", json=[{"jsonrpc": "2.0", "id": i, "method": "ping", "params": {}}
+                                  for i in range(_app_max_batch() + 1)])
+    ok("an oversized batch is refused rather than fanned out", r.status_code == 400,
+       str(r.status_code))
 
     print("\nofficial schema validation (vendored from modelcontextprotocol)")
     # The claim "this server speaks 2026-07-28 and 2025-06-18" is only worth

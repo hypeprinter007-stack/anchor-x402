@@ -16,7 +16,12 @@ Two protocol eras share the single /mcp endpoint:
   2025-03-26   The `initialize` handshake era. Sessions are optional *for the
   …2025-11-25  server* — we mint none, which is what keeps this endpoint honest
                on Lambda, where there is no cross-invocation memory to hold a
-               session in anyway.
+               session in anyway. 2025-03-26 alone also permits JSON-RPC
+               batching (2025-06-18 removed it), and its transport spec requires
+               a server to answer an array of requests — so app.py handles
+               batches for that revision and refuses them for every later one.
+               Claiming the revision while rejecting its arrays would have been
+               a false claim of exactly the kind this module is careful about.
 
 Shapes verified against the official schemas at schema/<version>/schema.json in
 modelcontextprotocol/modelcontextprotocol, not from recall — the 2026-07-28

@@ -3009,6 +3009,10 @@ _MCP_READ_ONLY = frozenset({
     "screen_wallet", "tldr_text", "token_price",
 })
 
+# Caps a 2025-03-26 batch so one POST cannot fan out into unbounded paid
+# sub-requests. Batching is gone from every later revision.
+_MCP_MAX_BATCH = 20
+
 _MCP_INSTRUCTIONS = (
     "18 pay-per-call services for agents: on-chain anchoring and attestation, wallet "
     "sanctions screening, Web3 data (tx/calldata decode, ENS/SNS, token prices), x402 "
@@ -3171,41 +3175,26 @@ async def _mcp_tools_call(params: dict, version: str, request: Request) -> tuple
     return result, None
 
 
-@app.post("/mcp", include_in_schema=False)
-async def mcp_endpoint(request: Request):
-    """The MCP endpoint. Streamable HTTP, stateless in both protocol eras.
+async def _mcp_handle_one(body: dict, request: Request) -> tuple[dict | None, int]:
+    """Handle one JSON-RPC message. Returns (response_content, http_status), with
+    content None for a message that takes no response (a notification).
 
-    We mint no Mcp-Session-Id even for the revisions that permit one: there is no
-    cross-invocation memory on Lambda to hold a session in, and 2026-07-28
-    removes sessions outright, so statelessness is the only shape that is honest
-    on both sides of that break.
-
-    On Origin: the transport spec MUSTs Origin validation against DNS rebinding.
-    That threat model is a *local* server holding ambient credentials, where a
-    hostile page can drive privileged calls from the victim's browser. Here CORS
-    is already deliberately allow_origins=["*"] because there is no ambient
-    credential to steal — spending money requires a wallet-signed X-PAYMENT that
-    a third-party page cannot produce. So an Origin check would reject legitimate
-    browser agents while blocking nothing; we take the reasoned exception rather
-    than pretend to satisfy the MUST.
+    Split out from the endpoint so that a 2025-03-26 batch can reuse it verbatim
+    — one message's handling must not depend on whether it arrived alone.
     """
-    try:
-        body = json.loads(await request.body())
-        if not isinstance(body, dict):
-            raise ValueError("body must be a JSON-RPC object")
-    except Exception:
-        return JSONResponse(status_code=400, content=mcp_svc.err(
-            None, mcp_svc.ERR_PARSE, "Parse error — body must be a single JSON-RPC object."))
+    if not isinstance(body, dict):
+        return mcp_svc.err(None, mcp_svc.ERR_INVALID_REQUEST,
+                           "Each JSON-RPC message must be an object."), 400
 
     method = body.get("method")
     if not isinstance(method, str):
-        return JSONResponse(status_code=400, content=mcp_svc.err(
-            body.get("id"), mcp_svc.ERR_INVALID_REQUEST, "Missing or non-string `method`."))
+        return mcp_svc.err(body.get("id"), mcp_svc.ERR_INVALID_REQUEST,
+                           "Missing or non-string `method`."), 400
 
-    # Notifications carry no id and get 202 with an empty body. We hold no
-    # per-connection state, so there is nothing for initialized/cancelled to do.
+    # Notifications carry no id and take no response. We hold no per-connection
+    # state, so there is nothing for initialized/cancelled to do.
     if mcp_svc.is_notification(body):
-        return Response(status_code=202)
+        return None, 202
 
     rpc_id = body.get("id")
     headers = request.headers  # Starlette headers are case-insensitive.
@@ -3216,28 +3205,26 @@ async def mcp_endpoint(request: Request):
         verr = mcp_svc.validate_request(headers, body, version)
     if verr:
         _mcp_log(method, "", version, client, f"rejected:{verr['code']}")
-        return JSONResponse(
-            status_code=mcp_svc.http_status(verr["code"]),
-            content=mcp_svc.err(rpc_id, verr["code"], verr["message"], verr.get("data")))
+        return (mcp_svc.err(rpc_id, verr["code"], verr["message"], verr.get("data")),
+                mcp_svc.http_status(verr["code"]))
 
     params = body.get("params")
     params = params if isinstance(params, dict) else {}
     modern = mcp_svc.is_modern(version)
 
     def _reply(result: dict, cache=None):
-        return JSONResponse(content=mcp_svc.ok(rpc_id, result, version, cache=cache))
+        return mcp_svc.ok(rpc_id, result, version, cache=cache), 200
 
     def _fail(code: int, message: str):
         # Status always derived, never hardcoded — one place decides, so the
         # spec's "404 for an unimplemented method" cannot drift per call site.
-        return JSONResponse(status_code=mcp_svc.http_status(code),
-                            content=mcp_svc.err(rpc_id, code, message))
+        return mcp_svc.err(rpc_id, code, message), mcp_svc.http_status(code)
 
     # server/discover — mandatory in 2026-07-28. Answered for every revision:
     # it is the cheapest way for any client to learn what this server speaks.
     if method == "server/discover":
         _mcp_log(method, "", version, client, "ok")
-        return JSONResponse(content=mcp_svc.ok(rpc_id, {
+        return mcp_svc.ok(rpc_id, {
             "resultType": "complete",
             "supportedVersions": list(mcp_svc.SUPPORTED),
             "capabilities": mcp_svc.capabilities(),
@@ -3245,7 +3232,7 @@ async def mcp_endpoint(request: Request):
             "ttlMs": mcp_svc.DISCOVER_TTL_MS,
             "cacheScope": mcp_svc.CACHE_PUBLIC,
             "_meta": {mcp_svc.META_SERVER_INFO: mcp_svc.server_info(version)},
-        }, version))
+        }, version), 200
 
     if method == "initialize":
         if modern:
@@ -3289,6 +3276,65 @@ async def mcp_endpoint(request: Request):
                  f"Method {method!r} is not implemented. This server offers tools only: "
                  f"server/discover, tools/list, tools/call"
                  f"{'' if modern else ', initialize, ping'}.")
+
+
+@app.post("/mcp", include_in_schema=False)
+async def mcp_endpoint(request: Request):
+    """The MCP endpoint. Streamable HTTP, stateless in every protocol era.
+
+    We mint no Mcp-Session-Id even for the revisions that permit one: there is no
+    cross-invocation memory on Lambda to hold a session in, and 2026-07-28
+    removes sessions outright, so statelessness is the only shape that is honest
+    on both sides of that break.
+
+    On Origin: the transport spec MUSTs Origin validation against DNS rebinding.
+    That threat model is a *local* server holding ambient credentials, where a
+    hostile page can drive privileged calls from the victim's browser. Here CORS
+    is already deliberately allow_origins=["*"] because there is no ambient
+    credential to steal — spending money requires a wallet-signed X-PAYMENT that
+    a third-party page cannot produce. So an Origin check would reject legitimate
+    browser agents while blocking nothing; we take the reasoned exception rather
+    than pretend to satisfy the MUST.
+    """
+    try:
+        body = json.loads(await request.body())
+    except Exception:
+        return JSONResponse(status_code=400, content=mcp_svc.err(
+            None, mcp_svc.ERR_PARSE, "Parse error — body must be JSON."))
+
+    # A JSON-RPC batch. Legal only before 2025-06-18, which removed batching; the
+    # array itself is the tell, since 2025-03-26 predates the version header and
+    # its messages carry no _meta to negotiate from.
+    if isinstance(body, list):
+        version = (request.headers.get("mcp-protocol-version") or "").strip() \
+            or mcp_svc.DEFAULT_LEGACY
+        if version >= "2025-06-18":
+            return JSONResponse(status_code=400, content=mcp_svc.err(
+                None, mcp_svc.ERR_INVALID_REQUEST,
+                f"JSON-RPC batching was removed in 2025-06-18 and this request declares "
+                f"{version}. Send one JSON-RPC message per POST."))
+        if not body:
+            return JSONResponse(status_code=400, content=mcp_svc.err(
+                None, mcp_svc.ERR_INVALID_REQUEST, "An empty batch is not a valid request."))
+        if len(body) > _MCP_MAX_BATCH:
+            return JSONResponse(status_code=400, content=mcp_svc.err(
+                None, mcp_svc.ERR_INVALID_REQUEST,
+                f"Batch of {len(body)} exceeds the {_MCP_MAX_BATCH}-message limit."))
+        out = []
+        for msg in body:
+            content, _status = await _mcp_handle_one(msg, request)
+            if content is not None:
+                out.append(content)
+        # All notifications (or responses, which we never solicit) — 202, no body,
+        # exactly as for a lone notification.
+        if not out:
+            return Response(status_code=202)
+        return JSONResponse(content=out)
+
+    content, status = await _mcp_handle_one(body, request)
+    if content is None:
+        return Response(status_code=status)
+    return JSONResponse(status_code=status, content=content)
 
 
 @app.api_route("/mcp", methods=["GET", "DELETE"], include_in_schema=False)
