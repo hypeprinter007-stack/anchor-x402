@@ -2,15 +2,18 @@
 
 > English / 英語版: [llms.txt](https://anchor-x402.com/llms.txt)
 
-> AIエージェント向けのx402従量課金サービス18種（Base + Solanaメインネット対応）と、chat.anchor-x402.comで提供されるホスト型チャットボット。コール単位のUSDC決済で、APIキー・アカウント登録・サブスクリプション、いずれも不要です。
+> AIエージェント向けのx402従量課金サービス18種。決済レールは3系統 — Base USDC、Solana USDC、Polygon上のJPYC — に加え、chat.anchor-x402.comで提供されるホスト型チャットボット。コール単位の決済で、APIキー・アカウント登録・サブスクリプション、いずれも不要です。
 
-anchor-x402は、AWS Lambda + FastAPI上で動作する18種のステートレスサービスを公開しています。各エンドポイントは `extensions.bazaar` を含むx402 v2のPaymentRequiredチャレンジを返却し、クライアントはBaseまたはSolanaの任意のウォレットから、EIP-3009 transferWithAuthorizationを用いて1コールあたり $0.001〜$1.77 USDCを支払います。決済はCoinbase CDPファシリテーター経由。本番稼働中：https://api.anchor-x402.com
+anchor-x402は、AWS Lambda + FastAPI上で動作する18種のステートレスサービスを公開しています。各エンドポイントは `extensions.bazaar` を含むx402 v2のPaymentRequiredチャレンジを返却し、クライアントはBase・Solana・Polygonいずれかのウォレットから、EIP-3009 transferWithAuthorizationを用いて1コールあたり $0.001〜$1.77 USDC（またはJPYC換算で ¥0.1〜¥350）を支払います。USDCはCoinbase CDPファシリテーター経由、JPYCはPolygon上のインプロセス・ファシリテーター経由で決済されます。本番稼働中：https://api.anchor-x402.com
 
 ## ディスカバリー（機械可読）
 
 - [OpenAPI仕様](https://api.anchor-x402.com/openapi.json) — 18サービス全ての完全スキーマ
 - [x402ディスカバリー](https://anchor-x402.com/.well-known/x402.json) — 価格・スキーマ・決済ネットワークを含むサービスカタログ
-- [A2A AgentCard](https://anchor-x402.com/.well-known/agent-card.json) — Google A2Aプロトコルのマニフェスト
+- [MCPエンドポイント](https://api.anchor-x402.com/mcp) — Streamable HTTP。18サービス全てをMCPツールとして公開。インストール不要、秘密鍵の預け入れ不要
+- [MCPサーバーカード](https://anchor-x402.com/.well-known/mcp/server-card.json) — 公式`server.json`形式。エンドポイントは`remotes[]`に記載
+- [A2A AgentCard](https://anchor-x402.com/.well-known/agent-card.json) — Google A2Aプロトコルのマニフェスト（署名付き。api.anchor-x402.comでも同一のカードを配信）
+- [A2A窓口](https://api.anchor-x402.com/v1/a2a) — エージェント間通信用の署名付きJSON-RPC。無料。下記「エージェント間通信」を参照
 - [Base AI Agentプラグイン仕様](https://anchor-x402.com/plugins/base-mcp.md) — Base MCPの`initiate_x402_request`フロー向けケーパビリティカタログ
 - [稼働状況](https://anchor-x402.betteruptime.com) — リアルタイムのアップタイム
 - [ソースコード](https://github.com/hypeprinter007-stack/anchor-x402) — MITライセンス
@@ -63,7 +66,38 @@ anchor-x402は、AWS Lambda + FastAPI上で動作する18種のステートレ�
 
 ## エージェントからのHTTP API利用方法
 
-[anchor-x402-mcp（npm）](https://www.npmjs.com/package/anchor-x402-mcp) — 9種の汎用プリミティブサービスをツールとして公開するMCPサーバー。Claude Desktop、Claude Code、Codex CLI（OpenAI）、ChatGPT Desktop、Cursor、OpenAI Agents SDK、その他MCP互換クライアントから利用可能。
+利用経路は3つあります。ウォレットの秘密鍵を誰が保持するかで選択してください。
+
+### 1. MCP over HTTP — `POST https://api.anchor-x402.com/mcp`
+
+Streamable HTTP、ステートレス。インストールもAPIキーも不要です。有料18サービス全てをMCPツールとして公開します。鍵はクライアント側に留まり、当サービスへ預ける必要はありません。
+
+対応プロトコルリビジョン：`2026-07-28`、`2025-11-25`、`2025-06-18`、`2025-03-26` — ステートレス世代と`initialize`ハンドシェイク世代の両方を単一エンドポイントで処理します。`server/discover`と`tools/list`は無料、`tools/call`が有料です。
+
+決済は通常のx402フローですが、MCPの外側ではなく内側で提示されます：
+
+1. 未払いの`tools/call`は、JSON-RPCエラーではなく**結果（result）**を返します。`isError: true`とともに、402チャレンジが`structuredContent.accepts`に入ります（正式なチャレンジは`payment-required`ヘッダーです）。
+2. いずれかの決済オプションに署名します。
+3. 同一の`tools/call`を`PAYMENT-SIGNATURE`ヘッダー（x402 V2の名称。非推奨のV1 `X-PAYMENT`も受け付けます）付きで再送します。
+
+チャレンジを結果として返すのは意図的な設計です。エージェント自身が内容を読んで支払いを判断できます。JSON-RPCエラーとして返した場合はMCPクライアントが処理してしまい、モデルまで届きません。
+
+```bash
+# 無料 — 利用可能なツール一覧
+curl -s https://api.anchor-x402.com/mcp \
+  -H 'Content-Type: application/json' \
+  -H 'MCP-Protocol-Version: 2026-07-28' \
+  -H 'Mcp-Method: tools/list' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"_meta":{
+        "io.modelcontextprotocol/protocolVersion":"2026-07-28",
+        "io.modelcontextprotocol/clientCapabilities":{}}}}'
+```
+
+`2026-07-28`での注意点：`initialize`もセッションも存在しません。各リクエストが自身の`protocolVersion`と`clientCapabilities`を`params._meta`で送り、`MCP-Protocol-Version`ヘッダーはその値と一致する必要があります。`Mcp-Method`（`tools/call`では加えて`Mcp-Name`）もボディと一致していなければ400を返します。`initialize`を送る旧クライアントにはハンドシェイク世代で応答するため、設定変更は不要です。
+
+### 2. MCP over stdio — `anchor-x402-mcp`（npm）
+
+[anchor-x402-mcp（npm）](https://www.npmjs.com/package/anchor-x402-mcp) — 14ツール。Claude Desktop、Claude Code、Codex CLI（OpenAI）、ChatGPT Desktop、Cursor、OpenAI Agents SDK、その他MCP互換クライアントから利用可能。
 
 ```json
 {
@@ -77,17 +111,33 @@ anchor-x402は、AWS Lambda + FastAPI上で動作する18種のステートレ�
 }
 ```
 
-MCPラッパーは、@x402/fetch + @x402/evm経由で各コールをエージェントのBaseウォレットから自動決済します。プリペイ不要、APIキー不要、各エンドポイント実装内の制約以外のレート制限なし。
+このトランスポートは@x402/fetch + @x402/evm経由で各コールをエージェントのBaseウォレットから自動決済します。プリペイ不要、APIキー不要、各エンドポイント実装内の制約以外のレート制限なし。ただし資金の入った秘密鍵をローカルプロセスに渡す必要があります。そのトレードオフを避けたい場合は上記のHTTPエンドポイントをご利用ください。公開ツール数も14ではなく18で、鍵をお預かりすることもありません。
 
-または任意のx402 v2クライアントSDK（[@x402/fetch（npm）](https://www.npmjs.com/package/@x402/fetch)、Python x402 SDK、Rust）でHTTP APIを直接コール可能です。決済フローは共通：402 → 署名 → 再送。
+### 3. 通常のHTTP
+
+任意のx402 v2クライアントSDK（[@x402/fetch（npm）](https://www.npmjs.com/package/@x402/fetch)、Python x402 SDK、Rust）でエンドポイントを直接コール可能です。決済フローは共通：402 → 署名 → 再送。
+
+## エージェント間通信（人間の介在なし）
+
+`POST https://api.anchor-x402.com/v1/a2a` — JSON-RPC 2.0、無料。APIキー・事前登録・アカウント、いずれも不要です。
+
+独自メソッド：`peer/hello`、`capabilities/list`、`peer/quote`、`peer/receipt`。加えてA2A仕様0.3.0のメソッド（`message/send`、`tasks/get`、`tasks/cancel`、`agent/getAuthenticatedExtendedCard`）にも対応しています。
+
+認証は、呼び出し側が自身の `/.well-known/agent-card.json` に公開したEd25519鍵による署名で行います。当方が鍵を発行することはなく、事前のやり取りも不要です。
+
+この窓口が資金を動かすことはありません。`peer/quote`は対象スキルの有料`/v1/*` URLと価格、および`exchange_id`を返すのみで、支払いは通常のx402でそのURLに対して直接行います。
+
+レシート（receipt）は発行時に署名されますが、その時点ではまだアンカリングされていません。日次ジョブが有効なレシート集合をハッシュしてルートを生成し、Base + Solanaメインネットへ書き込みます。以降`peer/receipt`は`anchor`ブロックを返し、24時間以内に第三者検証が可能になります。個々の見積（quote）やレシートが単体でアンカリングされるわけではなく、日次ルートが全体をカバーする設計です。`anchor`は署名対象の外側に置かれます — ルートが書き込まれるのはレシート署名後であるため、署名バイト列に含めることが原理的に不可能です。
+
+署名対象の正規化ダイジェストの生成手順、必須の`aud`、リプレイ防止のnonce規則などの詳細は、[A2A AgentCard](https://anchor-x402.com/.well-known/agent-card.json)の`extensions["anchor-x402:a2a"]`、および[英語版llms.txt](https://anchor-x402.com/llms.txt)の「Agent-to-agent」セクションに記載しています。
 
 ## 掲載先（インデックス先一覧）
 
 - [CDP Bazaar](https://docs.cdp.coinbase.com/x402/bazaar) — 18サービス稼働中、自動インデックス
 - [agentic.market](https://api.agentic.market/v1/services/search?q=api.anchor-x402.com) — 18サービス稼働中
-- [Agent Arena](https://agentarena.site/api/agent/8453/47261) — ERC-8004オンチェーン・エージェントレジストリ（Base、agentId 47261）
+- [Agent Arena](https://agentarena.site/api/agent/8453/60138) — ERC-8004オンチェーン・エージェントレジストリ（Base、agentId 60138）。`a2aEndpoint`と`protocols.a2a`を保持し、A2Aカードを`/api/agent/8453/60138/a2a`にミラー。agentId 47261を置き換えたもので、47261は古い登録であり削除待ちです
 - [Virtuals ACP](https://app.virtuals.io) — GETリソース9件 ＋ investigateWallet Job
-- [公式MCPレジストリ](https://registry.modelcontextprotocol.io/v0/servers?search=anchor-x402)
+- [公式MCPレジストリ](https://registry.modelcontextprotocol.io/v0/servers?search=anchor-x402) — バージョン0.3.0でstdioパッケージとStreamable HTTPエンドポイントの両方を掲載
 - [Glama](https://glama.ai/mcp/servers/hypeprinter007-stack/anchor-x402-mcp)
 - [mcp.so](https://mcp.so/server/anchor-x402-mcp)
 - [npm](https://www.npmjs.com/package/anchor-x402-mcp)
