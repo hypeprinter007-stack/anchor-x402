@@ -3394,14 +3394,76 @@ async def mcp_endpoint_rejected():
 
 
 # The paths agents actually probed. /mcp is canonical; these keep a client that
-# guessed wrong from bouncing off a 404.
+# guessed wrong from bouncing off a 404. /api/v1/mcp was added after seeing it
+# guessed in the access log.
 @app.post("/v1/mcp", include_in_schema=False)
 @app.post("/api/mcp", include_in_schema=False)
+@app.post("/api/v1/mcp", include_in_schema=False)
 async def mcp_endpoint_alias(request: Request):
     return await mcp_endpoint(request)
 
 
+# The aliases need the same GET/DELETE rejection as /mcp. Without this they had no
+# non-POST handler at all, so a client probing GET /api/mcp got a bare 404 while
+# GET /mcp correctly got 405 + Allow — five of the six observed /api/mcp 404s.
+@app.api_route("/v1/mcp", methods=["GET", "DELETE"], include_in_schema=False)
+@app.api_route("/api/mcp", methods=["GET", "DELETE"], include_in_schema=False)
+@app.api_route("/api/v1/mcp", methods=["GET", "DELETE"], include_in_schema=False)
+async def mcp_endpoint_alias_rejected():
+    return await mcp_endpoint_rejected()
+
+
+# OAuth discovery. MCP's authorization spec is OAuth 2.1 + RFC 9728, but
+# authorization is OPTIONAL and the "servers MUST implement Protected Resource
+# Metadata" requirement applies only to servers that support it. We don't: there
+# is no authorization server, and access is metered per call with x402 instead.
+#
+# So the honest answer is still 404 — serving an RFC 9728 document would claim an
+# OAuth deployment that does not exist, which is worse than not answering. What we
+# add is a body explaining why and what to do instead, so a probing client learns
+# something rather than guessing. Status stays 404 so spec-following clients treat
+# it exactly as they would any absent metadata document.
+#
+# Both orderings are enumerated because both were observed in the log; no greedy
+# catch-all, so nothing else can be swallowed by accident.
+_OAUTH_PROBE_PATHS = [
+    "/.well-known/oauth-protected-resource",
+    "/.well-known/oauth-authorization-server",
+    "/mcp/.well-known/oauth-protected-resource",
+    "/api/mcp/.well-known/oauth-protected-resource",
+    "/v1/mcp/.well-known/oauth-protected-resource",
+    "/api/v1/mcp/.well-known/oauth-protected-resource",
+]
+
+
+def _oauth_not_used() -> JSONResponse:
+    return JSONResponse(status_code=404, content={
+        "error": "no_authorization_server",
+        "detail": ("This server does not implement OAuth. MCP authorization is OPTIONAL and no "
+                   "authorization server exists here, so there is no RFC 9728 Protected Resource "
+                   "Metadata to serve. Access is metered per call with x402 instead: "
+                   "server/discover, initialize and tools/list are free, and tools/call returns "
+                   "the payment challenge in the result plus a payment-required header. Sign one "
+                   "of the accepts entries and retry with PAYMENT-SIGNATURE."),
+        "authentication": {"type": "x402", "header": "PAYMENT-SIGNATURE",
+                           "free_methods": ["server/discover", "initialize", "tools/list"]},
+        "mcp_endpoint": f"{_PUBLIC_BASE}/mcp",
+        "server_card": "https://anchor-x402.com/.well-known/mcp/server-card.json",
+    })
+
+
+for _p in _OAUTH_PROBE_PATHS:
+    app.add_api_route(_p, _oauth_not_used, methods=["GET", "HEAD"], include_in_schema=False)
+    # RFC 9728 appends the resource path to the well-known prefix, so
+    # /.well-known/oauth-protected-resource/api/mcp is the shape a conformant
+    # client actually requests.
+    if _p.startswith("/.well-known/"):
+        app.add_api_route(_p + "/{resource_path:path}", _oauth_not_used,
+                          methods=["GET", "HEAD"], include_in_schema=False)
+
+
 @app.api_route("/sse", methods=["GET", "HEAD"], include_in_schema=False)
+@app.api_route("/mcp/sse", methods=["GET", "HEAD"], include_in_schema=False)
 def mcp_sse_gone():
     """The 2024-11-05 HTTP+SSE transport, which /sse probes are looking for, has
     been deprecated since 2025-03-26. Rather than implement a dead transport,

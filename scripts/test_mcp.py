@@ -394,6 +394,45 @@ def main() -> None:
        r.status_code == 404 and r.json().get("mcp_endpoint", "").endswith("/mcp"),
        str(r.status_code))
     ok("/sse HEAD works too", client.head("/sse").status_code == 404)
+    ok("/mcp/sse (observed guess) gets the same explainer",
+       client.get("/mcp/sse").status_code == 404
+       and client.get("/mcp/sse").json().get("mcp_endpoint", "").endswith("/mcp"))
+    r = client.post("/api/v1/mcp", json=modern_body("tools/list"),
+                    headers=modern_headers("tools/list"))
+    ok("/api/v1/mcp (observed guess) reaches the endpoint",
+       r.status_code == 200 and len(RES(r).get("tools", [])) == 18, str(r.status_code))
+    # The aliases had no non-POST handler, so GET returned a bare 404 while GET
+    # /mcp correctly returned 405 — five of six observed /api/mcp 404s were this.
+    for p in ("/v1/mcp", "/api/mcp", "/api/v1/mcp"):
+        rr = client.get(p)
+        ok(f"GET {p} is 405 like /mcp, not 404",
+           rr.status_code == 405 and rr.headers.get("allow") == "POST", str(rr.status_code))
+        ok(f"DELETE {p} is 405", client.delete(p).status_code == 405)
+
+    print("\nOAuth discovery probes (we implement no OAuth)")
+    # MCP authorization is OPTIONAL and the RFC 9728 MUST applies only to servers
+    # that support it. 404 is therefore correct; the body is what makes it useful.
+    for p in ("/.well-known/oauth-protected-resource",
+              "/.well-known/oauth-protected-resource/api/mcp",   # RFC 9728 shape
+              "/api/mcp/.well-known/oauth-protected-resource",   # observed shape
+              "/mcp/.well-known/oauth-protected-resource",
+              "/.well-known/oauth-authorization-server"):
+        rr = client.get(p)
+        body = rr.json() if rr.status_code == 404 else {}
+        ok(f"{p} -> 404 with an explanation",
+           rr.status_code == 404 and body.get("error") == "no_authorization_server",
+           f"{rr.status_code} {str(body)[:90]}")
+    r = client.get("/.well-known/oauth-protected-resource/api/mcp")
+    body = r.json()
+    ok("it points at x402 as the actual auth mechanism",
+       body.get("authentication", {}).get("type") == "x402")
+    ok("it names the free methods so a client knows what needs no payment",
+       "tools/list" in body.get("authentication", {}).get("free_methods", []))
+    # Guard: nobody should later "fix" this by inventing an OAuth deployment.
+    ok("it does NOT fabricate an RFC 9728 document",
+       not any(k in body for k in ("authorization_servers", "resource",
+                                   "scopes_supported", "bearer_methods_supported")),
+       str(sorted(body)))
     r = client.get("/.well-known/mcp/server-card.json")
     card = r.json()
     pub = (card.get("_meta") or {}).get(
