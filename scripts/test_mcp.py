@@ -25,7 +25,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi.testclient import TestClient
 
-from app import app, _MCP_TOOLS, _MCP_ALIASES, _MCP_TOOL_LIST
+from app import app, _MCP_TOOLS, _MCP_ALIASES, _MCP_TOOL_LIST, _mcp_payment_meta
 from services import mcp as mcp_svc
 
 MODERN = mcp_svc.LATEST
@@ -570,6 +570,97 @@ def main() -> None:
                                              "arguments": {"symbol": "ETH"}}},
                     headers={"MCP-Protocol-Version": LEGACY})
     check(LEGACY, "CallToolResult", RES(r), "legacy unpaid tools/call")
+
+    print("\npayment metadata in _meta (asked for by a buyer runtime)")
+    import re as _re
+    from services import a2a as _a2a
+    KEY = "com.anchor-x402/payment"
+
+    # The key has to be legal, or a strict client may reject the whole result.
+    prefix, _, nm = KEY.partition("/")
+    labels = prefix.split(".")
+    ok("_meta key prefix uses valid reverse-DNS labels",
+       all(_re.fullmatch(r"[A-Za-z]([A-Za-z0-9-]*[A-Za-z0-9])?", l) for l in labels), prefix)
+    ok("_meta key prefix is not in MCP's reserved namespace",
+       len(labels) < 2 or labels[1] not in ("mcp", "modelcontextprotocol"), prefix)
+    ok("_meta key name is alphanumeric-bounded",
+       bool(_re.fullmatch(r"[A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?", nm)), nm)
+
+    r = client.post("/mcp", json=modern_body(
+        "tools/call", {"name": "token_price", "arguments": {"symbol": "ETH"}}),
+        headers=modern_headers("tools/call", "token_price"))
+    res = RES(r)
+    pm = (res.get("_meta") or {}).get(KEY) or {}
+    ok("an unpaid tools/call carries payment _meta", bool(pm), str(res.get("_meta"))[:140])
+    ok("it echoes the negotiated protocol version", pm.get("protocolVersion") == MODERN,
+       str(pm.get("protocolVersion")))
+    ok("it states the canonicalization so hashes are verifiable",
+       "sha256" in pm.get("canonicalization", ""), str(pm.get("canonicalization")))
+    ok("it carries a requirementHash", str(pm.get("requirementHash", "")).startswith("sha256:"),
+       str(pm.get("requirementHash")))
+    # The whole point of a hash is that the caller can recompute it. If this drifts,
+    # the field is decoration.
+    accepts = (res.get("structuredContent") or {}).get("accepts")
+    ok("requirementHash is recomputable from the accepts the caller received",
+       pm.get("requirementHash") == _a2a.digest_of(accepts), str(pm.get("requirementHash")))
+    ok("serverInfo still coexists in _meta on the modern revision",
+       (res.get("_meta") or {}).get(mcp_svc.META_SERVER_INFO, {}).get("name") == "anchor-x402")
+
+    # The reason this was worth building: real SDK clients negotiate 2025-11-25, and
+    # the modern-only _meta never reached them.
+    r = client.post("/mcp", json={"jsonrpc": "2.0", "id": 9, "method": "tools/call",
+                                  "params": {"name": "token_price",
+                                             "arguments": {"symbol": "ETH"}}},
+                    headers={"MCP-Protocol-Version": "2025-11-25"})
+    pm2 = (RES(r).get("_meta") or {}).get(KEY) or {}
+    ok("a 2025-11-25 client (what real SDKs speak) also gets payment _meta", bool(pm2),
+       str(RES(r).get("_meta"))[:120])
+    ok("...and it reports that revision, not the latest",
+       pm2.get("protocolVersion") == "2025-11-25", str(pm2.get("protocolVersion")))
+    # Below the gate _meta was not defined on CallToolResult, so send nothing.
+    r = client.post("/mcp", json={"jsonrpc": "2.0", "id": 9, "method": "tools/call",
+                                  "params": {"name": "token_price",
+                                             "arguments": {"symbol": "ETH"}}},
+                    headers={"MCP-Protocol-Version": "2025-03-26"})
+    ok("2025-03-26 gets no _meta (predates it on CallToolResult)",
+       "_meta" not in RES(r), str(RES(r).get("_meta")))
+
+    # paidRequirement comes from the client's own payment header, not re-derived.
+    signed = base64.b64encode(json.dumps({
+        "x402Version": 2,
+        "accepted": {"network": "eip155:8453", "amount": "1000", "scheme": "exact"},
+        "payload": {"authorization": {"from": "0x000000000000000000000000000000000000bEEF"}},
+    }).encode()).decode()
+    r = client.post("/mcp", json=modern_body(
+        "tools/call", {"name": "token_price", "arguments": {"symbol": "ETH"}}),
+        headers={**modern_headers("tools/call", "token_price"), "payment-signature": signed})
+    pm3 = (RES(r).get("_meta") or {}).get(KEY) or {}
+    ok("paidRequirement digests the requirement the client presented",
+       pm3.get("paidRequirement") == _a2a.digest_of(
+           {"network": "eip155:8453", "amount": "1000", "scheme": "exact"}),
+       str(pm3.get("paidRequirement")))
+    # settlement decoding, exercised directly — a real receipt needs a real payment.
+    receipt = base64.b64encode(json.dumps({
+        "success": True, "payer": "0xabc", "transaction": "0xdef", "noise": "drop me",
+    }).encode()).decode()
+
+    class _Req:
+        headers: dict = {}
+
+    meta = _mcp_payment_meta(MODERN, 200, {}, {"payment-response": receipt}, _Req())
+    ok("settlement receipt is decoded out of the header the SDK hides",
+       meta.get("settlement") == {"success": True, "payer": "0xabc", "transaction": "0xdef"},
+       str(meta.get("settlement")))
+    ok("...and unrecognised receipt fields are dropped",
+       "noise" not in json.dumps(meta.get("settlement")))
+    # Still schema-valid with the extra _meta present.
+    doc, cont = load_named(f"mcp-{MODERN}-schema")
+    try:
+        jsonschema.validate(res, {"$ref": f"#/{cont}/CallToolResult", **doc})
+        ok("the result still validates against the official CallToolResult", True)
+    except jsonschema.ValidationError as e:
+        ok("the result still validates against the official CallToolResult", False,
+           e.message[:150])
 
     print("\nsettlement accounting")
     # One settlement must produce exactly one PAID_CALL. /mcp forwards the payment

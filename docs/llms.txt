@@ -84,6 +84,25 @@ Payment is the ordinary x402 dance, surfaced inside MCP rather than around it:
 
 The challenge is delivered as a result on purpose: an agent can read it and pay, whereas a JSON-RPC error would be swallowed by the client before the model ever saw it.
 
+Every `tools/call` result carries verifiable payment metadata under
+`_meta["com.anchor-x402/payment"]`, so a buyer runtime can separate discovery,
+capability checks and payment without dropping to the HTTP layer:
+
+- `protocolVersion` — the revision actually negotiated for this call.
+- `requirementHash` — digest over the `accepts` array we quoted, present on the
+  402 result. Binds the quote you received to the call you later pay for.
+- `paidRequirement` — digest over the single `accepted` entry your payment
+  presented, taken from your own header rather than re-derived here.
+- `settlement` — `{success, payer, transaction}`, decoded from the
+  `payment-response` header. Worth noting: the official MCP SDKs do not surface
+  response headers to the caller, so without this the receipt is invisible to a
+  client using one.
+
+Digests are `sha256:<hex>` over compact key-sorted JSON (no spaces, UTF-8
+unescaped) — the same canonicalization the A2A door signs over, so there is one
+rule to implement. `canonicalization` states it inline on every result. Sent from
+`2025-06-18` onward, which is where `_meta` appears on `CallToolResult`.
+
 ```bash
 # free — what tools exist
 curl -s https://api.anchor-x402.com/mcp \

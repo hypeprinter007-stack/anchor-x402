@@ -3167,6 +3167,61 @@ async def _mcp_invoke(tool: str, arguments: dict,
         return r.status_code, r.text[:2000], passthru
 
 
+# _meta on a paid tool result. Asked for by a buyer runtime that wanted to separate
+# discovery, capability check and payment without dropping to the HTTP layer — a
+# fair request, because the settlement receipt only existed as a `payment-response`
+# header and the official MCP SDK swallows headers before the caller sees them. The
+# negotiated version was not echoed anywhere either, and through a real SDK client
+# (which tops out at 2025-11-25) the result carried no `_meta` at all.
+#
+# The key prefix follows MCP's MetaObject rules: reverse-DNS labels, each starting
+# with a letter and ending alphanumeric, and a second label that is neither `mcp`
+# nor `modelcontextprotocol` (those prefixes are reserved).
+#
+# Digests reuse services/a2a.digest_of — sha256 over compact key-sorted JSON — so
+# there is one canonicalization across both protocol surfaces rather than a second
+# one for a buyer to learn. `canonicalization` states the rule inline so the hashes
+# are verifiable without fetching our docs.
+_MCP_PAYMENT_META_KEY = "com.anchor-x402/payment"
+
+
+def _mcp_payment_meta(version: str, status: int, payload: Any,
+                      passthru: dict, request: Request) -> dict:
+    """Verifiable payment metadata for a tools/call result. Every value here is
+    recomputable by the caller from bytes it already holds."""
+    meta: dict[str, Any] = {
+        "protocolVersion": version,
+        "canonicalization": "sha256 over compact key-sorted JSON (no spaces, unescaped UTF-8)",
+    }
+    # Challenge path: hash the requirement set exactly as quoted, so the buyer can
+    # bind the quote it received to the call it later pays for.
+    if status == 402 and isinstance(payload, dict) and isinstance(payload.get("accepts"), list):
+        meta["requirementHash"] = a2a_svc.digest_of(payload["accepts"])
+
+    # Paid path: hash the single requirement the client actually presented, taken
+    # from its own payment header rather than re-derived here — re-deriving could
+    # drift from what was really charged, which is the whole thing being proved.
+    pay = request.headers.get("payment-signature") or request.headers.get("x-payment")
+    if pay:
+        try:
+            accepted = (json.loads(base64.b64decode(pay)) or {}).get("accepted")
+            if accepted:
+                meta["paidRequirement"] = a2a_svc.digest_of(accepted)
+        except Exception:
+            pass
+
+    # Settlement receipt, decoded out of the header the SDK would otherwise hide.
+    recv = passthru.get("payment-response") or passthru.get("x-payment-response")
+    if recv:
+        try:
+            d = json.loads(base64.b64decode(recv))
+            meta["settlement"] = {k: d[k] for k in ("success", "payer", "transaction")
+                                  if k in d}
+        except Exception:
+            pass
+    return meta
+
+
 async def _mcp_tools_call(params: dict, version: str,
                           request: Request) -> tuple[dict | None, dict | None, dict]:
     """Returns (result, error). Tool *execution* failures — including 402 — come
@@ -3187,13 +3242,25 @@ async def _mcp_tools_call(params: dict, version: str,
     args = args if isinstance(args, dict) else {}
     status, payload, passthru = await _mcp_invoke(tool, args, request)
 
+    def _finish(result: dict) -> tuple[dict, None, dict]:
+        # `_meta` exists on CallToolResult from 2025-06-18 — the same gate
+        # structuredContent uses. Set before mcp_svc.ok(), which merges serverInfo
+        # into whatever is already there on modern revisions and leaves legacy
+        # results alone, so this reaches both eras.
+        if version >= "2025-06-18":
+            result["_meta"] = {
+                _MCP_PAYMENT_META_KEY: _mcp_payment_meta(
+                    version, status, payload, passthru, request)
+            }
+        return result, None, passthru
+
     if status == 200:
         result = {"content": mcp_svc.text_content(payload), "isError": False}
         # structuredContent landed in 2025-06-18; older clients ignore it, but
         # don't send a field their revision never defined.
         if isinstance(payload, dict) and version >= "2025-06-18":
             result["structuredContent"] = payload
-        return result, None, passthru
+        return _finish(result)
 
     if status == 402:
         lead = (f"Payment required for {tool} — this is a paid x402 service. Sign one of the "
@@ -3206,13 +3273,13 @@ async def _mcp_tools_call(params: dict, version: str,
                   "isError": True}
         if isinstance(payload, dict) and version >= "2025-06-18":
             result["structuredContent"] = payload
-        return result, None, passthru
+        return _finish(result)
 
     result = {"content": mcp_svc.text_content(
         payload if isinstance(payload, (dict, str)) else str(payload)), "isError": True}
     if isinstance(payload, dict) and version >= "2025-06-18":
         result["structuredContent"] = payload
-    return result, None, passthru
+    return _finish(result)
 
 
 async def _mcp_handle_one(body: dict,
