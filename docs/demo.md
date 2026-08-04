@@ -49,7 +49,7 @@ Each paid call is its own EIP-3009 signature for a single amount to a single add
 
 `aura` ($0.01) is one of sixteen. Same approval pattern works for:
 
-- **Compliance** — OFAC sanctions screen ($0.001), bundled wallet intel ($0.005), full async due-diligence investigator ($1.77)
+- **Compliance** — wallet risk screen ($0.02), bundled wallet intel ($0.005), full async due-diligence investigator ($1.77)
 - **Chain utilities** — dual-chain hash anchoring ($0.005), signed decision attestations ($0.01), tx decode, calldata decode, ENS / SNS resolution, token price, datetime parsing, verifiable signed RNG (`roll`) ($0.001 each)
 - **Fun / shareable** — roast ($0.05), oracle with on-chain anchored verdict ($0.05), tldr ($0.01), aura ($0.01), grade ($0.01)
 

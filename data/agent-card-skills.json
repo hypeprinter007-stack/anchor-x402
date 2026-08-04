@@ -23,7 +23,7 @@
     ]
   },
   "attest_decision": {
-    "description": "Verify a wallet signature over (input_hash, output_hash, decision), then dual-chain anchor the result. Returns verified signer + on-chain proof URLs. $0.010 USDC.",
+    "description": "Attest a decision over (input_hash, output_hash, decision): sign it yourself, or omit the signature and the treasury signs for you — then dual-chain anchor. Returns the signer, on-chain proof URLs, and a free re-verify URL. $0.010 USDC.",
     "name": "attest",
     "tags": [
       "attestation",
@@ -192,7 +192,7 @@
     ]
   },
   "screen_wallet": {
-    "description": "OFAC SDN sanctions + AML screening for any wallet address. Returns sanctions match, flagged programs, risk level. $0.001 USDC.",
+    "description": "Wallet risk pre-flight for agent payments: OFAC SDN sanctions plus address-reputation (drainer, phishing, mixer, laundering) resolved to an allow/review/block recommendation with per-signal detail. $0.02 USDC.",
     "examples": [
       {
         "wallet": "0x8589427373d6d84e98730d7795d8f6f8731fda16"
@@ -203,7 +203,8 @@
       "sanctions",
       "ofac",
       "aml",
-      "compliance"
+      "compliance",
+      "risk"
     ]
   },
   "tldr_text": {

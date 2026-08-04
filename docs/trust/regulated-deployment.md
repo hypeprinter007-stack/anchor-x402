@@ -80,7 +80,7 @@ The following uses are categorically appropriate for `anchor-x402` at a regulate
 
 These are categorical exclusions. If the institution needs any of the below, it must use a vendor with the appropriate certifications, contractual data-protection agreements, and regulatory standing.
 
-1. **Live AML / sanctions decisions for production transactions.** The OFAC SDN corpus inside `/v1/screen` is a static, point-in-time snapshot of the public OFAC SDN list and selected high-risk address sets. It is **not** sourced from a continuously-updated commercial AML database, it does not include behavioral risk scoring, and it has no SLA. Use **Chainalysis KYT, TRM Labs, or Elliptic** for any live AML decision on a production transaction.
+1. **Live AML / sanctions decisions for production transactions.** The OFAC SDN corpus inside `/v1/screen` is a static, point-in-time snapshot of the public OFAC SDN list and selected high-risk address sets. The address-reputation layer (drainer / phishing / mixer flags) is sourced from GoPlus, a public reputation API — useful signal, but **not** a regulatory-grade commercial AML database, and it has no SLA. Use **Chainalysis KYT, TRM Labs, or Elliptic** for any live AML decision on a production transaction.
 2. **KYC / KYB verification of natural persons or legal entities.** `anchor-x402` does not collect identity documents, does not perform liveness checks, does not do address verification, does not check sanctions against natural-person lists, and does not produce a KYC record. Use **Onfido, Persona, Jumio, Trulioo, or Sumsub** for natural-person KYC.
 3. **Material trading decisions where the audit trail is legally probative.** If a trader, an asset manager, or a clearing function needs to produce evidence to a regulator that a decision was made on a particular input at a particular time, that evidence must come from a system the institution controls — not from a third-party stateless call. `anchor-x402` can supplement such an audit trail, but it cannot be the primary evidence.
 4. **HIPAA-scoped workflows.** No protected health information should ever cross leg A. AWS supports a Business Associate Agreement (BAA) on its infrastructure, but `anchor-x402` does not operate under a BAA at the application layer. There is no path to making `anchor-x402` HIPAA-compliant in its public deployment.
@@ -326,7 +326,7 @@ If the institution's workflow today is exploratory, sandboxed, or layered on top
 | Deployment | AWS Lambda + API Gateway, region `us-east-1` |
 | Base URL | `https://api.anchor-x402.com` |
 | Endpoints | 9 (anchor, screen, attest, decode/tx, resolve/name, price/token, decode/calldata, parse/datetime, intel/wallet) |
-| Pricing | $0.001 - $0.010 USDC per call, paid on Base or Solana |
+| Pricing | $0.001 - $0.02 USDC per call, paid on Base or Solana |
 | Authentication | x402 payment authorization only (no API keys) |
 | Data classification of leg A | Customer-controlled. Should be PUBLIC only. |
 | Data retention at vendor | None at app layer. CloudWatch operational logs only at IaaS layer. |

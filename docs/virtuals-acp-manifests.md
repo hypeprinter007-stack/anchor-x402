@@ -28,13 +28,13 @@ https://api.anchor-x402.com/v1/anchor?hash={{hash}}&note={{note}}
 
 ---
 
-## 2. `getSanctionsScreen` — $0.001
+## 2. `getSanctionsScreen` — $0.02
 
 **Name:** `getSanctionsScreen`
 
 **Description:**
 ```
-Sanctions + AML screening for any EVM or Solana wallet. Returns sanctions match boolean, specific OFAC SDN programs flagged (Tornado Cash, Lazarus, Hydra, Garantex, Blender.io etc.), inferred chain, and a low/medium/high risk verdict.
+Wallet risk pre-flight for agent payments. OFAC SDN sanctions (Tornado Cash, Lazarus, Hydra, Blender.io, etc.) plus address-reputation (drainer, phishing, mixer, laundering) resolved to an allow / review / block recommendation with a 0-100 risk score, per-signal detail, and inferred chain.
 ```
 
 **URL:**

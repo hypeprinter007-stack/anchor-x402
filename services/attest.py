@@ -75,6 +75,66 @@ def verify_ed25519(message: bytes, signature_b58: str, signer_pubkey: str) -> bo
     return sig.verify(pk, message)
 
 
+def sign_with_treasury(input_hash: str, output_hash: str, decision: str) -> tuple[str, str]:
+    """Sign the attest message with the anchor-x402 treasury key (eip191).
+
+    For agents that have no wallet of their own (e.g. calling over MCP). The
+    on-chain anchor still carries trustless temporal proof regardless of whose
+    key signed; the signature adds a treasury-attributable statement on top.
+
+    Returns (signature_hex, signer_address).
+    """
+    from eth_account import Account
+    from eth_account.messages import encode_defunct
+    from services import secrets
+
+    key = secrets.get("treasury_evm_key", env_fallback="TREASURY_PRIVATE_KEY")
+    if not key:
+        raise RuntimeError("treasury EVM key unavailable")
+    acct = Account.from_key(key)
+    signed = acct.sign_message(encode_defunct(build_message(input_hash, output_hash, decision)))
+    sig = signed.signature.hex()
+    if not sig.startswith("0x"):
+        sig = "0x" + sig
+    return sig, acct.address
+
+
+def confirm_base_anchor(base_tx: str, expected_root: str) -> dict:
+    """Confirm a Base tx anchored exactly `expected_root` as its calldata.
+
+    Anchors are self-transfer txs whose calldata is `0x<root>` (see
+    services/anchor.anchor_to_base). Stateless — reads the chain, stores
+    nothing. Never raises; returns a structured verdict.
+    """
+    import os
+
+    from web3 import Web3
+
+    out = {"root_matches": False, "confirmed": False, "block": None, "anchored_at": None}
+    rpc = os.getenv("BASE_RPC_URL", "https://mainnet.base.org")
+    try:
+        w3 = Web3(Web3.HTTPProvider(rpc, request_kwargs={"timeout": 4}))
+        tx = w3.eth.get_transaction(base_tx)
+    except Exception:
+        return out
+    data = tx.get("input")
+    data_hex = data.hex() if hasattr(data, "hex") else str(data)
+    if data_hex.startswith("0x") or data_hex.startswith("0X"):
+        data_hex = data_hex[2:]
+    if data_hex.lower() != expected_root.lower():
+        return out
+    out["root_matches"] = True
+    try:
+        rcpt = w3.eth.get_transaction_receipt(base_tx)
+        if rcpt.get("status") == 1:
+            out["confirmed"] = True
+            out["block"] = rcpt["blockNumber"]
+            out["anchored_at"] = w3.eth.get_block(rcpt["blockNumber"])["timestamp"]
+    except Exception:
+        pass  # calldata matched but not yet mined → root_matches, not confirmed
+    return out
+
+
 def verify(
     scheme: Literal["eip191", "ed25519"],
     input_hash: str,

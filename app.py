@@ -47,6 +47,8 @@ from models import (
     AnchorResponse,
     AttestRequest,
     AttestResponse,
+    AttestVerifyRequest,
+    AttestVerifyResponse,
     AuraRequest,
     AuraResponse,
     CalldataDecodeRequest,
@@ -366,6 +368,7 @@ _JPYC_TIERS_ATOMIC: dict[str, int] = {
     "$0.001":  10**17,         # ¥0.1
     "$0.005":  10**18,         # ¥1
     "$0.01":   2 * 10**18,     # ¥2
+    "$0.02":   4 * 10**18,     # ¥4  (¥200/USD, matches the other tiers)
     "$0.05":   10 * 10**18,    # ¥10
     "$5.00":   1000 * 10**18,  # ¥1000
     "$1.77":   350 * 10**18,   # ¥350 (~$1.77 USD at ¥200/USD with FX buffer)
@@ -800,12 +803,12 @@ x402_routes = {
         extensions={**_anchor_bazaar_ext},
     ),
     "GET /v1/screen": RouteConfig(
-        accepts=_accepts_at("$0.001"),
-        description="Sanctions + AML screening for any wallet address — $0.001 USDC",
+        accepts=_accepts_at("$0.02"),
+        description="Wallet risk pre-flight for agent payments — OFAC sanctions + address-reputation (drainer/phishing/mixer) → allow/review/block verdict. $0.02 USDC.",
     ),
     "POST /v1/attest": RouteConfig(
         accepts=_accepts_at("$0.01"),
-        description="Verify a signature over (input_hash, output_hash, decision) and dual-chain anchor the result — $0.01 USDC",
+        description="Attest a decision: sign (input_hash, output_hash, decision) yourself, or omit the signature and the treasury signs — then dual-chain anchor. Free re-verify at /v1/attest/verify. $0.01 USDC.",
         extensions={**_attest_bazaar_ext},
     ),
     "POST /v1/decode/tx": RouteConfig(
@@ -888,7 +891,7 @@ x402_routes = {
     ),
     "GET /v1/attest": RouteConfig(
         accepts=_accepts_at("$0.01"),
-        description="Verify a signature and dual-chain anchor the result (GET wrapper) — $0.01 USDC",
+        description="Attest a decision and dual-chain anchor it (GET wrapper) — $0.01 USDC",
     ),
     "GET /v1/decode/tx": RouteConfig(
         accepts=_accepts_at("$0.001"),
@@ -909,8 +912,8 @@ x402_routes = {
     # POST wrappers for GET-only endpoints — every crawler probe now reaches
     # the 402 challenge instead of bouncing on 405 method-mismatch.
     "POST /v1/screen": RouteConfig(
-        accepts=_accepts_at("$0.001"),
-        description="Sanctions + AML screening (POST wrapper, body: {wallet}) — $0.001 USDC",
+        accepts=_accepts_at("$0.02"),
+        description="Wallet risk pre-flight (POST wrapper, body: {wallet}) — OFAC + address-reputation → allow/review/block. $0.02 USDC.",
         extensions={**_screen_bazaar_ext},
     ),
     "POST /v1/resolve/name": RouteConfig(
@@ -1511,16 +1514,27 @@ def screen(wallet: str) -> ScreenResponse:
 
 @app.post("/v1/attest", response_model=AttestResponse)
 def attest(req: AttestRequest) -> AttestResponse:
-    ok, recovered = attest_svc.verify(
-        scheme=req.scheme,
-        input_hash=req.input_hash,
-        output_hash=req.output_hash,
-        decision=req.decision,
-        signature=req.signature,
-        signer_pubkey=req.signer_pubkey,
-    )
-    if not ok:
-        raise HTTPException(status_code=400, detail="signature verification failed")
+    # Two modes on one route: bring your own signature (we verify it), or omit
+    # it and the treasury signs — for wallet-less agents (e.g. calling over MCP).
+    if req.signature is None:
+        try:
+            _, recovered = attest_svc.sign_with_treasury(req.input_hash, req.output_hash, req.decision)
+        except Exception as e:
+            logging.getLogger("attest").exception("treasury sign failed")
+            raise HTTPException(status_code=502, detail=f"sign failed: {type(e).__name__}: {e}")
+        signed_by = "treasury"
+    else:
+        ok, recovered = attest_svc.verify(
+            scheme=req.scheme or "eip191",
+            input_hash=req.input_hash,
+            output_hash=req.output_hash,
+            decision=req.decision,
+            signature=req.signature,
+            signer_pubkey=req.signer_pubkey,
+        )
+        if not ok:
+            raise HTTPException(status_code=400, detail="signature verification failed")
+        signed_by = "caller"
 
     merkle_root = attest_svc.attest_merkle_root(req.input_hash, req.output_hash, req.decision)
     started = int(time.time())
@@ -1545,10 +1559,49 @@ def attest(req: AttestRequest) -> AttestResponse:
         merkle_root=merkle_root,
         signer_verified=True,
         signer=recovered,
+        signed_by=signed_by,
         base=base_anchor,
         solana=solana_anchor,
         decision=req.decision,
         signed_at=started,
+        verify_url=f"{_PUBLIC_BASE}/v1/attest/verify",
+    )
+
+
+# FREE — no x402_routes entry. Lets a relying party independently re-verify a
+# receipt (signature + on-chain anchor) at no cost. A paid mint nobody can
+# check for free is worthless; this is what gives the receipt value.
+@app.post("/v1/attest/verify", response_model=AttestVerifyResponse)
+def attest_verify(req: AttestVerifyRequest) -> AttestVerifyResponse:
+    merkle_root = attest_svc.attest_merkle_root(req.input_hash, req.output_hash, req.decision)
+    sig_ok, signer = attest_svc.verify(
+        scheme=req.scheme,
+        input_hash=req.input_hash,
+        output_hash=req.output_hash,
+        decision=req.decision,
+        signature=req.signature,
+        signer_pubkey=req.signer_pubkey,
+    )
+    anchor = attest_svc.confirm_base_anchor(req.base_tx, merkle_root)
+    valid = sig_ok and anchor["confirmed"]
+    if not sig_ok:
+        notes = "Signature did not verify — the receipt does not bind this signer to this decision."
+    elif not anchor["root_matches"]:
+        notes = "Signature valid, but the Base tx does not carry this root — anchor unproven."
+    elif not anchor["confirmed"]:
+        notes = "Signature valid and calldata matches, but the anchor tx is not yet mined/successful."
+    else:
+        notes = "Verified: signature binds the signer to the decision and the root is anchored on Base."
+    return AttestVerifyResponse(
+        valid=valid,
+        merkle_root=merkle_root,
+        signature_valid=sig_ok,
+        signer=signer,
+        anchor_confirmed=anchor["confirmed"],
+        root_matches=anchor["root_matches"],
+        anchored_at_block=anchor["block"],
+        anchored_at_time=anchor["anchored_at"],
+        notes=notes,
     )
 
 

@@ -29,7 +29,7 @@ categories:
     blurb: "Stateless, sub-cent calls. Drop-in building blocks for any agent."
     endpoints:
       - { path: "/v1/anchor",          method: POST, usd: "0.005", jpy: "1",   desc: "Anchor a 32-byte hash to Base + Solana in parallel. Returns both tx hashes." }
-      - { path: "/v1/screen",          method: GET,  usd: "0.001", jpy: "0.1", desc: "OFAC SDN + AML screen for any EVM or Solana wallet." }
+      - { path: "/v1/screen",          method: GET,  usd: "0.02",  jpy: "4",   desc: "Wallet risk pre-flight — OFAC sanctions + address-reputation (drainer/phishing/mixer) → allow/review/block." }
       - { path: "/v1/attest",          method: POST, usd: "0.010", jpy: "2",   desc: "Verify a wallet signature over (input, output, decision); dual-chain anchor the result." }
       - { path: "/v1/decode/tx",       method: POST, usd: "0.001", jpy: "0.1", desc: "Structured decode of any Base or Ethereum mainnet transaction." }
       - { path: "/v1/resolve/name",    method: GET,  usd: "0.001", jpy: "0.1", desc: "Cross-chain name resolution: ENS + Bonfida SNS." }

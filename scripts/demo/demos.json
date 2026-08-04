@@ -21,7 +21,7 @@
     "price": "0.001",
     "duration_s": 30,
     "user_text": "is 0x8589427373d6d84e98730d7795d8f6f8731fda16 sanctioned?",
-    "agent_quote": "Sanctions + AML screen for that address — $0.001 USDC to call GET /v1/screen. Approve?",
+    "agent_quote": "Wallet risk screen for that address — $0.02 USDC to call GET /v1/screen. Approve?",
     "approval_body": "{\n  \"wallet\": \"0x8589427373d6d84e98730d7795d8f6f8731fda16\"\n}",
     "result_title": "screen_wallet · result",
     "pretty_rows": [

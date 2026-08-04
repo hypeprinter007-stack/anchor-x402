@@ -45,7 +45,7 @@ await page.evaluate(() => {
     chat.appendChild(div);
   };
   mkMsg("user", "screen vitalik.eth");
-  mkMsg("agent", "Resolving the name (resolve_name, $0.001) then screening the address (screen_wallet, $0.001). Total: $0.002 USDC. Approve?");
+  mkMsg("agent", "Resolving the name (resolve_name, $0.001) then screening the address (screen_wallet, $0.02). Total: $0.021 USDC. Approve?");
   mkMsg("user", "yes");
   mkMsg("agent", "vitalik.eth → 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045");
   mkMsg("tool", `

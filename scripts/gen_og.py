@@ -27,7 +27,7 @@ FONT_MONO = "/System/Library/Fonts/Menlo.ttc"
 
 # (price, name) — representative endpoints; prices must match the catalogue.
 CHIPS = [
-    ("$0.001", "screen"),
+    ("$0.02", "screen"),
     ("$0.005", "intel"),
     ("$0.01", "aura"),
     ("$0.05", "oracle"),

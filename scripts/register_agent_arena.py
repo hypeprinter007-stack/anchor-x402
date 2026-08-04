@@ -42,7 +42,7 @@ PAYLOAD = {
     "description": (
         "Eighteen x402-paid services for AI agents. One AWS Lambda, one OpenAPI spec. Pay per "
         "call in USDC on Base or Solana mainnet — no API keys, no accounts, no subscriptions. "
-        "Hash anchoring to Base+Solana ($0.005), OFAC sanctions screening ($0.001), signed "
+        "Hash anchoring to Base+Solana ($0.005), wallet risk screening ($0.02), signed "
         "decision attestation with dual-chain anchor ($0.010), transaction and calldata decode "
         "($0.001), ENS/SNS resolution ($0.001), token price ($0.001), datetime parsing ($0.001), "
         "bundled wallet intel ($0.005), verifiable signed RNG ($0.001), x402 spend accounting "

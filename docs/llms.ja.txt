@@ -26,8 +26,8 @@ anchor-x402は、AWS Lambda + FastAPI上で動作する18種のステートレ�
 | エンドポイント | 価格 | 内容 |
 |---|---|---|
 | POST /v1/anchor | $0.005 | 任意の32バイトハッシュをBaseとSolanaメインネットへ並列でアンカリング。両チェーンのtxハッシュを返却 |
-| GET /v1/screen | $0.001 | 任意のウォレット（EVMまたはSolana）に対するOFAC SDN制裁＋AMLスクリーニング |
-| POST /v1/attest | $0.010 | (input_hash, output_hash, decision) に対するウォレット署名を検証し、デュアルチェーンアンカリング |
+| GET /v1/screen | $0.02 | ウォレットリスク事前チェック — OFAC制裁＋アドレス評価（ドレイナー／フィッシング／ミキサー）を allow／review／block で返却 |
+| POST /v1/attest | $0.010 | (input_hash, output_hash, decision) に対する判定をアテスト：自身で署名するかトレジャリーが代理署名し、デュアルチェーンアンカリング。POST /v1/attest/verify で無料再検証 |
 | POST /v1/decode/tx | $0.001 | Base/Ethereumメインネットの任意トランザクションを構造化デコード |
 | GET /v1/resolve/name | $0.001 | クロスチェーン名前解決：ENS（Ethereum）＋ Bonfida SNS（Solana） |
 | GET /v1/price/token | $0.001 | シンボルまたはchain+contract指定でUSDスポット価格 |

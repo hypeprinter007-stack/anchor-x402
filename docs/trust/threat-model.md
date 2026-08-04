@@ -96,7 +96,7 @@ Each row is a concrete attack scenario, the existing mitigation, and the residua
 
 **Differentiator (see §5):** for this endpoint the consumer's trust requirement on `anchor-x402` is *limited to liveness*. Correctness is enforceable independently from the chain.
 
-### 3.2 `GET /v1/screen` — $0.001 — sanctions / AML screening
+### 3.2 `GET /v1/screen` — $0.02 — wallet risk pre-flight (OFAC + address-reputation)
 
 | Class | Threat | Mitigation | Residual risk |
 |---|---|---|---|
@@ -254,7 +254,7 @@ The cheapest endpoints ($0.001) are the highest amplification surface. Threat pr
 
 | Endpoint | Inbound | Outbound (worst case) | Amplification |
 |---|---|---|---|
-| `/v1/screen` | $0.001 | 0 (in-memory) | None |
+| `/v1/screen` | $0.02 | 1 GoPlus (cached 1h) | Low |
 | `/v1/decode/tx` | $0.001 | 1 RPC | Low |
 | `/v1/resolve/name` | $0.001 | 1–3 RPC | Low |
 | `/v1/price/token` | $0.001 | 1 CoinGecko (cached 60s) | Low (cache absorbs) |

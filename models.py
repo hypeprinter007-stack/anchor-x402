@@ -66,14 +66,29 @@ class AnchorResponse(BaseModel):
 # --- /v1/screen ---
 
 
+class ScreenSignal(BaseModel):
+    code: str
+    severity: str = Field(description='"critical" | "high" | "medium"')
+    source: str = Field(description='"treasury.gov" | "goplus"')
+    detail: str
+
+
 class ScreenResponse(BaseModel):
     wallet: str
     chain_inferred: str = Field(description='"ethereum" | "solana" | "unknown"')
     sanctions_match: bool
     sanctioned_lists: list[str] = Field(default_factory=list)
-    risk_level: str = Field(description='"low" | "medium" | "high"')
+    risk_level: str = Field(description='"low" | "medium" | "high" | "critical"')
     notes: str
     checked_at: int
+    # v2 enrichment — the payment pre-flight verdict.
+    recommendation: str = Field(default="review", description='"allow" | "review" | "block" — the field an agent branches on before sending funds.')
+    risk_score: int = Field(default=0, description="0-100; higher is riskier.")
+    address_type: str = Field(default="unknown", description='"eoa" | "contract" | "unknown"')
+    signals: list[ScreenSignal] = Field(default_factory=list)
+    labels: list[str] = Field(default_factory=list)
+    corpus_version: str | None = None
+    partial: bool = Field(default=False, description="True if the enrichment layer was unavailable or N/A (Solana) — treat an `allow` as provisional.")
 
 
 # --- /v1/attest ---
@@ -83,8 +98,14 @@ class AttestRequest(BaseModel):
     input_hash: str = Field(description="64-char hex SHA-256 of the agent's input.")
     output_hash: str = Field(description="64-char hex SHA-256 of the agent's output / decision payload.")
     decision: str = Field(max_length=64, description='Free-form short label, e.g. "APPROVED", "REJECTED", "CONFIDENCE=0.93".')
-    scheme: Literal["eip191", "ed25519"] = Field(description='Signature scheme: "eip191" (EVM personal_sign) or "ed25519" (Solana).')
-    signature: str = Field(description="0x-prefixed hex (eip191) or base58 (ed25519).")
+    scheme: Literal["eip191", "ed25519"] | None = Field(
+        default=None,
+        description='Signature scheme when you supply a `signature`: "eip191" (EVM) or "ed25519" (Solana).',
+    )
+    signature: str | None = Field(
+        default=None,
+        description="0x-prefixed hex (eip191) or base58 (ed25519). Omit to have the anchor-x402 treasury sign for you (hosted-signer mode, for wallet-less agents).",
+    )
     signer_pubkey: str | None = Field(
         default=None,
         description="Required for ed25519 (Solana base58 pubkey). Ignored for eip191 — address is recovered.",
@@ -96,8 +117,11 @@ class AttestRequest(BaseModel):
             raise ValueError("`input_hash` must be 64 hex chars")
         if not _HEX_RE.match(self.output_hash):
             raise ValueError("`output_hash` must be 64 hex chars")
-        if self.scheme == "ed25519" and not self.signer_pubkey:
-            raise ValueError("`signer_pubkey` is required when scheme=ed25519")
+        if self.signature is not None:
+            if not self.scheme:
+                raise ValueError("`scheme` is required when a `signature` is supplied")
+            if self.scheme == "ed25519" and not self.signer_pubkey:
+                raise ValueError("`signer_pubkey` is required when scheme=ed25519")
         return self
 
 
@@ -109,6 +133,48 @@ class AttestResponse(BaseModel):
     solana: ChainAnchor | None = None
     decision: str
     signed_at: int
+    signed_by: str = Field(
+        default="caller",
+        description='"caller" (you supplied the signature) or "treasury" (hosted-signer mode).',
+    )
+    verify_url: str | None = Field(
+        default=None,
+        description="Free endpoint a relying party POSTs this receipt to for independent re-verification.",
+    )
+
+
+class AttestVerifyRequest(BaseModel):
+    """A minted receipt submitted for free re-verification: the signed tuple plus
+    the signature and the Base tx that should carry the anchored root."""
+    input_hash: str = Field(description="64-char hex SHA-256 of the agent's input.")
+    output_hash: str = Field(description="64-char hex SHA-256 of the agent's output / decision payload.")
+    decision: str = Field(max_length=64)
+    scheme: Literal["eip191", "ed25519"] = Field(description='"eip191" or "ed25519" — matches the receipt.')
+    signature: str = Field(description="The signature from the receipt.")
+    signer_pubkey: str | None = Field(default=None, description="Required for ed25519.")
+    base_tx: str = Field(description="0x-prefixed Base tx hash returned by the mint.")
+
+    @model_validator(mode="after")
+    def _check(self):
+        if not _HEX_RE.match(self.input_hash):
+            raise ValueError("`input_hash` must be 64 hex chars")
+        if not _HEX_RE.match(self.output_hash):
+            raise ValueError("`output_hash` must be 64 hex chars")
+        if self.scheme == "ed25519" and not self.signer_pubkey:
+            raise ValueError("`signer_pubkey` is required when scheme=ed25519")
+        return self
+
+
+class AttestVerifyResponse(BaseModel):
+    valid: bool = Field(description="True iff signature verified AND the Base tx confirms the exact root.")
+    merkle_root: str
+    signature_valid: bool
+    signer: str
+    anchor_confirmed: bool
+    root_matches: bool
+    anchored_at_block: int | None = None
+    anchored_at_time: int | None = None
+    notes: str
 
 
 # --- /v1/decode/tx ---

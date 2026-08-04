@@ -24,7 +24,7 @@ Each demo is the same five-beat flow: chat free, agent quotes a price, approval 
 <video controls playsinline preload="metadata" poster="/og.png" style="width:100%; border-radius:6px; background:#0b1220;">
   <source src="/demos/screen.mp4" type="video/mp4">
 </video>
-<h3 style="margin:14px 0 6px;">screen — $0.001</h3>
+<h3 style="margin:14px 0 6px;">screen — $0.02</h3>
 <p style="margin:0 0 8px; color:#cfd2da; font-size:14px;">OFAC SDN + sanctions screening for any wallet. Returns sanctions match, flagged programs (Tornado Cash, Lazarus, etc.), risk tier.</p>
 <p style="margin:0; font-size:13px;"><code>GET /v1/screen?wallet=…</code></p>
 </div>

@@ -26,8 +26,8 @@ anchor-x402 exposes 18 stateless services on AWS Lambda + FastAPI. Each endpoint
 | Endpoint | Price | What it does |
 |---|---|---|
 | POST /v1/anchor | $0.005 | Anchor any 32-byte hash to Base + Solana mainnet in parallel; returns both tx hashes |
-| GET /v1/screen | $0.001 | OFAC SDN sanctions + AML screening for any wallet (EVM or Solana) |
-| POST /v1/attest | $0.010 | Verify a wallet signature over (input_hash, output_hash, decision) + dual-chain anchor |
+| GET /v1/screen | $0.02 | Wallet risk pre-flight — OFAC sanctions + address-reputation (drainer/phishing/mixer) → allow/review/block |
+| POST /v1/attest | $0.010 | Attest a decision over (input_hash, output_hash, decision): sign it yourself or let the treasury sign, then dual-chain anchor. Free re-verify at POST /v1/attest/verify |
 | POST /v1/decode/tx | $0.001 | Structured decode of any Base/Ethereum mainnet transaction |
 | GET /v1/resolve/name | $0.001 | Cross-chain name resolution: ENS (Ethereum) + Bonfida SNS (Solana) |
 | GET /v1/price/token | $0.001 | USD spot price by symbol or chain+contract |

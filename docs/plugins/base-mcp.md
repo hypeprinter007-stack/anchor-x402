@@ -17,7 +17,7 @@ This document is the canonical capability map. Drop it into your assistant's con
 The user's assistant must already have:
 
 1. **Base MCP installed and connected.** See https://docs.base.org/ai-agents/quickstart.
-2. **A Base Account with USDC balance** on Base mainnet. The cheapest call (`/v1/screen`, `/v1/roll`, `/v1/decode/*`, `/v1/resolve/name`, `/v1/price/token`, `/v1/parse/datetime`) costs **$0.001 USDC**. Holding **$2.00 USDC** covers every endpoint at least once, including the $1.77 async investigator.
+2. **A Base Account with USDC balance** on Base mainnet. The cheapest call (`/v1/roll`, `/v1/decode/*`, `/v1/resolve/name`, `/v1/price/token`, `/v1/parse/datetime`) costs **$0.001 USDC**. Holding **$2.00 USDC** covers every endpoint at least once, including the $1.77 async investigator.
 3. **No additional credentials** — anchor-x402 has no API keys, no allowlist, no per-user accounts. The 402 challenge IS the auth.
 
 ## Onboarding gate
@@ -35,7 +35,7 @@ If the user's USDC balance is below the chosen endpoint's price, halt with a cle
 | # | Endpoint | Method | Price | Category | One-liner |
 |---|----------|--------|-------|----------|-----------|
 | 1 | `/v1/anchor` | POST / GET | $0.005 | security | Dual-chain hash anchoring (Base + Solana) |
-| 2 | `/v1/screen` | GET / POST | $0.001 | security | OFAC + AML wallet screening |
+| 2 | `/v1/screen` | GET / POST | $0.02 | security | Wallet risk pre-flight — OFAC + address-reputation → allow/review/block |
 | 3 | `/v1/attest` | POST / GET | $0.010 | security | Verify signature → dual-chain anchor |
 | 4 | `/v1/decode/tx` | POST / GET | $0.001 | devtools | Structured mainnet tx decode (Base/Eth/Sol) |
 | 5 | `/v1/resolve/name` | GET / POST | $0.001 | identity | ENS + Bonfida SNS resolver |
@@ -114,9 +114,9 @@ Anchor a 32-byte hash to **Base + Solana mainnet in parallel**. Returns both tra
 
 ---
 
-### 2. `/v1/screen` — OFAC + AML wallet screening · $0.001
+### 2. `/v1/screen` — wallet risk pre-flight · $0.02
 
-Returns sanctions match boolean, flagged programs (Tornado Cash, Lazarus, etc.), and a risk level.
+Returns an `allow` / `review` / `block` recommendation with a risk score and per-signal detail: OFAC SDN sanctions plus address-reputation (drainer, phishing, mixer, laundering) from GoPlus. Degrades to a partial verdict rather than failing if the reputation layer is unavailable.
 
 **Use when:** the agent needs a fast pre-trade / pre-disbursement compliance check on an EVM or Solana address.
 

@@ -159,7 +159,7 @@ def test_intel_wallet(s) -> bool:
 
 TESTS = {
     "anchor": (test_anchor, "$0.005"),
-    "screen": (test_screen, "$0.001"),
+    "screen": (test_screen, "$0.02"),
     "attest": (test_attest, "$0.010"),
     "decode-tx": (test_decode_tx, "$0.001"),
     "resolve-name": (test_resolve_name, "$0.001"),

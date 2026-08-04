@@ -23,7 +23,7 @@
 | Employee / contractor count | 1 (solo; no employees, no subcontractors) |
 | Customer count | 0 paying customers under contract. Public mainnet usage is paid per-call in USDC via x402; no signed-contract customer book to disclose. |
 | Funding | Self-funded |
-| Primary product | One AWS Lambda exposing 9 HTTP endpoints (anchor, screen, attest, decode/tx, resolve/name, price/token, decode/calldata, parse/datetime, intel/wallet) at $0.001–$0.010 USDC per call via x402. Listed on CDP Bazaar, agentic.market, and awesome-x402; MCP server indexed on Glama. (pay.sh pay-skills catalog listing in review.) |
+| Primary product | One AWS Lambda exposing 9 HTTP endpoints (anchor, screen, attest, decode/tx, resolve/name, price/token, decode/calldata, parse/datetime, intel/wallet) at $0.001–$0.02 USDC per call via x402. Listed on CDP Bazaar, agentic.market, and awesome-x402; MCP server indexed on Glama. (pay.sh pay-skills catalog listing in review.) |
 | Intended buyers | AI agents and their developers. Sub-cent commodity calls, not enterprise-scale workloads. |
 | License | MIT |
 | Insurance | None (cyber-liability/E&O on the post-revenue roadmap) |
@@ -239,6 +239,7 @@ A customer can rely on AWS's controls for the infrastructure stratum (physical s
 | **Public Base RPC** (`mainnet.base.org`) | Base mainnet read/write | Hex hashes (already public after submission) | Coinbase-operated |
 | **Public Solana RPC** (`api.mainnet-beta.solana.com`) | Solana mainnet read/write | Hex hashes (already public after submission) | Solana Foundation-operated |
 | **CoinGecko (free tier)** | Backing source for `/v1/price/token` | Token symbol / contract (public) | CoinGecko-managed |
+| **GoPlus (address-security API)** | Address-reputation layer for `/v1/screen` (drainer/phishing/mixer flags) | Wallet address being screened (public on-chain identifier); cached 1h | GoPlus-managed |
 | **openchain.xyz** | 4byte/ABI directory for `/v1/decode/calldata` | Calldata first 4 bytes (already public) | openchain.xyz-managed |
 | **GitHub** | Source repository | Public source only; no production secrets | Microsoft-operated |
 | **PyPI** (via `uv` / `pip`) | Build-time dependency mirror | None (download-only) | PyPA-operated |

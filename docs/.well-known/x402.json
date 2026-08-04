@@ -127,11 +127,11 @@
     {
       "path": "/v1/screen",
       "method": "GET",
-      "price_usd": 0.001,
-      "price": "$0.001",
+      "price_usd": 0.02,
+      "price": "$0.02",
       "category": "security",
-      "description": "OFAC SDN sanctions + AML screening for any wallet address. Returns sanctions match boolean, flagged programs (Tornado Cash, Lazarus, etc.), risk level.",
-      "description_ja": "任意のウォレットアドレスに対するOFAC SDN制裁＋AMLスクリーニング。制裁マッチの真偽値、該当プログラム名（Tornado Cash、Lazarus等）、リスクレベルを返却します。",
+      "description": "Wallet risk pre-flight for agent payments: OFAC SDN sanctions plus address-reputation (drainer, phishing, mixer, laundering) resolved to an allow / review / block recommendation with per-signal detail.",
+      "description_ja": "エージェント決済向けウォレットリスク事前チェック：OFAC SDN制裁に加え、アドレス評価（ドレイナー、フィッシング、ミキサー、資金洗浄）を allow／review／block の推奨と各シグナルの詳細として返却します。",
       "params": {
         "wallet": {
           "type": "string",
@@ -153,8 +153,8 @@
       "price_usd": 0.01,
       "price": "$0.010",
       "category": "security",
-      "description": "Verify a wallet signature over (input_hash, output_hash, decision) with domain separation, then dual-chain anchor the resulting Merkle root. Returns verified signer + on-chain proof.",
-      "description_ja": "(input_hash, output_hash, decision) に対するウォレット署名をドメイン分離付きで検証し、得られたマークルルートをデュアルチェーンへアンカリング。検証済み署名者とオンチェーン証明を返却します。",
+      "description": "Attest a decision over (input_hash, output_hash, decision) with domain separation: supply your own signature, or omit it and the treasury signs for you (for wallet-less agents), then dual-chain anchor the Merkle root. Returns the signer, on-chain proof, and a free re-verify URL (POST /v1/attest/verify).",
+      "description_ja": "(input_hash, output_hash, decision) に対する判定をドメイン分離付きでアテストします：自身の署名を渡すか、署名を省略するとトレジャリーが代理署名（ウォレットを持たないエージェント向け）し、マークルルートをデュアルチェーンへアンカリング。署名者、オンチェーン証明、無料の再検証URL（POST /v1/attest/verify）を返却します。",
       "input_schema": {
         "type": "object",
         "required": [
