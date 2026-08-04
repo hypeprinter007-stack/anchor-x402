@@ -1,7 +1,7 @@
 ---
 name: wallet-screen
 title: "anchor-x402: wallet screening"
-description: "Sanctions + AML screening for any EVM or Solana wallet address. Returns sanctions match (boolean), specific OFAC SDN programs flagged (Tornado Cash, Lazarus Group, Hydra Market, Garantex, Blender.io etc.), inferred chain, and a low/medium/high risk verdict — for $0.001 USDC per call."
+description: "Wallet risk pre-flight for agent payments. OFAC SDN sanctions (Tornado Cash, Lazarus Group, Hydra Market, Blender.io, etc.) plus address-reputation (drainer, phishing, mixer, laundering) resolved to an allow/review/block recommendation with a 0-100 risk score and per-signal detail — for $0.02 USDC per call."
 use_case: "Use for AML pre-flight checks before any treasury transfer, KYC onboarding, vendor diligence, payroll wallet verification, marketplace counterparty checks, payment processor compliance, or any agent workflow that needs cheap, fast sanctions clearance."
 category: security
 service_url: https://api.anchor-x402.com
@@ -9,16 +9,19 @@ openapi:
   url: https://api.anchor-x402.com/openapi.json
 ---
 
-`GET /v1/screen?wallet=<address>` — pay $0.001 USDC, get a sanctions
-verdict back. Address shape detection is automatic: `0x` + 40 hex →
-EVM, base58 (32-44 chars) → Solana. The verdict carries
-`sanctions_match` (boolean), `sanctioned_lists` (which programs flagged
-the address — e.g. `["OFAC SDN", "Tornado Cash"]`), `risk_level`
-(`low`/`medium`/`high`), and a human-readable `notes` field.
+`GET /v1/screen?wallet=<address>` — pay $0.02 USDC, get a risk verdict
+back. Address shape detection is automatic: `0x` + 40 hex → EVM, base58
+(32-44 chars) → Solana. The verdict carries `recommendation`
+(`allow`/`review`/`block` — the field to branch on), `risk_score`
+(0-100), `signals` (each with source + severity), `sanctions_match`
+(boolean), `sanctioned_lists`, `address_type`, and a human-readable
+`notes` field. It degrades to a `partial` verdict rather than failing if
+the reputation layer is unavailable.
 
-The active corpus covers OFAC SDN crypto entries: Tornado Cash, Lazarus
-Group (DPRK), Hydra Market, Garantex, Blender.io, and other publicly
-documented sanctions targets. Refreshed on schedule from public sources.
+The corpus covers OFAC SDN crypto entries (Tornado Cash, Lazarus Group
+[DPRK], Hydra Market, Blender.io, and other publicly documented targets)
+plus an address-reputation layer from GoPlus (drainer / phishing / mixer
+/ laundering flags). Sanctions data refreshed from public sources.
 
 ## Spend-aware usage
 
