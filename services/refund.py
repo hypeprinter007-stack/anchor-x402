@@ -16,6 +16,7 @@ from typing import Any
 
 import boto3
 
+from services import screen as screen_svc
 from services import secrets
 
 log = logging.getLogger("anchor.refund")
@@ -179,6 +180,29 @@ def refund_failed_job(job_id: str) -> dict[str, Any]:
                 "buyer_wallet": buyer_wallet, "job_id": job_id}
     if not buyer_wallet:
         return {"skipped": "no buyer_wallet captured", "job_id": job_id}
+
+    # Screen the payout recipient before sending — we dogfood our own /v1/screen
+    # at the one place anchor sends USDC to an outside wallet. A refund does not
+    # exempt us from OFAC: paying a wallet that's been sanctioned since it bought
+    # is still a violation. Hard-block ONLY (sanctions match / `block` verdict) —
+    # a mere `review` must not strand a legitimate refund — and fail OPEN on a
+    # screen error, because the recipient is a proven prior payer and a screen
+    # hiccup shouldn't hold their money.
+    try:
+        verdict = screen_svc.screen(buyer_wallet)
+        if verdict.get("sanctions_match") or verdict.get("recommendation") == "block":
+            log.warning("refund HELD by sanctions screen job=%s to=%s lists=%s",
+                        job_id, buyer_wallet, verdict.get("sanctioned_lists"))
+            table.update_item(
+                Key={"job_id": job_id},
+                UpdateExpression="SET refund_pending = :p",
+                ExpressionAttributeValues={":p": "sanctions_hold"},
+            )
+            return {"skipped": "recipient failed sanctions screen",
+                    "refund_pending": "sanctions_hold", "buyer_wallet": buyer_wallet,
+                    "job_id": job_id, "sanctioned_lists": verdict.get("sanctioned_lists")}
+    except Exception:
+        log.exception("refund screen failed (fail-open, proceeding) job=%s", job_id)
 
     amount_atomic = int(item.get("price_atomic") or REFUND_AMOUNT_ATOMIC)
     tx_hash = _send_usdc(buyer_wallet, amount_atomic)

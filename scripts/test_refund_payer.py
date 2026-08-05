@@ -205,6 +205,48 @@ def main() -> None:
     ok("a non-FAILED job is never refunded or flagged",
        try_refund("j5").get("skipped", "").startswith("status=") and not t.updates)
 
+    print("\nscreen-before-refund guard (dogfood /v1/screen at the one outbound send)")
+    BUYER = "0x000000000000000000000000000000000000bEEF"
+    sent: list = []
+    refund_svc._send_usdc = lambda to, amt: (sent.append((to, amt)) or "0xrefundtx")
+
+    def base_job(jid):
+        t = FakeTable({"job_id": jid, "status": "FAILED", "buyer_network": BASE,
+                       "buyer_wallet": BUYER, "price_atomic": 1_770_000})
+        refund_svc._ddb_table = lambda: t
+        return t
+
+    # allow -> refund sends
+    sent.clear(); t = base_job("s1")
+    refund_svc.screen_svc.screen = lambda w: {"recommendation": "allow", "sanctions_match": False}
+    res = try_refund("s1")
+    ok("clean recipient -> refund sends", res.get("refund_tx") == "0xrefundtx" and len(sent) == 1, str(res))
+
+    # sanctions/block -> HELD, USDC NOT sent (a refund does not exempt us from OFAC)
+    sent.clear(); t = base_job("s2")
+    refund_svc.screen_svc.screen = lambda w: {"recommendation": "block", "sanctions_match": True,
+                                              "sanctioned_lists": ["OFAC SDN"]}
+    res = try_refund("s2")
+    ok("sanctioned recipient -> refund HELD, USDC NOT sent",
+       res.get("refund_pending") == "sanctions_hold" and not sent, str(res))
+    ok("...and the hold is written to the row",
+       any(u.get("ExpressionAttributeValues", {}).get(":p") == "sanctions_hold" for u in t.updates),
+       str(t.updates))
+
+    # review -> must NOT strand a legitimate refund; only a hard block does
+    sent.clear(); t = base_job("s3")
+    refund_svc.screen_svc.screen = lambda w: {"recommendation": "review", "sanctions_match": False}
+    res = try_refund("s3")
+    ok("a 'review' verdict does NOT strand the refund", res.get("refund_tx") == "0xrefundtx" and len(sent) == 1, str(res))
+
+    # screen error -> fail-open (recipient is a proven prior payer; a hiccup mustn't hold funds)
+    sent.clear(); t = base_job("s4")
+    def _boom(w):
+        raise RuntimeError("screen down")
+    refund_svc.screen_svc.screen = _boom
+    res = try_refund("s4")
+    ok("screen error -> fail-open, refund still sends", res.get("refund_tx") == "0xrefundtx" and len(sent) == 1, str(res))
+
     print()
     if failures:
         print(f"{len(failures)} FAILED: {failures}")
