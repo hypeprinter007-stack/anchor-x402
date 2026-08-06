@@ -37,7 +37,10 @@ def sweep_handler(event, context):
         # by default — safe. But the returned error string is scrubbed of any
         # 0x-prefixed 64-hex shapes (private-key length) via _safe_err.
         log.exception("divigent assess_and_act failed")
-        return {"acted": False, "reason": "exception", "error": divigent._safe_err(e)}
+        # Re-raise so Lambda records an Errors datapoint. Swallowing it made the
+        # invocation look successful, which left DivigentSweepErrors in OK while
+        # every cycle failed. Raise the scrubbed message, not the original.
+        raise RuntimeError(divigent._safe_err(e)) from None
     log.info("divigent assess_and_act result: %s", result)
     return result
 
@@ -52,6 +55,6 @@ def oracle_keeper_handler(event, context):
         result = divigent.record_oracle_observation()
     except Exception as e:
         log.exception("divigent oracle keeper failed")
-        return {"recorded": False, "reason": "exception", "error": divigent._safe_err(e)}
+        raise RuntimeError(divigent._safe_err(e)) from None
     log.info("divigent oracle keeper result: %s", result)
     return result
