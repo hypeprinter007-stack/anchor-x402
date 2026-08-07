@@ -1471,12 +1471,12 @@ app.add_middleware(
 )
 
 
-@app.get("/health")
+@app.get("/health", summary="Report service health and version status")
 def health():
     return {"status": "ok", "service": "anchor-x402"}
 
 
-@app.post("/v1/anchor", response_model=AnchorResponse)
+@app.post("/v1/anchor", response_model=AnchorResponse, summary="Create a dual-chain proof anchoring a 32-byte hash")
 def anchor(req: AnchorRequest) -> AnchorResponse:
     merkle_root = req.merkle_root()
     started = int(time.time())
@@ -1512,7 +1512,7 @@ def screen(wallet: str) -> ScreenResponse:
     return ScreenResponse(**verdict)
 
 
-@app.post("/v1/attest", response_model=AttestResponse)
+@app.post("/v1/attest", response_model=AttestResponse, summary="Create a signed, anchored receipt for an AI decision")
 def attest(req: AttestRequest) -> AttestResponse:
     # Two modes on one route: bring your own signature (we verify it), or omit
     # it and the treasury signs — for wallet-less agents (e.g. calling over MCP).
@@ -1571,7 +1571,7 @@ def attest(req: AttestRequest) -> AttestResponse:
 # FREE — no x402_routes entry. Lets a relying party independently re-verify a
 # receipt (signature + on-chain anchor) at no cost. A paid mint nobody can
 # check for free is worthless; this is what gives the receipt value.
-@app.post("/v1/attest/verify", response_model=AttestVerifyResponse)
+@app.post("/v1/attest/verify", response_model=AttestVerifyResponse, summary="Verify a previously anchored decision attestation")
 def attest_verify(req: AttestVerifyRequest) -> AttestVerifyResponse:
     merkle_root = attest_svc.attest_merkle_root(req.input_hash, req.output_hash, req.decision)
     sig_ok, signer = attest_svc.verify(
@@ -1605,7 +1605,7 @@ def attest_verify(req: AttestVerifyRequest) -> AttestVerifyResponse:
     )
 
 
-@app.post("/v1/decode/tx", response_model=TxDecodeResponse)
+@app.post("/v1/decode/tx", response_model=TxDecodeResponse, summary="Parse a Base or Solana transaction into plain English")
 def decode_tx(req: TxDecodeRequest) -> TxDecodeResponse:
     try:
         decoded = tx_decode_svc.decode(req.chain, req.tx_hash)
@@ -1642,7 +1642,7 @@ def token_price(symbol: str | None = None, chain: str | None = None, contract: s
     return TokenPriceResponse(**data)
 
 
-@app.post("/v1/decode/calldata", response_model=CalldataDecodeResponse)
+@app.post("/v1/decode/calldata", response_model=CalldataDecodeResponse, summary="Parse raw EVM calldata into a named function call")
 def decode_calldata(req: CalldataDecodeRequest) -> CalldataDecodeResponse:
     if req.chain == "solana":
         raise HTTPException(status_code=400, detail="calldata-decode is EVM-only; Solana instruction decoding is not supported")
@@ -1656,7 +1656,7 @@ def decode_calldata(req: CalldataDecodeRequest) -> CalldataDecodeResponse:
     return CalldataDecodeResponse(**result)
 
 
-@app.post("/v1/parse/datetime", response_model=DatetimeParseResponse)
+@app.post("/v1/parse/datetime", response_model=DatetimeParseResponse, summary="Parse natural-language dates into a normalized datetime")
 def parse_datetime(req: DatetimeParseRequest) -> DatetimeParseResponse:
     try:
         result = datetime_parse_svc.parse_datetime(req.input, base_time=req.base_time, timezone_name=req.timezone)
@@ -1698,22 +1698,22 @@ class _TokenPriceBody(_BM):
     contract: str | None = _F(None, description="Token contract address. Requires chain.")
 
 
-@app.post("/v1/screen", response_model=ScreenResponse)
+@app.post("/v1/screen", response_model=ScreenResponse, summary="Check a wallet address for sanctions and risk")
 def screen_post(req: _WalletBody) -> ScreenResponse:
     return screen(req.wallet)
 
 
-@app.post("/v1/resolve/name", response_model=NameResolveResponse)
+@app.post("/v1/resolve/name", response_model=NameResolveResponse, summary="Resolve an ENS or Solana name to a wallet address")
 def resolve_name_post(req: _NameBody) -> NameResolveResponse:
     return resolve_name(req.name)
 
 
-@app.post("/v1/price/token", response_model=TokenPriceResponse)
+@app.post("/v1/price/token", response_model=TokenPriceResponse, summary="Look up a token's current price in US dollars")
 def token_price_post(req: _TokenPriceBody) -> TokenPriceResponse:
     return token_price(symbol=req.symbol, chain=req.chain, contract=req.contract)
 
 
-@app.post("/v1/intel/wallet", response_model=IntelWalletResponse)
+@app.post("/v1/intel/wallet", response_model=IntelWalletResponse, summary="Fetch bundled wallet sanctions, balance, and activity data")
 def intel_wallet_post(req: _WalletBody) -> IntelWalletResponse:
     return intel_wallet(req.wallet)
 
@@ -1795,7 +1795,7 @@ _lambda = boto3.client("lambda")
 _ddb = boto3.resource("dynamodb").Table(_JOBS_TABLE)
 
 
-@app.post("/v1/investigate", response_model=InvestigateAcceptedResponse)
+@app.post("/v1/investigate", response_model=InvestigateAcceptedResponse, summary="Create an agent-driven wallet due-diligence investigation")
 def investigate_dispatch(req: InvestigateRequest, request: Request) -> InvestigateAcceptedResponse:
     """Accept payment, record job, async-dispatch to private worker."""
     from services import refund as refund_svc
@@ -1880,7 +1880,7 @@ def investigate_dispatch(req: InvestigateRequest, request: Request) -> Investiga
     )
 
 
-@app.get("/v1/investigate/status/{job_id}", response_model=InvestigateStatusResponse)
+@app.get("/v1/investigate/status/{job_id}", response_model=InvestigateStatusResponse, summary="Check an investigation's status and fetch its report")
 def investigate_status(job_id: str) -> InvestigateStatusResponse:
     """Poll endpoint — free, no x402 (deliberately omitted from x402_routes)."""
     try:
@@ -1942,7 +1942,7 @@ def _ledger_error_handler(request: Request, exc: ledger_svc.LedgerError) -> JSON
     return JSONResponse(status_code=exc.status, content=exc.body())
 
 
-@app.post("/v1/ledger/summary")
+@app.post("/v1/ledger/summary", summary="Summarize a wallet's ledger into accounting totals")
 def ledger_summary(req: LedgerSummaryRequest) -> dict:
     """Categorized x402 spend for a wallet, computed at request time."""
     wallet = ledger_svc.validate_wallet(req.wallet)
@@ -1964,7 +1964,7 @@ def ledger_summary(req: LedgerSummaryRequest) -> dict:
     return out
 
 
-@app.post("/v1/ledger/report", response_model=LedgerReportAccepted)
+@app.post("/v1/ledger/report", response_model=LedgerReportAccepted, summary="Create a full accounting report job for a wallet ledger")
 def ledger_report_dispatch(req: LedgerReportRequest, request: Request) -> LedgerReportAccepted:
     """Accept payment, record job, async-dispatch the report build to this
     same Lambda (self-invoke — see the ledger_job branch in handler())."""
@@ -2048,7 +2048,7 @@ def ledger_report_dispatch(req: LedgerReportRequest, request: Request) -> Ledger
     )
 
 
-@app.get("/v1/ledger/report/{job_id}", response_model=LedgerReportStatus)
+@app.get("/v1/ledger/report/{job_id}", response_model=LedgerReportStatus, summary="Check a ledger report job and fetch the finished report")
 def ledger_report_status(job_id: str) -> LedgerReportStatus:
     """Poll endpoint — free, no x402 (deliberately omitted from x402_routes)."""
     try:
@@ -2107,7 +2107,7 @@ def ledger_report_file(filename: str) -> Response:
 # --- /v1/roast | /v1/oracle | /v1/tldr (universal LLM-paid endpoints) -------
 
 
-@app.post("/v1/roast", response_model=RoastResponse)
+@app.post("/v1/roast", response_model=RoastResponse, summary="Generate a comic roast of a wallet's trading history")
 def roast(req: RoastRequest) -> RoastResponse:
     try:
         result = roast_svc.roast(req.target)
@@ -2117,7 +2117,7 @@ def roast(req: RoastRequest) -> RoastResponse:
     return RoastResponse(**result)
 
 
-@app.post("/v1/oracle", response_model=OracleResponse)
+@app.post("/v1/oracle", response_model=OracleResponse, summary="Generate a signed oracle verdict for a question")
 def oracle(req: OracleRequest) -> OracleResponse:
     try:
         result = oracle_svc.oracle(req.question)
@@ -2127,7 +2127,7 @@ def oracle(req: OracleRequest) -> OracleResponse:
     return OracleResponse(**result)
 
 
-@app.post("/v1/tldr", response_model=TldrResponse)
+@app.post("/v1/tldr", response_model=TldrResponse, summary="Summarize long text into a short TL;DR")
 def tldr(req: TldrRequest) -> TldrResponse:
     try:
         result = tldr_svc.tldr(text=req.text, url=req.url)
@@ -2139,7 +2139,7 @@ def tldr(req: TldrRequest) -> TldrResponse:
     return TldrResponse(**result)
 
 
-@app.post("/v1/aura", response_model=AuraResponse)
+@app.post("/v1/aura", response_model=AuraResponse, summary="Read a wallet's aura color, tier, and score")
 def aura(req: AuraRequest) -> AuraResponse:
     try:
         result = aura_svc.aura(req.target)
@@ -2149,7 +2149,7 @@ def aura(req: AuraRequest) -> AuraResponse:
     return AuraResponse(**result)
 
 
-@app.post("/v1/grade", response_model=GradeResponse)
+@app.post("/v1/grade", response_model=GradeResponse, summary="Generate a letter grade and margin notes for text")
 def grade(req: GradeRequest) -> GradeResponse:
     try:
         result = grade_svc.grade(req.target)
@@ -2193,7 +2193,7 @@ def grade_get(target: str) -> GradeResponse:
     return grade(GradeRequest(target=target))
 
 
-@app.post("/v1/roll", response_model=RollResponse)
+@app.post("/v1/roll", response_model=RollResponse, summary="Generate verifiable dice rolls with a signed result")
 def roll(req: RollRequest) -> RollResponse:
     try:
         result = roll_svc.generate(
