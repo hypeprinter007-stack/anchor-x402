@@ -117,5 +117,5 @@ Payments only matter if buyers find you:
 anchor-x402 runs this exact stack in production — 16 paid endpoints from $0.001 to
 $1.77 on Base, Solana, and Polygon (JPYC). Source:
 [github.com/hypeprinter007-stack/anchor-x402](https://github.com/hypeprinter007-stack/anchor-x402) ·
-live challenges: `curl -i https://api.anchor-x402.com/v1/screen?address=0x0` ·
+live challenges: `curl -i https://api.anchor-x402.com/v1/screen?wallet=0x0` ·
 buying instead? [Pay an x402 API from Node.js →](/guides/pay-x402-api-node/)

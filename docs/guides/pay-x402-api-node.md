@@ -43,7 +43,7 @@ const paidFetch = wrapFetchWithPaymentFromConfig(fetch, {
 
 // A live $0.02 endpoint: wallet risk pre-flight (OFAC + address-reputation) for any wallet.
 const res = await paidFetch(
-  "https://api.anchor-x402.com/v1/screen?address=0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+  "https://api.anchor-x402.com/v1/screen?wallet=0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
 );
 console.log(res.status, await res.json());
 ```
