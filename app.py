@@ -1393,6 +1393,108 @@ class HeadAsGetMiddleware:
 app.add_middleware(HeadAsGetMiddleware)
 
 
+# Pre-payment request validation. The x402 payment layer settles BEFORE FastAPI
+# validates a handler's query params, so a paid GET call missing a required
+# parameter was charged and *then* 422'd — the buyer paid for a validation error
+# (reported by nohumans.directory, issue #3; and PAID_CALL only logs status<400,
+# so these charged failures were invisible in our own telemetry). This guard runs
+# OUTSIDE x402_mw and rejects a structurally-invalid paid GET with a 400 before any
+# 402 challenge or settlement — we never charge for a request we're about to reject.
+# Well-formed calls pass straight through. Registered here so it sits inside the
+# canonical-host redirect and CORS but outside the payment gate.
+from fastapi.routing import APIRoute as _APIRoute
+from urllib.parse import parse_qs as _parse_qs
+
+# Routes whose validity is conditional rather than "all required": at least one of
+# the listed parameter groups must be fully present. (Kept explicit — these can't
+# be derived from a flat required-field list.)
+_CONDITIONAL_QUERY = {
+    "/v1/price/token": [["symbol"], ["chain", "contract"]],
+    "/v1/tldr": [["text"], ["url"]],
+}
+
+_required_query_cache = None
+
+
+def _query_param_required(q) -> bool:
+    """True if a FastAPI query-param field has no default (i.e. is required).
+    Handles both the Pydantic-v2 shim (`field_info.is_required()`) and the older
+    `.required` attribute."""
+    fi = getattr(q, "field_info", None)
+    if fi is not None and hasattr(fi, "is_required"):
+        return fi.is_required()
+    return getattr(q, "required", False)
+
+
+def _paid_get_required_query():
+    """{path: [required query params]} for paid GET routes, derived once from the
+    live route signatures so it can never drift from the handlers. Built lazily
+    because the route handlers are defined after this middleware is registered."""
+    global _required_query_cache
+    if _required_query_cache is None:
+        m = {}
+        for route in app.routes:
+            if isinstance(route, _APIRoute) and "GET" in route.methods:
+                if f"GET {route.path}" in x402_routes and route.path not in _CONDITIONAL_QUERY:
+                    req = [q.name for q in route.dependant.query_params
+                           if _query_param_required(q)]
+                    if req:
+                        m[route.path] = req
+        _required_query_cache = m
+    return _required_query_cache
+
+
+class PrePaymentValidationMiddleware:
+    def __init__(self, app):
+        self.app = app
+
+    async def _reject(self, send, *, missing=None, message=None):
+        detail = ([{"type": "missing", "loc": ["query", f], "msg": "Field required"}
+                   for f in missing] if missing else message)
+        body = json.dumps({
+            "detail": detail,
+            "hint": "request rejected before payment — no USDC was charged. "
+                    "See per-route input_schema at /.well-known/x402.json.",
+        }).encode()
+        await send({"type": "http.response.start", "status": 400, "headers": [
+            (b"content-type", b"application/json"),
+            (b"content-length", str(len(body)).encode()),
+        ]})
+        await send({"type": "http.response.body", "body": body, "more_body": False})
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") != "http" or scope.get("method") != "GET":
+            await self.app(scope, receive, send)
+            return
+        path = scope.get("path", "")
+        conditional = _CONDITIONAL_QUERY.get(path)
+        required = None if conditional else _paid_get_required_query().get(path)
+        if conditional is None and required is None:
+            await self.app(scope, receive, send)  # not a guarded paid GET route
+            return
+        # Internal / MCP-forwarded traffic authenticates + validates downstream.
+        if dict(scope.get("headers", [])).get(b"x-internal-auth"):
+            await self.app(scope, receive, send)
+            return
+
+        qs = _parse_qs(scope.get("query_string", b"").decode("latin-1"))
+        present = {k for k, v in qs.items() if v and v[0] != ""}
+        if conditional is not None:
+            if not any(all(f in present for f in group) for group in conditional):
+                opts = " or ".join("(" + " + ".join(g) + ")" for g in conditional)
+                await self._reject(send, message=f"supply {opts}")
+                return
+        else:
+            miss = [f for f in required if f not in present]
+            if miss:
+                await self._reject(send, missing=miss)
+                return
+        await self.app(scope, receive, send)
+
+
+app.add_middleware(PrePaymentValidationMiddleware)
+
+
 # Canonical-host 308 redirect. AWS API Gateway serves the same Lambda under
 # both the custom domain and the raw `*.execute-api.us-east-1.amazonaws.com`
 # hostname; CDP's discovery crawler was indexing both, duplicating every paid
