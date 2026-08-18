@@ -29,7 +29,7 @@ Every document is current as of the most recent commit on `main`. The codebase i
 
 **If you're a code-level auditor:** [self-audit guide](self-audit.md) is structured as a reading procedure — file paths and line ranges in the order you should review them.
 
-**If you're modeling threats:** [threat model](threat-model.md) covers the nine core data & compliance endpoints with STRIDE-lite tables (the LLM/content, RNG, and ledger endpoints share the cross-cutting controls but don't yet have per-endpoint tables).
+**If you're modeling threats:** [threat model](threat-model.md) covers the thirteen trust-relevant endpoints with per-service STRIDE-lite tables. The five LLM content endpoints (`roast`, `oracle`, `tldr`, `aura`, `grade`) are documented as out of scope — freeform text in, generated content out, no wallet-risk verdict or compliance evidence.
 
 ## What's deliberately not here (yet)
 

@@ -9,7 +9,7 @@
 
 ## 1. Executive summary
 
-`anchor-x402` is a public, anonymously-consumable, pay-per-call microservice platform on AWS Lambda. Nine endpoints cover two product families: trust infrastructure (`anchor`, `attest`, `screen`, `intel/wallet`) and stateless commodity utilities (`decode/tx`, `decode/calldata`, `resolve/name`, `price/token`, `parse/datetime`). Settlement is in USDC on Base or Solana mainnet via the x402 v2 protocol; there is no API key, no customer account, no session. What you get for the per-call price is a single signed JSON response and — for `anchor` and `attest` — two on-chain transactions whose calldata you can independently verify forever, even if `anchor-x402` is later compromised, terminated, or attempts to lie. What you do **not** get is a SOC 2 report, a DPA, per-tenant authentication, a dedicated tenancy plane, or any service-side retention of your inputs. This is by design: the platform is positioned as a commodity tier sitting one layer below a fully-managed assurance product (e.g. our sister project [Counsel](https://github.com/hypeprinter007-stack/gavel), which carries WORM evidence, officer allowlists, and Article 17 erasure).
+`anchor-x402` is a public, anonymously-consumable, pay-per-call microservice platform on AWS Lambda. Of its eighteen paid endpoints, this threat model covers the **thirteen trust-relevant ones** across three families: trust infrastructure & evidence (`anchor`, `attest`, `screen`, `intel/wallet`, `investigate`, `ledger/report`), stateless commodity utilities (`decode/tx`, `decode/calldata`, `resolve/name`, `price/token`, `parse/datetime`, `ledger/summary`), and verifiable RNG (`roll`). The five LLM content endpoints — `roast`, `oracle`, `tldr`, `aura`, `grade` — are **out of scope**: they take freeform text, return generated content, and produce no wallet-risk verdict or compliance evidence; they inherit only the cross-cutting controls in §4. Settlement is in USDC on Base or Solana mainnet via the x402 v2 protocol; there is no API key, no customer account, no session. What you get for the per-call price is a single signed JSON response and — for `anchor`, `attest`, `investigate`, and `ledger/report` — an on-chain anchor whose calldata you can independently verify forever, even if `anchor-x402` is later compromised, terminated, or attempts to lie. What you do **not** get is a SOC 2 report, a DPA, per-tenant authentication, a dedicated tenancy plane, or any service-side retention of your inputs beyond the two async job stores (`investigate`, `ledger/report`) noted in their tables below. This is by design: the platform is positioned as a commodity tier sitting one layer below a fully-managed assurance product (e.g. our sister project [Counsel](https://github.com/hypeprinter007-stack/gavel), which carries WORM evidence, officer allowlists, and Article 17 erasure).
 
 Reviewers should treat the service as a stateless oracle with on-chain evidence as the trust anchor: if you only need a verifiable Merkle commitment that a hash existed at time `T`, the dual-chain anchor is structurally robust against operator compromise, since forging the record requires reorging two L1s plus breaking SHA-256. For services that depend on upstream data (`screen`, `price/token`, `decode/calldata`, `intel/wallet`, `resolve/name`), the trust ceiling drops to "no worse than the upstream" — you should treat results as advisory and re-derive any decision-critical fact from a primary source. Per-service threat tables, cross-cutting threats, and known limitations are below; if you find a vulnerability please follow the disclosure policy in §7.
 
@@ -193,11 +193,61 @@ Each row is a concrete attack scenario, the existing mitigation, and the residua
 | D | Asymmetric DoS — $0.005 in, 6+ outbound RPC calls out | Per-source 8s timeout, max 8 concurrent in `ThreadPoolExecutor`. Lambda concurrency capped. 60s in-process cache absorbs hot keys. | Medium — see §4 cross-cutting DoS amplification row. |
 | E | n/a | n/a | n/a |
 
+### 3.10 `POST /v1/investigate` — $1.77 — agent-driven wallet due diligence (async)
+
+Async: the paid POST returns a `job_id`; the deliverable arrives at `/v1/investigate/status/{job_id}` in 5–10 min. The investigation runs on an isolated AWS Bedrock AgentCore worker over read-only public data.
+
+| Class | Threat | Mitigation | Residual risk |
+|---|---|---|---|
+| S | Operator returns a fabricated verdict/score not produced by the investigation | The finished report is EIP-191-signed by the treasury key and its `sha256` is dual-chain anchored (Base + Solana); the JSON sidecar carries the anchor tx URLs. A consumer verifies the signature + re-derives the anchored digest — the same offline-verifiable model as `/v1/attest`. | Low for artifact integrity; the *judgement inside* it is still an LLM opinion (next row). |
+| T/S | Report poisoned by adversarial on-chain data (a target seeds misleading ENS names, airdropped tokens, or memo text to steer the LLM narrative) | The worker consumes read-only public data; the report separates verdict/score from the raw evidence it cites. | **Medium. Treat the verdict as advisory analyst output, not adjudication** — a human must review the evidence, not just the score, for any onboarding/AML decision. |
+| I | The target wallet's aggregated history persists in the async job store | Inputs are a public wallet address + depth; the deliverable is derived entirely from public chain data. The DynamoDB job record + rendered artifacts persist until read/expired; no caller PII is collected. | Low — all public-chain-derived; but a leaked `job_id` (UUID) exposes that report. Don't treat the status URL as secret-bearing. |
+| R | Operator denies a report was ever issued | The signed + dual-chain-anchored digest is non-repudiable once mined. | Effectively zero for the anchored artifact. |
+| D | $1.77 spam to burn agent compute + treasury anchoring gas | The $1.77 paywall makes this the costliest endpoint to spam; async dispatch caps concurrency. **A worker failure auto-refunds the $1.77 to the buyer** (`refund_tx` in the status response), so forcing failures returns the buyer's own money, not the operator's. | Low; the refund path itself spends Base gas per failed job (griefing ceiling = operator refund-gas). |
+| E | Caller escalates via the target `address` field | Address is validated to EVM/Solana shape before dispatch; the worker consumes it as data, not code. | Low. |
+
+**Differentiator (see §5):** the finished report is on-chain-verifiable like `/v1/attest`.
+
+### 3.11 `POST /v1/ledger/summary` — $0.01 — x402 spend accounting
+
+| Class | Threat | Mitigation | Residual risk |
+|---|---|---|---|
+| S | Totals misstate the wallet's real x402 activity | Reconstructed at request time from Base USDC `Transfer` logs + EIP-3009 `transferWithAuthorization` calldata detection; a consumer can re-run the same scan against any Base RPC. | Low for raw totals — deterministic from public chain state. |
+| S | Service-label attribution is wrong (a transfer mapped to the wrong x402 service, or a real x402 payment missed) | Labels come from a versioned recipient registry (`corpus_version` returned); unmatched EIP-3009 transfers are flagged as unidentified x402 rather than dropped. | **Medium — treat labels as advisory.** The registry is not exhaustive; verify a specific payment against its tx. |
+| T | Silent truncation on a very active wallet | Registry-unmatched transfers are calldata-inspected up to `MAX_TX_INSPECTIONS` (5,000). | **Medium: a wallet with >5,000 unmatched transfers yields a partial result** — read it as a floor, not a complete audit, for high-volume wallets. |
+| T | Date→block mapping is approximate | Block-at-timestamp is arithmetic over Base's ~2s cadence, not a per-block RPC lookup, so range boundaries can be off by a few blocks. | Low — bounded and disclosed here. |
+| I | Querying a wallet's spend leaks interest to the Base RPC provider | Input and output are public chain data. | Negligible. |
+| D | $0.01 in, a multi-block log scan out | Bounded block-range chunking with retry / `rpc_unavailable` 502; no gas spend. | Low. |
+
+### 3.12 `POST /v1/ledger/report` — $0.35 — signed + anchored expense report (async)
+
+Async: the paid POST returns a `job_id`; poll `/v1/ledger/report/{job_id}`. Worker path: scan → render (markdown + CSV) → sign → anchor → S3.
+
+| Class | Threat | Mitigation | Residual risk |
+|---|---|---|---|
+| S | Report doesn't match the wallet's real spend | Same chain reconstruction as `/v1/ledger/summary`, then **EIP-191-signed (`anchor-x402/ledger/v1\nsha256=<digest>`) and the digest dual-chain anchored**. The consumer re-derives the digest from the rendered files and checks the on-chain calldata. | Low for integrity; the label/truncation caveats from §3.11 still apply to the underlying data. |
+| R | Operator denies issuing a specific report | Signed + anchored digest is non-repudiable once mined. | Effectively zero for the anchored artifact. |
+| I | Rendered report (full spend history) persists in S3 + the job store | Content is public-chain-derived; artifacts are keyed by `job_id` and fetched via the status URL. | Low — but the `job_id` UUID is the only gate; treat the status URL as capability-bearing for that (public-data) report. |
+| D | $0.35 spam → S3 writes + anchoring gas | Paywall + async concurrency cap; anchoring is one dual-chain write per completed job. | Low. |
+| E | n/a — no privileged surface exposed to the caller | n/a | None. |
+
+**Differentiator (see §5):** on-chain-verifiable like `/v1/attest`.
+
+### 3.13 `POST /v1/roll` — $0.001 — verifiable signed RNG
+
+| Class | Threat | Mitigation | Residual risk |
+|---|---|---|---|
+| S | **Operator grinds the result** — samples repeatedly and signs only a favorable outcome | Entropy is server-side (`secrets.randbelow`, urandom CSPRNG); the signature proves *the operator issued this value*, not that it was sampled fairly. An optional 32-byte `commitment` binds the caller's inputs into the signed payload (closes caller-side front-running) but does **not** bind server entropy. | **Medium — this is the honest trust ceiling.** `roll` is a *verifiable-issuance* RNG (you can prove who signed what, and when if you anchor it), **not** a bias-resistant VRF. Don't use it where the operator has a stake in the outcome; for adversarial fairness use commit-reveal or an on-chain VRF. |
+| S | Forged result attributed to the treasury signer | EIP-191-signed over a domain-separated message (`anchor-x402/roll/v1\ninput=…\nresult=…`); the public key is published (`/v1/config`), so anyone can verify. | Low. |
+| T | Caller replays a signed roll as a different request | The signed payload is `(input_hash, result_hash)` where `input_hash` canonicalizes range/count/commitment/label; a mismatched request fails verification. | Low. |
+| R | Operator denies issuing a roll | The signature (and, if the caller anchors it, the on-chain timestamp) is non-repudiable. | Low. |
+| I / D / E | Freeform inputs caller-supplied; single CSPRNG draw; paywalled | Bounded range/count; no upstream fan-out; x402 paywall. | Low. |
+
 ---
 
 ## 4. Cross-cutting threats
 
-These apply uniformly to the nine core endpoints documented here and are not repeated in the per-service tables.
+These apply uniformly to the endpoints documented here and are not repeated in the per-service tables.
 
 ### 4.1 AWS account compromise
 
@@ -274,7 +324,7 @@ The service is deployed only in `us-east-1`. A regional AWS outage takes the ser
 
 ## 5. On-chain verifiability — the structural differentiator
 
-For seven of the nine endpoints, `anchor-x402` is a normal SaaS API: you trust TLS, the AWS runtime, and the operator's good faith. For `/v1/anchor` and `/v1/attest`, the trust model is **fundamentally different**.
+For most covered endpoints, `anchor-x402` is a normal SaaS API: you trust TLS, the AWS runtime, and the operator's good faith. For `/v1/anchor`, `/v1/attest`, `/v1/investigate`, and `/v1/ledger/report`, the trust model is **fundamentally different** — each produces an artifact whose `sha256` is anchored on two L1s (and, except `anchor`, EIP-191-signed), so correctness is verifiable without trusting the operator. `/v1/roll` is signed but not anchored by default, so it is verifiable-as-issued but not bias-resistant (see §3.13). The mechanics below use `/v1/anchor` and `/v1/attest` as the canonical examples; the other anchored endpoints follow the same attest-style pattern.
 
 ### 5.1 What lands on chain
 
@@ -389,3 +439,4 @@ If you discover a vulnerability:
 | Date | Version | Change |
 |---|---|---|
 | 2026-05 | 1.0 | Initial threat model. |
+| 2026-08 | 1.1 | Expanded scope from 9 to the 13 trust-relevant endpoints: added per-service tables for `investigate`, `ledger/summary`, `ledger/report`, and `roll`; documented the 5 LLM content endpoints (`roast`, `oracle`, `tldr`, `aura`, `grade`) as explicitly out of scope. |

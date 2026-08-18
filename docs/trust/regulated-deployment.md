@@ -325,8 +325,8 @@ If the institution's workflow today is exploratory, sandboxed, or layered on top
 | Service type | Public, stateless, x402-paid AI-agent commodity API |
 | Deployment | AWS Lambda + API Gateway, region `us-east-1` |
 | Base URL | `https://api.anchor-x402.com` |
-| Endpoints | 9 (anchor, screen, attest, decode/tx, resolve/name, price/token, decode/calldata, parse/datetime, intel/wallet) |
-| Pricing | $0.001 - $0.02 USDC per call, paid on Base or Solana |
+| Endpoints | 18 total; 13 trust-relevant covered in the threat model (anchor, screen, attest, intel/wallet, investigate, ledger/summary, ledger/report, roll, decode/tx, decode/calldata, resolve/name, price/token, parse/datetime) + 5 LLM content endpoints out of scope |
+| Pricing | $0.001 - $1.77 USDC per call, paid on Base or Solana |
 | Authentication | x402 payment authorization only (no API keys) |
 | Data classification of leg A | Customer-controlled. Should be PUBLIC only. |
 | Data retention at vendor | None at app layer. CloudWatch operational logs only at IaaS layer. |

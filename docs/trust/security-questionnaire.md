@@ -23,7 +23,7 @@
 | Employee / contractor count | 1 (solo; no employees, no subcontractors) |
 | Customer count | 0 paying customers under contract. Public mainnet usage is paid per-call in USDC via x402; no signed-contract customer book to disclose. |
 | Funding | Self-funded |
-| Primary product | One AWS Lambda exposing 9 HTTP endpoints (anchor, screen, attest, decode/tx, resolve/name, price/token, decode/calldata, parse/datetime, intel/wallet) at $0.001–$0.02 USDC per call via x402. Listed on CDP Bazaar, agentic.market, and awesome-x402; MCP server indexed on Glama. (pay.sh pay-skills catalog listing in review.) |
+| Primary product | One AWS Lambda exposing 18 HTTP endpoints at $0.001–$1.77 USDC per call via x402 — on-chain anchoring/attestation, wallet screening + intel + agent-driven due diligence, x402 spend-accounting ledger, Web3 data decoders, verifiable RNG, and LLM content. The 13 trust-relevant endpoints are covered per-service in the threat model; the 5 LLM content endpoints are out of scope there. Listed on CDP Bazaar, agentic.market, and awesome-x402; MCP server indexed on Glama. (pay.sh pay-skills catalog listing in review.) |
 | Intended buyers | AI agents and their developers. Sub-cent commodity calls, not enterprise-scale workloads. |
 | License | MIT |
 | Insurance | None (cyber-liability/E&O on the post-revenue roadmap) |
