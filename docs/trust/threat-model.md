@@ -197,7 +197,7 @@ Each row is a concrete attack scenario, the existing mitigation, and the residua
 
 ## 4. Cross-cutting threats
 
-These apply uniformly to all nine services and are not repeated in the per-service tables.
+These apply uniformly to the nine core endpoints documented here and are not repeated in the per-service tables.
 
 ### 4.1 AWS account compromise
 

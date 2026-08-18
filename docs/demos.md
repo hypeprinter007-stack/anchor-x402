@@ -94,14 +94,15 @@ BASE_PRIVATE_KEY=0x… node attest-decision-receipt.mjs
 
 The original [/demo/](/demo/) page walks through the full flow on the `aura` endpoint with five-beat narration. Use it as the lead-in; come back here for the per-endpoint variations.
 
-## Ten more endpoints not pictured
+## Twelve more endpoints not pictured
 
-The catalog has 16 paid endpoints total — the 6 above are a representative cross-section. The rest:
+The catalog has 18 paid endpoints total — the 6 above are a representative cross-section. The rest:
 
 - **Decode** `/v1/decode/tx`, `/v1/decode/calldata` ($0.001 each) — structured tx + EVM calldata decode across Base/Ethereum/Solana
 - **Resolve + price** `/v1/resolve/name`, `/v1/price/token` ($0.001 each) — ENS+SNS, USD spot price
 - **Intel** `/v1/intel/wallet` ($0.005) — bundled wallet intelligence in one call
 - **Parse** `/v1/parse/datetime` ($0.001) — freeform → ISO 8601
 - **LLM** `/v1/roast`, `/v1/oracle`, `/v1/tldr`, `/v1/grade` ($0.01–$0.05) — universal text inputs, anchored verdicts where it makes sense
+- **Ledger** `/v1/ledger/summary` ($0.01), `/v1/ledger/report` ($0.35) — x402 spend accounting + signed, dual-chain-anchored expense report from on-chain data
 
 Discoverable at [`/.well-known/x402.json`](https://anchor-x402.com/.well-known/x402.json), [`/openapi.json`](https://api.anchor-x402.com/openapi.json), and the MCP server [`anchor-x402-mcp`](https://www.npmjs.com/package/anchor-x402-mcp).

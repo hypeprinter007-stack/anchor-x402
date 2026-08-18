@@ -79,7 +79,7 @@ For agents, [Coinbase's Agentic Wallet](https://docs.cdp.coinbase.com/agentic-wa
 - **Want to inspect a challenge without paying?** `curl -i` the endpoint — the full
   challenge JSON is in the body and the `payment-required` header (base64).
 
-## Try it against 16 live endpoints
+## Try it against 18 live endpoints
 
 Everything in the [anchor-x402 catalog](/.well-known/x402.json) works with the client
 above — sanctions screening, wallet intel, tx decoding, token prices, on-chain anchoring,

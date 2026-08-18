@@ -1,7 +1,7 @@
 ---
 layout: page
 title: "Accept x402 payments in Python (FastAPI) — minimal working server"
-description: "Charge USDC per API call with the x402 Python SDK and FastAPI: one middleware, one route config, Coinbase's facilitator settles on Base. No accounts, no API keys, no payment UI. This is the exact pattern behind a production 16-endpoint service."
+description: "Charge USDC per API call with the x402 Python SDK and FastAPI: one middleware, one route config, Coinbase's facilitator settles on Base. No accounts, no API keys, no payment UI. This is the exact pattern behind a production 18-endpoint service."
 permalink: /guides/accept-x402-payments-python/
 ---
 
@@ -90,7 +90,7 @@ from you.
 - **Invalid/expired payment** → `402` again. Return a machine-readable hint so
   agent clients recover (we return `retry_hint: {action: "sign_fresh_authorization"}`).
 
-Production notes from running this at scale (16 endpoints, three settlement rails):
+Production notes from running this at scale (18 endpoints, three settlement rails):
 
 - **CORS ordering (Starlette):** register `CORSMiddleware` *last* so it wraps the
   payment middleware — otherwise short-circuited `402`s go out without CORS headers
@@ -114,7 +114,7 @@ Payments only matter if buyers find you:
 
 ## Working reference
 
-anchor-x402 runs this exact stack in production — 16 paid endpoints from $0.001 to
+anchor-x402 runs this exact stack in production — 18 paid endpoints from $0.001 to
 $1.77 on Base, Solana, and Polygon (JPYC). Source:
 [github.com/hypeprinter007-stack/anchor-x402](https://github.com/hypeprinter007-stack/anchor-x402) ·
 live challenges: `curl -i https://api.anchor-x402.com/v1/screen?wallet=0x0` ·

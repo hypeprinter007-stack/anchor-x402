@@ -15,7 +15,7 @@
 | Endpoint | Method | Price | Purpose |
 |---|---|---|---|
 | `/v1/anchor` | POST | $0.005 | Anchor a 32-byte hash to Base + Solana mainnet in parallel |
-| `/v1/screen` | GET | $0.001 | Sanctions + AML screening for any wallet address |
+| `/v1/screen` | GET | $0.02 | OFAC sanctions + address-reputation (drainer/phishing/mixer) → allow/review/block verdict |
 | `/v1/attest` | POST | $0.010 | Verify a wallet signature, dual-chain anchor the result |
 | `/v1/decode/tx` | POST | $0.001 | Structured decode of any mainnet tx (Base / Ethereum / Solana) |
 | `/v1/resolve/name` | GET | $0.001 | Cross-chain name resolution (ENS, Bonfida SNS) |
@@ -107,11 +107,11 @@ or
 
 Returns: `{merkle_root, base: {tx, explorer_url}, solana: {tx, explorer_url}, anchored_at, note}`.
 
-### `GET /v1/screen?wallet=<address>` — sanctions screening
+### `GET /v1/screen?wallet=<address>` — wallet risk pre-flight (sanctions + reputation)
 
-Returns: `{wallet, chain_inferred, sanctions_match, sanctioned_lists, risk_level, notes, checked_at}`.
+Returns: `{wallet, recommendation, risk_score, signals, address_type, sanctions_match, sanctioned_lists, risk_level, checked_at, ...}`. `recommendation` (`allow` / `review` / `block`) and `risk_score` (0-100) are the fields an agent branches on before sending funds; the legacy `sanctions_match` / `risk_level` fields are retained for back-compat.
 
-Active corpus: OFAC SDN crypto entries (Tornado Cash, Lazarus Group, Hydra Market, Garantex, Blender.io, etc.).
+Active corpus: OFAC SDN crypto entries (Tornado Cash, Lazarus Group, Hydra Market, Garantex, Blender.io, etc.) plus GoPlus address-reputation (drainer, phishing, mixer, laundering).
 
 ### `POST /v1/attest` — signed decision attestation
 

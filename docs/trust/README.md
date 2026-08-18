@@ -29,7 +29,7 @@ Every document is current as of the most recent commit on `main`. The codebase i
 
 **If you're a code-level auditor:** [self-audit guide](self-audit.md) is structured as a reading procedure — file paths and line ranges in the order you should review them.
 
-**If you're modeling threats:** [threat model](threat-model.md) covers all 9 services with STRIDE-lite tables.
+**If you're modeling threats:** [threat model](threat-model.md) covers the nine core data & compliance endpoints with STRIDE-lite tables (the LLM/content, RNG, and ledger endpoints share the cross-cutting controls but don't yet have per-endpoint tables).
 
 ## What's deliberately not here (yet)
 

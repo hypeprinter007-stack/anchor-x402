@@ -10,7 +10,7 @@ A public dashboard `anchor-x402-public` is provisioned in the operator's AWS acc
 
 | Panel | Source | What it shows |
 |---|---|---|
-| Request volume | `AWS/ApiGateway · Count` | Sum of all requests across the 9 services per minute |
+| Request volume | `AWS/ApiGateway · Count` | Sum of all requests across all endpoints per minute |
 | Lambda duration | `AWS/Lambda · Duration` (avg / p95 / p99) | Cold-start budget vs warm latency |
 | Lambda errors | `AWS/Lambda · Errors` | Unhandled exceptions in the function |
 | API Gateway 4xx + 5xx | `AWS/ApiGateway · 4xx / 5xx` | Includes 402 responses (paid endpoints unpaid) and real failures |
