@@ -51,9 +51,27 @@ def oracle_keeper_handler(event, context):
     if status.get("fresh"):
         log.info("oracle fresh; skipping recordObservation (last=%s)", status.get("last_observation_at"))
         return {"recorded": False, "reason": "oracle_already_fresh", "status": status}
+    before = status.get("last_observation_at") or 0
     try:
         result = divigent.record_oracle_observation()
     except Exception as e:
+        # A recordObservation revert here is usually benign, not a fault: between
+        # the freshness check above and our tx mining, a concurrent observation
+        # lands (overlapping keeper fire / async retry), so the on-chain
+        # min-interval rejects ours as "too soon". The oracle is fresh either
+        # way — that's success by another path. Re-read state and only treat it
+        # as an error if the oracle is STILL stale, i.e. a genuine inability to
+        # record (revoked operator, paused oracle, RPC/gas). This keeps the
+        # Errors metric — and DivigentKeeperErrors — sensitive to real faults
+        # instead of paging on a harmless race.
+        try:
+            post = divigent.get_oracle_status()
+        except Exception:
+            post = {}
+        if post.get("fresh") or (post.get("last_observation_at") or 0) > before:
+            log.info("recordObservation reverted but oracle is now fresh; benign race (%s)",
+                     divigent._safe_err(e))
+            return {"recorded": False, "reason": "raced_fresh", "status": post}
         log.exception("divigent oracle keeper failed")
         raise RuntimeError(divigent._safe_err(e)) from None
     log.info("divigent oracle keeper result: %s", result)
