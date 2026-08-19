@@ -21,7 +21,7 @@ SRC = Path(__file__).resolve().parents[2] / "docs" / "screenshots" / "04-signing
 # Bounding box of "−0.01 USDC" in the source image, with padding.
 # Found empirically — pure-white pixels live in x[63..382] y[703..745]; we pad
 # vertically to catch antialiasing fringes and horizontally to leave room for
-# longer prices like "−7.770 USDC".
+# longer prices like "−1.770 USDC".
 MASK_BOX = (50, 678, 720, 772)
 
 # Block background color — sampled from the asset-changes panel between
@@ -50,7 +50,7 @@ def _load_font(size: int) -> ImageFont.FreeTypeFont:
 def generate(price: str, out_path: Path) -> None:
     """Render a signing-screen variant with `−{price} USDC` in the asset-changes row.
 
-    `price` is a decimal string like "0.001" or "7.770" — no leading minus, no $.
+    `price` is a decimal string like "0.001" or "1.770" — no leading minus, no $.
     """
     im = Image.open(SRC).convert("RGB")
     draw = ImageDraw.Draw(im)

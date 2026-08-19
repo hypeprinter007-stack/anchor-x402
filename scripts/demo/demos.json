@@ -70,10 +70,10 @@
   {
     "key": "investigate",
     "endpoint": "POST /v1/investigate",
-    "price": "7.770",
+    "price": "1.770",
     "duration_s": 90,
     "user_text": "investigate 0x8589427373d6d84e98730d7795d8f6f8731fda16",
-    "agent_quote": "Full multi-step due diligence on that wallet — $7.770 USDC to call POST /v1/investigate. ETA 5-10 min. Approve?",
+    "agent_quote": "Full multi-step due diligence on that wallet — $1.770 USDC to call POST /v1/investigate. ETA 5-10 min. Approve?",
     "approval_body": "{\n  \"address\": \"0x8589427373d6d84e98730d7795d8f6f8731fda16\"\n}",
     "poll_steps": [
       "step 1/8: sanctions screen — OFAC SDN match",

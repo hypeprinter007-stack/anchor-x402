@@ -1,6 +1,6 @@
 """Register the anchor-x402 risk-investigator as an Agent on Agentverse.
 
-Listing the $7.77 /v1/investigate endpoint so it shows up in Agentverse /
+Listing the $1.77 /v1/investigate endpoint so it shows up in Agentverse /
 ASI:One discovery. Invocation still happens via x402 USDC directly against
 api.anchor-x402.com — Agentverse here is a marketplace pointer, not a
 payment proxy.
@@ -64,7 +64,7 @@ then anchors the final verdict on-chain so the result is independently
 verifiable.
 
 ## Pricing
-- **$7.77 USDC** per investigation
+- **$1.77 USDC** per investigation
 - Paid via x402 (EIP-3009 `transferWithAuthorization` on Base, or SPL-USDC
   on Solana)
 - No subscription, no account, no API key
@@ -76,14 +76,14 @@ POST https://api.anchor-x402.com/v1/investigate
 Content-Type: application/json
 X-PAYMENT: <x402 payment payload>
 
-{ "wallet": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045" }
+{ "address": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045" }
 ```
 
-Returns a `job_id` immediately. Poll `GET /v1/jobs/{job_id}` for the result
-(typically 5–10 minutes — the agent runs ~30 sub-tools).
+Returns a `job_id` immediately. Poll `GET /v1/investigate/status/{job_id}` for
+the result (typically 5–10 minutes — the agent runs ~30 sub-tools).
 
 Final response includes:
-- Verdict (clean / caution / high-risk) with score 0–100
+- Verdict (safe / caution / avoid / insufficient_data) with score 0–100
 - Evidence list (sanctions matches, suspicious counterparties, mixer
   interactions, sanctioned-chain exposure)
 - Dual-chain on-chain anchor (Base tx + Solana memo) so the verdict is
@@ -91,7 +91,7 @@ Final response includes:
 
 ## See also
 - [Hosted chat agent](https://chat.anchor-x402.com) — Claude that runs this
-  tool + 13 others from your USDC
+  tool + 14 others from your USDC
 - [MCP server](https://www.npmjs.com/package/anchor-x402-mcp): `npx anchor-x402-mcp`
 - [Source (MIT)](https://github.com/hypeprinter007-stack/anchor-x402)
 - [OpenAPI spec](https://api.anchor-x402.com/openapi.json)
