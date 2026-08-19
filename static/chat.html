@@ -374,14 +374,14 @@ const PROMPTS = [
   { label: "roast something",          text: "roast this: ",                   placeholder: "a tweet, an idea, your last commit message…", price: "$0.05" },
   { label: "aura-read a wallet",       text: "aura check: ",                   placeholder: "wallet, person, project, meme…",            price: "$0.01" },
   { label: "yes/no oracle (anchored)", text: "oracle: ",                       placeholder: "will I ship today?",                        price: "$0.05" },
-  { label: "sanctions-check a wallet", text: "is this wallet sanctioned: ",    placeholder: "0x… or solana base58",                      price: "$0.001" },
+  { label: "sanctions-check a wallet", text: "is this wallet sanctioned: ",    placeholder: "0x… or solana base58",                      price: "$0.02" },
   { label: "grade an idea / pitch",    text: "grade: ",                        placeholder: "your pitch, code, idea…",                    price: "$0.01" },
   { label: "summarize a URL",          text: "tldr: ",                         placeholder: "paste a URL or text",                       price: "$0.01" },
 ];
 
 const ALL_SERVICES = [
   { name: "anchor",          price: 0.005, what: "Anchor a 32-byte hash to Base + Solana" },
-  { name: "screen",          price: 0.001, what: "Sanctions + AML screen for any wallet" },
+  { name: "screen",          price: 0.020, what: "Sanctions + AML screen for any wallet" },
   { name: "attest",          price: 0.010, what: "Verify a signature + dual-chain anchor" },
   { name: "decode tx",       price: 0.001, what: "Decode any Base/Ethereum tx" },
   { name: "decode calldata", price: 0.001, what: "Decode raw EVM calldata" },
@@ -406,7 +406,7 @@ const DEMOS = {
             output: { answer: "MAYBE", explanation: "Possible if you cut the bottom three items and stop opening Twitter.", merkle_root: "ab0898397c…dcb9bd686b3", base_tx: "0x7fb4d107d8…0974e96", solana_tx: "u8rqU4oSQk…ZMPKW2" } },
   tldr:   { input: "tldr https://anchor-x402.com", price: "$0.01",
             output: { summary_bullets: ["Fifteen x402-paid AI services for agents.", "Pay per call in USDC on Base or Solana.", "Indexed across CDP Bazaar, agentic.market, Virtuals ACP, MCP registries."], source_chars: 5200 } },
-  screen: { input: "is 0x8589427373d6d84e98730d7795d8f6f8731fda16 sanctioned?", price: "$0.001",
+  screen: { input: "is 0x8589427373d6d84e98730d7795d8f6f8731fda16 sanctioned?", price: "$0.02",
             output: { wallet: "0x8589…fda16", sanctions_match: true, sanctioned_lists: ["OFAC SDN", "Tornado Cash"], risk_level: "high" } },
   grade:  { input: 'grade "uber but for sourdough starters"', price: "$0.01",
             output: { letter_grade: "C-", marginalia: ["Live-culture cargo is a regulatory mood.", "Brand assumes sourdough discourse is monetizable. It isn't.", "Vertical-niche food platforms have surprised before. Keep one eye on it."], summary: "Adventurous concept, brutal unit economics." } },
