@@ -87,7 +87,7 @@
     ],
     "result_title": "investigate · final report",
     "pretty_rows": [
-      ["verdict",      "HIGH RISK — DO NOT TRANSACT", "err"],
+      ["verdict",      "avoid — do not transact",     "err"],
       ["score",        "92 / 100",                    "err"],
       ["summary",      "OFAC SDN match. Direct interactions with 3 sanctioned mixers in last 90 days (47.2 ETH). Counterparty graph: 12 hops to Lazarus-attributed cluster."],
       ["base anchor",  "0x7fb4…4e96 ↗", "mono"],
