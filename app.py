@@ -19,7 +19,7 @@ from typing import Any
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from mangum import Mangum
@@ -1608,7 +1608,7 @@ def anchor(req: AnchorRequest) -> AnchorResponse:
 
 
 @app.get("/v1/screen", response_model=ScreenResponse)
-def screen(wallet: str) -> ScreenResponse:
+def screen(wallet: str = Query(description="EVM 0x… (40 hex) or Solana base58 pubkey")) -> ScreenResponse:
     verdict = screen_svc.screen(wallet)
     verdict["checked_at"] = int(time.time())
     return ScreenResponse(**verdict)
@@ -1720,12 +1720,16 @@ def decode_tx(req: TxDecodeRequest) -> TxDecodeResponse:
 
 
 @app.get("/v1/resolve/name", response_model=NameResolveResponse)
-def resolve_name(name: str) -> NameResolveResponse:
+def resolve_name(name: str = Query(description="Human-readable name")) -> NameResolveResponse:
     return NameResolveResponse(**name_resolve_svc.resolve(name))
 
 
 @app.get("/v1/price/token", response_model=TokenPriceResponse)
-def token_price(symbol: str | None = None, chain: str | None = None, contract: str | None = None) -> TokenPriceResponse:
+def token_price(
+    symbol: str | None = Query(default=None, description="Token symbol (BTC, ETH, etc.). Mutually exclusive with chain+contract."),
+    chain: str | None = Query(default=None, description="Chain slug: base, ethereum, solana, polygon, arbitrum, optimism, bsc, avalanche."),
+    contract: str | None = Query(default=None, description="Token contract address. Required with chain."),
+) -> TokenPriceResponse:
     if symbol and (chain or contract):
         raise HTTPException(400, "supply either `symbol` or (`chain` and `contract`), not both")
     try:
@@ -1768,7 +1772,7 @@ def parse_datetime(req: DatetimeParseRequest) -> DatetimeParseResponse:
 
 
 @app.get("/v1/intel/wallet", response_model=IntelWalletResponse)
-def intel_wallet(wallet: str) -> IntelWalletResponse:
+def intel_wallet(wallet: str = Query(description="EVM 0x… or Solana base58 pubkey")) -> IntelWalletResponse:
     return IntelWalletResponse(**intel_wallet_svc.fetch(wallet))
 
 

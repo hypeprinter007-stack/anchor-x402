@@ -79,6 +79,35 @@ SKILL_IDS = {
 }
 
 
+def _operation_ids() -> dict[tuple[str, str], str]:
+    """(path, METHOD) -> operationId, from the OpenAPI document we publish.
+
+    A skill names a price and a URL, which leaves a peer to join card and spec
+    on (url, method) and guess. An external reconciler flagged that as an
+    unverifiable binding, correctly. The operationId is the spec's own stable
+    identifier, so publishing it turns the join into a lookup.
+
+    Keyed by method as well as path, because four capabilities advertise GET
+    while the spec documents only their POST form (app.py strips the wrapper
+    twin). Emitting the POST id under a skill that says GET would put a
+    contradiction inside one object — a worse defect than the missing binding.
+    Those four get no operationId until card, catalog, and spec agree on one
+    canonical method for them.
+
+    Read from the served schema rather than FastAPI's raw one, so every id
+    emitted is guaranteed to resolve in the published document.
+    """
+    import app
+
+    schema = app.app.openapi()
+    ids: dict[tuple[str, str], str] = {}
+    for path, operations in schema.get("paths", {}).items():
+        for method, operation in operations.items():
+            if isinstance(operation, dict) and operation.get("operationId"):
+                ids[(path, method.upper())] = operation["operationId"]
+    return ids
+
+
 def _routes() -> dict[str, dict]:
     """Price + description per paid path, straight from the charging table."""
     import app
@@ -106,6 +135,7 @@ def _routes() -> dict[str, dict]:
 
 def build() -> dict:
     routes = _routes()
+    operation_ids = _operation_ids()
     with open(SKILL_META_PATH) as f:
         meta = json.load(f)
 
@@ -129,12 +159,18 @@ def build() -> dict:
                 f"{skill_id}: description describes a wrapper route, not {method} {path} — "
                 "author one in data/agent-card-skills.json"
             )
+        operation_id = operation_ids.get((path, method))
         skills.append({
             "id": skill_id,
             "name": m.get("name", skill_id),
             "description": description,
             "url": f"{BASE}{path}",
             "method": method,
+            # Binds this capability to its operation in the canonical spec at
+            # extensions["anchor-x402:discovery"].openapi. Present only when the
+            # spec documents this path at this method; verified to resolve at
+            # generation time. See _operation_ids for the four that abstain.
+            **({"operationId": operation_id} if operation_id else {}),
             # Indicative only — the 402 challenge is authoritative. Stated in the
             # pricing block below so a client with a cached card knows not to
             # trust this number at payment time.
@@ -304,6 +340,7 @@ def _a2a_extension() -> dict:
                 "alg": "ES256",
                 "status": "active",
                 "custody": "aws-kms",
+                "not_after": "2027-07-28T00:00:00Z",
                 "purpose": "verifies this card's `signatures`; never used for request signing",
             }
         ],
@@ -311,6 +348,11 @@ def _a2a_extension() -> dict:
             "Keys are revoked by setting status to 'retired' here, or removing the entry. "
             "Peers cache this card for at most 3600s, which bounds propagation."
         ),
+        # The sentence above is the human version; a verifier should not have to
+        # parse prose to learn how long a revocation takes to propagate. 3600 is
+        # the ceiling we commit to, deliberately looser than the 600s the apex
+        # actually serves, so tightening the CDN never invalidates the claim.
+        "revocation_max_propagation_seconds": 3600,
     }
 
 

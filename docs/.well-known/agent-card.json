@@ -41,6 +41,7 @@
       "description": "Anchor a 32-byte hash to Base + Solana mainnet in parallel. Returns both tx URLs as cryptographic proof of when the hash existed. $0.005 USDC.",
       "url": "https://api.anchor-x402.com/v1/anchor",
       "method": "POST",
+      "operationId": "anchor_v1_anchor_post",
       "price_usd": 0.005,
       "inputModes": [
         "application/json"
@@ -66,6 +67,7 @@
       "description": "Attest a decision over (input_hash, output_hash, decision): sign it yourself, or omit the signature and the treasury signs for you — then dual-chain anchor. Returns the signer, on-chain proof URLs, and a free re-verify URL. $0.010 USDC.",
       "url": "https://api.anchor-x402.com/v1/attest",
       "method": "POST",
+      "operationId": "attest_v1_attest_post",
       "price_usd": 0.01,
       "inputModes": [
         "application/json"
@@ -86,6 +88,7 @@
       "description": "Read the aura of anything — color, tier (S/A/B/C/D/F), score 0-9999, description. $0.01 USDC.",
       "url": "https://api.anchor-x402.com/v1/aura",
       "method": "POST",
+      "operationId": "aura_v1_aura_post",
       "price_usd": 0.01,
       "inputModes": [
         "application/json"
@@ -108,6 +111,7 @@
       "description": "Decode raw EVM calldata into function name + typed parameters via openchain.xyz + eth_abi. EVM-only. $0.001 USDC.",
       "url": "https://api.anchor-x402.com/v1/decode/calldata",
       "method": "POST",
+      "operationId": "decode_calldata_v1_decode_calldata_post",
       "price_usd": 0.001,
       "inputModes": [
         "application/json"
@@ -127,6 +131,7 @@
       "description": "Structured decode of any mainnet transaction by hash. Supports Base, Ethereum, Solana. Mined txs cached. $0.001 USDC.",
       "url": "https://api.anchor-x402.com/v1/decode/tx",
       "method": "POST",
+      "operationId": "decode_tx_v1_decode_tx_post",
       "price_usd": 0.001,
       "inputModes": [
         "application/json"
@@ -146,6 +151,7 @@
       "description": "Academic letter grade with red-pen marginalia for anything. $0.01 USDC.",
       "url": "https://api.anchor-x402.com/v1/grade",
       "method": "POST",
+      "operationId": "grade_v1_grade_post",
       "price_usd": 0.01,
       "inputModes": [
         "application/json"
@@ -188,6 +194,7 @@
       "description": "Agent-driven wallet due diligence — multi-step investigation, signed markdown report + JSON sidecar, dual-chain anchored. Async — returns job_id; poll /v1/investigate/status/{job_id} for the deliverable. ETA 5-10 min. $1.77 USDC.",
       "url": "https://api.anchor-x402.com/v1/investigate",
       "method": "POST",
+      "operationId": "investigate_dispatch_v1_investigate_post",
       "price_usd": 1.77,
       "inputModes": [
         "application/json"
@@ -212,6 +219,7 @@
       "description": "Signed + dual-chain-anchored x402 expense report (markdown + CSV, async job). $0.35 USDC.",
       "url": "https://api.anchor-x402.com/v1/ledger/report",
       "method": "POST",
+      "operationId": "ledger_report_dispatch_v1_ledger_report_post",
       "price_usd": 0.35,
       "inputModes": [
         "application/json"
@@ -235,6 +243,7 @@
       "description": "x402 spend accounting for any Base wallet — totals + per-service breakdown reconstructed from chain data. $0.01 USDC.",
       "url": "https://api.anchor-x402.com/v1/ledger/summary",
       "method": "POST",
+      "operationId": "ledger_summary_v1_ledger_summary_post",
       "price_usd": 0.01,
       "inputModes": [
         "application/json"
@@ -257,6 +266,7 @@
       "description": "Yes/no oracle with dual-chain anchored verdict (Base + Solana). $0.05 USDC.",
       "url": "https://api.anchor-x402.com/v1/oracle",
       "method": "POST",
+      "operationId": "oracle_v1_oracle_post",
       "price_usd": 0.05,
       "inputModes": [
         "application/json"
@@ -280,6 +290,7 @@
       "description": "Parse freeform datetime strings into ISO 8601 + components + relative time + confidence. $0.001 USDC.",
       "url": "https://api.anchor-x402.com/v1/parse/datetime",
       "method": "POST",
+      "operationId": "parse_datetime_v1_parse_datetime_post",
       "price_usd": 0.001,
       "inputModes": [
         "application/json"
@@ -318,6 +329,7 @@
       "description": "Witty roast of any target — wallet, tweet, idea, code, anything. $0.05 USDC.",
       "url": "https://api.anchor-x402.com/v1/roast",
       "method": "POST",
+      "operationId": "roast_v1_roast_post",
       "price_usd": 0.05,
       "inputModes": [
         "application/json"
@@ -340,6 +352,7 @@
       "description": "Verifiable RNG — cryptographically-random integer(s) signed by the treasury key. Drop-in VRF for game studios. $0.001 USDC.",
       "url": "https://api.anchor-x402.com/v1/roll",
       "method": "POST",
+      "operationId": "roll_v1_roll_post",
       "price_usd": 0.001,
       "inputModes": [
         "application/json"
@@ -387,6 +400,7 @@
       "description": "Summarize a URL or pasted text into 3-5 concise bullets. $0.01 USDC.",
       "url": "https://api.anchor-x402.com/v1/tldr",
       "method": "POST",
+      "operationId": "tldr_v1_tldr_post",
       "price_usd": 0.01,
       "inputModes": [
         "application/json"
@@ -494,10 +508,12 @@
           "alg": "ES256",
           "status": "active",
           "custody": "aws-kms",
+          "not_after": "2027-07-28T00:00:00Z",
           "purpose": "verifies this card's `signatures`; never used for request signing"
         }
       ],
-      "revocation": "Keys are revoked by setting status to 'retired' here, or removing the entry. Peers cache this card for at most 3600s, which bounds propagation."
+      "revocation": "Keys are revoked by setting status to 'retired' here, or removing the entry. Peers cache this card for at most 3600s, which bounds propagation.",
+      "revocation_max_propagation_seconds": 3600
     },
     "anchor-x402:x402": {
       "version": 2,
@@ -542,7 +558,7 @@
   "signatures": [
     {
       "protected": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImFuY2hvci1jYXJkLTIwMjYtMDEiLCJ0eXAiOiJKT1NFIn0",
-      "signature": "bh8Nn5Jrv1vcuO-3n_70ttnp-Oy92Ay62NprcGMmkjHMs64Vq3qkOSyakphj2ZEAy4iAGvlJzGBEvqn2z7PqpQ"
+      "signature": "XLgrKXCbzqhMXtGr427K4WoT81UwHrr2bbClnIEW5CGB3Y3veud_17Anl5VdIz2TxN_5INVnTPvLkLvezFbgOA"
     }
   ]
 }

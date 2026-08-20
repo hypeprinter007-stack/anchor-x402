@@ -407,8 +407,10 @@ class OracleResponse(BaseModel):
 
 
 class TldrRequest(BaseModel):
-    text: str | None = Field(default=None, max_length=200_000)
-    url: str | None = Field(default=None, max_length=2048)
+    text: str | None = Field(default=None, max_length=200_000,
+                             description="Pasted text to summarize. Provide either text or url.")
+    url: str | None = Field(default=None, max_length=2048,
+                            description="URL to fetch and summarize. Provide either text or url.")
 
     @model_validator(mode="after")
     def _check_exclusive(self):
@@ -524,7 +526,8 @@ class LedgerSummaryRequest(BaseModel):
 
 
 class LedgerReportRequest(LedgerSummaryRequest):
-    format: Literal["markdown", "csv", "both"] = "both"
+    format: Literal["markdown", "csv", "both"] = Field(
+        default="both", description="Which report files to produce. Default both.")
     title: str | None = Field(default=None, description="Report title; appears in the markdown header.")
     prepared_for: str | None = Field(default=None, description="Optional client name for the report header.")
 
