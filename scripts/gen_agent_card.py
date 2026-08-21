@@ -261,22 +261,60 @@ def build() -> dict:
                 "status_page": "https://anchor-x402.betteruptime.com",
                 "llms_txt": f"{SITE}/llms.txt",
             },
+            # Top level describes the ONE key currently accepted. Superseded keys
+            # are listed below it rather than deleted, so a peer holding an old
+            # signature can still see what the key was and that it no longer
+            # counts. A verifier should read status here and nowhere else.
             "agoragentic:federation": {
-                "key_id": "anchor-pilot-2026-01",
-                "public_key_der_base64": "MCowBQYDK2VwAyEAc3PaOglz6Z19niAHIMg9YopEy8f1hINJq0r0kkAJbgQ=",
-                # Retired 2026-07-29: the federation pilot is closed and nothing
-                # operational signs with this key. It stayed published as active
-                # long after the pilot ended, which is a live claim we could not
-                # back — and unlike the request key, it is software-held and
-                # therefore extractable. Left listed rather than deleted so a peer
-                # holding an old signature can still see what the key was and that
-                # it is no longer accepted.
-                "status": "retired",
-                "retired_at": "2026-07-29",
+                "key_id": "anchor-fed-2026-08",
+                "algorithm": "ed25519",
+                "public_key_der_base64": "MCowBQYDK2VwAyEA0PatLTb58f+WIf5g74MQkA3MnZq4xmUb6T0Xa0hyoTQ=",
+                "sha256_fingerprint_of_der":
+                    "c84051f3b34ee6317e7b044411e0c32964b27d28bac16b13ef63de0a7705d107",
+                "status": "active",
+                # Deliberately short-lived. A relationship-scoped key that outlives
+                # the reason it existed is a claim nobody is checking; renewing is
+                # cheaper than explaining.
+                "not_before": "2026-08-21T14:13:06Z",
+                "not_after": "2026-11-19T00:00:00Z",
                 "custody": "aws-secrets-manager",
                 "capability_exchange": False,
-                "federation_consent": False,
-                "scope": "Agoragentic federation pilot only. Pilot closed; key retired.",
+                "federation_consent": True,
+                "scope": ("Identity only: key-control proof for the Agoragentic "
+                          "relationship. Dedicated key, never the treasury EOA."),
+                # Published rather than merely asserted in correspondence, so the
+                # boundary travels with the key.
+                "grants": {
+                    "payment": False,
+                    "x402_settlement": False,
+                    "spend": False,
+                    "treasury_access": False,
+                    "capability_invocation": False,
+                    "provider_execution": False,
+                    "routing": False,
+                    "referrals": False,
+                    "ranking_or_trust_mutation": False,
+                    "credentials_or_private_data": False,
+                    "partnership_claim": False,
+                },
+                "revocation": (
+                    "Revoked by setting status to 'retired' here, or removing the entry. "
+                    "Hard revocation is deleting the Secrets Manager secret, which "
+                    "destroys the ability to sign at all. There is no CRL endpoint."
+                ),
+                "revocation_max_propagation_seconds": 3600,
+                "superseded": [
+                    {
+                        "key_id": "anchor-pilot-2026-01",
+                        "public_key_der_base64":
+                            "MCowBQYDK2VwAyEAc3PaOglz6Z19niAHIMg9YopEy8f1hINJq0r0kkAJbgQ=",
+                        "status": "retired",
+                        "retired_at": "2026-07-29",
+                        "custody": "aws-secrets-manager",
+                        "scope": "Agoragentic federation pilot (Tier 3, July 2026). "
+                                 "Pilot closed; key retired and not accepted.",
+                    }
+                ],
             },
         },
         "license": "MIT",
