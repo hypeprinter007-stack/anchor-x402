@@ -26,21 +26,46 @@ def canonical(obj) -> str:
     return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
+# key_id -> Secrets Manager id. anchor-pilot-2026-01 signed the July Tier-3
+# pilot and is published `retired`; it stays here only so an old challenge can
+# be reproduced, never to sign a new one. Default is the current active key.
+KEYS = {
+    "anchor-fed-2026-08": "anchor-x402/federation-2026-08-ed25519",
+    "anchor-pilot-2026-01": "anchor-x402/federation-pilot-ed25519",
+}
+ACTIVE_KEY_ID = "anchor-fed-2026-08"
+RETIRED = {"anchor-pilot-2026-01"}
+
+
 def main() -> None:
-    if len(sys.argv) != 2:
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    flags = [a for a in sys.argv[1:] if a.startswith("--")]
+    if len(args) != 1:
         sys.exit(__doc__)
-    msg = json.loads(sys.argv[1])
+
+    key_id = ACTIVE_KEY_ID
+    for flag in flags:
+        if flag.startswith("--key-id="):
+            key_id = flag.split("=", 1)[1]
+    if key_id not in KEYS:
+        sys.exit(f"unknown key_id {key_id!r}; known: {', '.join(KEYS)}")
+    if key_id in RETIRED and "--allow-retired" not in flags:
+        sys.exit(f"{key_id} is published as retired — signing with it would assert "
+                 "authority we have revoked. Pass --allow-retired only to reproduce "
+                 "a historical signature.")
+
+    msg = json.loads(args[0])
     payload = {"body": msg["body"], "challenge": msg["challenge"]}
     digest = "sha256:" + hashlib.sha256(canonical(payload).encode()).hexdigest()
 
     pem = boto3.client("secretsmanager", region_name="us-east-1").get_secret_value(
-        SecretId="anchor-x402/federation-pilot-ed25519"
+        SecretId=KEYS[key_id]
     )["SecretString"]
     key = load_pem_private_key(pem.encode(), password=None)
     signature = key.sign(digest.encode("ascii"))
 
     print(json.dumps({
-        "key_id": "anchor-pilot-2026-01",
+        "key_id": key_id,
         "digest": digest,
         "signature_base64": base64.b64encode(signature).decode(),
     }, indent=2))
