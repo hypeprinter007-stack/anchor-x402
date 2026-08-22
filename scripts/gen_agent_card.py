@@ -278,7 +278,21 @@ def build() -> dict:
                 "not_before": "2026-08-21T14:13:06Z",
                 "not_after": "2026-11-19T00:00:00Z",
                 "custody": "aws-secrets-manager",
-                "capability_exchange": False,
+                "capability_exchange": True,
+                # A boolean in a static document cannot expire, so the flag alone
+                # would keep asserting consent long after the window shut. The
+                # window is the authoritative bound and the flag is advisory —
+                # a verifier reading true outside these timestamps is reading a
+                # flag we failed to reset, not a live consent.
+                "capability_exchange_window": {
+                    "opens": "2026-08-22T15:00:00Z",
+                    "closes": "2026-08-23T15:00:00Z",
+                    "scope": ("Read-only public capability metadata. At most 4 HTTPS GETs "
+                              "total: two paired refreshes at least 6h apart, each one GET "
+                              "of /.well-known/agent-card.json and one of "
+                              "/.well-known/x402.json. No retries, no redirects."),
+                    "grants_unchanged": True,
+                },
                 "federation_consent": True,
                 "scope": ("Identity only: key-control proof for the Agoragentic "
                           "relationship. Dedicated key, never the treasury EOA."),

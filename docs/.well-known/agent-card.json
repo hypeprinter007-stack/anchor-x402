@@ -551,7 +551,13 @@
       "not_before": "2026-08-21T14:13:06Z",
       "not_after": "2026-11-19T00:00:00Z",
       "custody": "aws-secrets-manager",
-      "capability_exchange": false,
+      "capability_exchange": true,
+      "capability_exchange_window": {
+        "opens": "2026-08-22T15:00:00Z",
+        "closes": "2026-08-23T15:00:00Z",
+        "scope": "Read-only public capability metadata. At most 4 HTTPS GETs total: two paired refreshes at least 6h apart, each one GET of /.well-known/agent-card.json and one of /.well-known/x402.json. No retries, no redirects.",
+        "grants_unchanged": true
+      },
       "federation_consent": true,
       "scope": "Identity only: key-control proof for the Agoragentic relationship. Dedicated key, never the treasury EOA.",
       "grants": {
@@ -586,7 +592,7 @@
   "signatures": [
     {
       "protected": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImFuY2hvci1jYXJkLTIwMjYtMDEiLCJ0eXAiOiJKT1NFIn0",
-      "signature": "XKTwq_yc4cM-MPofKAJYkpg34LAa-eHw7sTbo4X9mAOR388Vssrj7BL_sN7hWxVnHjxM7El9fSFXW18Qp4FOtg"
+      "signature": "FrJ62U-v2xXTYxpVOQ5jtZofmstnigQuRiuEkCAUXBmZCqHt0mS_CKG2_8k8xVOwA0EsyQfYUvBZB0_111magg"
     }
   ]
 }
