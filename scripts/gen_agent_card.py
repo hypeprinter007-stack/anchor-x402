@@ -284,9 +284,13 @@ def build() -> dict:
                 # window is the authoritative bound and the flag is advisory —
                 # a verifier reading true outside these timestamps is reading a
                 # flag we failed to reset, not a live consent.
+                # Rescheduled from 2026-08-22/23: that window expired unused while
+                # Agoragentic fixed a false-positive in their catalog scanner, so
+                # the dates move rather than the scope. Consent is per-window, so
+                # an unused window is spent, not carried over.
                 "capability_exchange_window": {
-                    "opens": "2026-08-22T15:00:00Z",
-                    "closes": "2026-08-23T15:00:00Z",
+                    "opens": "2026-08-23T15:00:00Z",
+                    "closes": "2026-08-24T15:00:00Z",
                     "scope": ("Read-only public capability metadata. At most 4 HTTPS GETs "
                               "total: two paired refreshes at least 6h apart, each one GET "
                               "of /.well-known/agent-card.json and one of "

@@ -553,8 +553,8 @@
       "custody": "aws-secrets-manager",
       "capability_exchange": true,
       "capability_exchange_window": {
-        "opens": "2026-08-22T15:00:00Z",
-        "closes": "2026-08-23T15:00:00Z",
+        "opens": "2026-08-23T15:00:00Z",
+        "closes": "2026-08-24T15:00:00Z",
         "scope": "Read-only public capability metadata. At most 4 HTTPS GETs total: two paired refreshes at least 6h apart, each one GET of /.well-known/agent-card.json and one of /.well-known/x402.json. No retries, no redirects.",
         "grants_unchanged": true
       },
@@ -592,7 +592,7 @@
   "signatures": [
     {
       "protected": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImFuY2hvci1jYXJkLTIwMjYtMDEiLCJ0eXAiOiJKT1NFIn0",
-      "signature": "FrJ62U-v2xXTYxpVOQ5jtZofmstnigQuRiuEkCAUXBmZCqHt0mS_CKG2_8k8xVOwA0EsyQfYUvBZB0_111magg"
+      "signature": "KvwuyzRA0ndn51lV3CxbxgYkcnr7UHH8TOSPRG5TTwBbVQ3gKlS9sIaOn-OrhoPh1b1zTvOdtmYMwK8OlZhZog"
     }
   ]
 }
