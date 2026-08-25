@@ -33,6 +33,7 @@ logging.basicConfig(
 from x402 import AssetAmount
 from x402.http.middleware.fastapi import payment_middleware, RouteConfig
 from x402.http import HTTPFacilitatorClient, FacilitatorConfig, PaymentOption
+from x402.schemas.responses import SupportedResponse
 from x402.server import x402ResourceServer
 from x402.extensions.bazaar import (
     bazaar_resource_server_extension,
@@ -108,6 +109,8 @@ SOLANA_TREASURY = os.getenv("SOLANA_TREASURY_ADDRESS", "")
 # on every EVM chain. Override only when running a dedicated Polygon EOA.
 POLYGON_TREASURY = os.getenv("POLYGON_TREASURY_ADDRESS", "") or TREASURY
 SOLANA_MAINNET_CAIP2 = "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"
+# Settable to "" to fall back to CDP for Solana without a code change.
+PAYAI_FACILITATOR_URL = os.getenv("PAYAI_FACILITATOR_URL", "https://facilitator.payai.network")
 
 app = FastAPI(
     title="anchor-x402",
@@ -322,7 +325,62 @@ cdp_facilitator = HTTPFacilitatorClient(
 # In-process JPYC facilitator on Polygon — None when relayer key/RPC unset.
 jpyc_facilitator = build_jpyc_facilitator()
 
-_facilitator_clients = [cdp_facilitator]
+
+class _NetworkScopedFacilitator:
+    """Facilitator client that only advertises the networks we route to it.
+
+    `x402ResourceServer.initialize()` maps network -> the FIRST client that
+    advertises it. PayAI's facilitator advertises Base as well as Solana, so
+    dropping it in unscoped and ordering it first would silently move Base
+    settlement off CDP — and the ERC-8021 builder-code suffix is appended by the
+    CDP facilitator, so that would quietly cost us builder-code attribution on
+    the only rail with real volume. Narrow what it claims rather than trusting
+    list order to protect us.
+
+    `get_supported()` is also a blocking call made during initialization, so a
+    third-party outage would otherwise raise on cold start. Failing soft here
+    means Solana falls back to whichever client claims it next (CDP), which is
+    exactly today's behaviour.
+    """
+
+    def __init__(self, inner, networks):
+        self._inner = inner
+        self._networks = frozenset(networks)
+
+    def get_supported(self):
+        try:
+            supported = self._inner.get_supported()
+        except Exception:
+            logging.getLogger("anchor").warning(
+                "payai facilitator unreachable; leaving Solana on the default client"
+            )
+            return SupportedResponse(kinds=[])
+        kept = [k for k in supported.kinds if k.network in self._networks]
+        return supported.model_copy(update={"kinds": kept})
+
+    def __getattr__(self, name):
+        # verify / settle / url / identifier / aclose all delegate untouched.
+        return getattr(self._inner, name)
+
+
+# PayAI facilitator, scoped to Solana mainnet. Two reasons to route Solana here:
+# it is the rail with no volume to risk (2 paid calls in the last 30 days), and
+# PayAI indexes its own Bazaar catalog from the `bazaar` extension on payments it
+# settles — a service on someone else's facilitator cannot appear there at all.
+# Base stays on CDP for the builder code. Polygon/JPYC is in-process and PayAI
+# does not carry JPYC anyway.
+payai_facilitator = (
+    _NetworkScopedFacilitator(
+        HTTPFacilitatorClient(FacilitatorConfig(url=PAYAI_FACILITATOR_URL)),
+        networks=[SOLANA_MAINNET_CAIP2],
+    )
+    if PAYAI_FACILITATOR_URL
+    else None
+)
+
+# PayAI first so it wins Solana; the scoping above is what keeps it off Base.
+_facilitator_clients = [payai_facilitator] if payai_facilitator else []
+_facilitator_clients.append(cdp_facilitator)
 if jpyc_facilitator is not None:
     _facilitator_clients.append(jpyc_facilitator)
 

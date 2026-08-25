@@ -687,8 +687,13 @@ def main() -> None:
                 .__setitem__("public_key_der_base64", "MCowBQYDK2VwAyEA" + "A" * 28 + "="),
             "audience redirected": lambda c: c["extensions"]["anchor-x402:a2a"]
                 .__setitem__("audience", "https://evil.example"),
+            # The superseded pilot entry is the retired one now that the top level
+            # describes the active key, so reactivating it is the mutation worth
+            # catching. Flipping the top-level status would be a no-op.
             "retired key reactivated": lambda c: c["extensions"]["agoragentic:federation"]
-                .__setitem__("status", "active"),
+                ["superseded"][0].__setitem__("status", "active"),
+            "grant silently opened": lambda c: c["extensions"]["agoragentic:federation"]
+                ["grants"].__setitem__("payment", True),
         }.items():
             mutated = _copy.deepcopy(signed_card)
             mutate(mutated)
@@ -697,10 +702,24 @@ def main() -> None:
     # F18 — the Agoragentic pilot key stayed published as active long after the
     # pilot closed. It is software-held, so unlike the request key it is
     # extractable; an active claim we could not back was live attack surface.
+    # The top level now describes whichever key is currently accepted, and
+    # superseded keys are listed beneath it, so the pilot is checked there.
     fed = signed_card["extensions"]["agoragentic:federation"]
-    ok("F18 pilot key is published as retired", fed["status"] == "retired", fed["status"])
-    ok("F18 pilot key consent flags are withdrawn",
-       fed["capability_exchange"] is False and fed["federation_consent"] is False)
+    superseded = {e["key_id"]: e for e in fed.get("superseded", [])}
+    ok("F18 pilot key is listed as superseded", "anchor-pilot-2026-01" in superseded,
+       ",".join(superseded) or "absent")
+    ok("F18 pilot key is published as retired",
+       superseded.get("anchor-pilot-2026-01", {}).get("status") == "retired",
+       superseded.get("anchor-pilot-2026-01", {}).get("status", "missing"))
+    ok("F18 no superseded key claims to be active",
+       all(e.get("status") != "active" for e in fed.get("superseded", [])))
+    # The active key may hold identity consent, but never an operational grant —
+    # that separation is the whole point of a dedicated federation key.
+    ok("F18 active federation key grants nothing operational",
+       fed["status"] == "active" and all(v is False for v in fed["grants"].values()),
+       ",".join(k for k, v in fed["grants"].items() if v is not False) or "all false")
+    ok("F18 capability exchange is off outside a published window",
+       fed["capability_exchange"] is False or "capability_exchange_window" in fed)
     a2a_svc._cards[PEER] = (time.time() + 3600, {"extensions": {"f": {
         "key_id": "anchor-pilot-2026-01", "public_key_der_base64": der_b64(_key),
         "status": "retired"}}})
