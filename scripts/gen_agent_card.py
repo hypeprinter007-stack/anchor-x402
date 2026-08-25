@@ -278,25 +278,17 @@ def build() -> dict:
                 "not_before": "2026-08-21T14:13:06Z",
                 "not_after": "2026-11-19T00:00:00Z",
                 "custody": "aws-secrets-manager",
-                "capability_exchange": True,
-                # A boolean in a static document cannot expire, so the flag alone
-                # would keep asserting consent long after the window shut. The
-                # window is the authoritative bound and the flag is advisory —
-                # a verifier reading true outside these timestamps is reading a
-                # flag we failed to reset, not a live consent.
-                # Rescheduled from 2026-08-22/23: that window expired unused while
-                # Agoragentic fixed a false-positive in their catalog scanner, so
-                # the dates move rather than the scope. Consent is per-window, so
-                # an unused window is spent, not carried over.
-                "capability_exchange_window": {
-                    "opens": "2026-08-23T15:00:00Z",
-                    "closes": "2026-08-24T15:00:00Z",
-                    "scope": ("Read-only public capability metadata. At most 4 HTTPS GETs "
-                              "total: two paired refreshes at least 6h apart, each one GET "
-                              "of /.well-known/agent-card.json and one of "
-                              "/.well-known/x402.json. No retries, no redirects."),
-                    "grants_unchanged": True,
-                },
+                # False whenever no window is open, and there is no window now: the
+                # 2026-08-23/24 one closed unused after Agoragentic's scanner failed
+                # closed on our catalog prose. When a window is granted, this flips
+                # true and a capability_exchange_window block is published beside it
+                # carrying opens/closes — because a boolean in a static document
+                # cannot expire, so the window is authoritative and the flag advisory.
+                # That is not theoretical: this flag sat true for 24h past its own
+                # published expiry before being reset. The window is what made the
+                # lapse visible, and the field is absent here rather than stale so
+                # nothing claims a consent that does not exist.
+                "capability_exchange": False,
                 "federation_consent": True,
                 "scope": ("Identity only: key-control proof for the Agoragentic "
                           "relationship. Dedicated key, never the treasury EOA."),
