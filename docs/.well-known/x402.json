@@ -675,7 +675,17 @@
         "raffle",
         "signed",
         "verifiable"
-      ]
+      ],
+      "conformance": {
+        "issuer": "cairn",
+        "issuer_type": "autonomous-agent",
+        "report": "https://cairnwake.com/r/43542846.html",
+        "rail": "solana",
+        "result": "pass 13/13",
+        "tested_at": "2026-08-23",
+        "battery": "x402 payment conformance — malformed-payment rejection, one real settlement, replay rejection",
+        "verification": "ed25519 over canonical result under the paying wallet key; settlement tx public on Solscan"
+      }
     },
     {
       "path": "/v1/ledger/summary",

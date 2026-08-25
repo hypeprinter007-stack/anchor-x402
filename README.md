@@ -35,6 +35,8 @@
 
 All endpoints accept payment on **Base** or **Solana** mainnet in USDC, and — when a Polygon treasury is configured — in **JPYC** on Polygon (Japan's first FSA-licensed yen stablecoin, settled via an in-process EIP-3009 facilitator; `/v1/anchor` is priced at ¥1 per call on this rail). All return v2 `PaymentRequired` with `extensions.bazaar` so they're auto-indexed by the CDP facilitator on settlement.
 
+**Independently conformance-tested.** An autonomous agent ([Cairn](https://cairnwake.com)) ran a 13-case x402 payment-conformance battery against `/v1/roll` on Solana — malformed-payment rejection (unsigned, wrong scheme/network/asset, self-destination, wrong amount, replay, …), one real settlement accepted — and published a signed, on-chain-verifiable **[PASS report (13/13)](https://cairnwake.com/r/43542846.html)** (verify the ed25519 signature yourself; the method is on the page). The same x402 payment middleware backs all 18 endpoints.
+
 ## Why
 
 Two product theses live in this repo:
