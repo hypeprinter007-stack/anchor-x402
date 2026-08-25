@@ -476,12 +476,15 @@ _screen_bazaar_ext = declare_discovery_extension(
 )
 
 _attest_bazaar_ext = declare_discovery_extension(
+    # Hosted-signer form: omit scheme and signature and the treasury signs. The
+    # example used to carry "signature": "0x...", a placeholder that is not a
+    # recoverable signature, so an agent that sent the example verbatim paid and
+    # got a 400. This form is both copy-pasteable and the one wallet-less agents
+    # actually want; supplying your own signature is described in input_schema.
     input={
         "input_hash": "ab0898397c86fbf97c99c6f8b29e55ab697315705777ee1d106e2dcb9bd686b3",
         "output_hash": "121bff3514725274e35bf3407fec31b5bbf458ee89ae8b75f3a01492f8a9ecef",
         "decision": "APPROVED",
-        "scheme": "eip191",
-        "signature": "0x...",
     },
     input_schema={
         "properties": {
