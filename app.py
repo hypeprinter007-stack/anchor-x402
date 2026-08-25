@@ -1288,6 +1288,16 @@ def _inject_402_challenge_body(response):
     meta = _RESOURCE_METADATA.get(path)
     if meta:
         challenge.setdefault("resource", {}).update(meta)
+        # Same three fields again, inside the bazaar extension. CDP reads them
+        # from resource.*; PayAI's harvester reads them from the extension's
+        # `info` object and recorded serviceName/tags/iconUrl as null for every
+        # one of our catalog entries until this was mirrored. One source
+        # (_RESOURCE_METADATA), two places the ecosystem looks.
+        _info = (challenge.setdefault("extensions", {})
+                 .setdefault("bazaar", {})
+                 .setdefault("info", {}))
+        for _k, _v in meta.items():
+            _info.setdefault(_k, _v)
 
     # Top-level extensions.bazaar listing card (see _BAZAAR_CARD). The SDK omits
     # RouteConfig extensions from the challenge body; surface them here so strict
