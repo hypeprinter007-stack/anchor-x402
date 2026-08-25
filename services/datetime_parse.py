@@ -13,9 +13,16 @@ Layered strategy:
 """
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone as _tz
 from typing import Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+# Leading "next" before a weekday only — see the fallback in parse_datetime.
+_WEEKDAY_NEXT_RE = re.compile(
+    r"^next\s+(?=(mon|tues|wednes|thurs|fri|satur|sun)day\b|(mon|tue|wed|thu|fri|sat|sun)\b)",
+    re.IGNORECASE,
+)
 
 
 Confidence = Literal["high", "medium", "low"]
@@ -127,7 +134,28 @@ def parse_datetime(
             parsed = attempt
             confidence = "medium"
 
-    # 3. Last-ditch: looser dateparser settings.
+    # 3. "next <weekday>" — dateparser resolves "Tuesday at 3pm" but returns None
+    # the moment "next" precedes a weekday, which is one of the most natural ways
+    # to write a near date. Under PREFER_DATES_FROM=future the bare weekday
+    # already means the upcoming one, so dropping the word preserves the intent.
+    # Only stripped before a weekday: "next week" and "next month" parse fine and
+    # mean something else.
+    if parsed is None:
+        import dateparser
+        stripped = _WEEKDAY_NEXT_RE.sub("", raw, count=1).strip()
+        if stripped != raw and stripped:
+            settings = {
+                "RELATIVE_BASE": base.astimezone(tz).replace(tzinfo=None),
+                "TIMEZONE": timezone_name,
+                "RETURN_AS_TIMEZONE_AWARE": True,
+                "PREFER_DATES_FROM": "future",
+            }
+            attempt = dateparser.parse(stripped, settings=settings, languages=["en"])
+            if attempt is not None:
+                parsed = attempt
+                confidence = "medium"
+
+    # 4. Last-ditch: looser dateparser settings.
     if parsed is None:
         import dateparser
         settings = {

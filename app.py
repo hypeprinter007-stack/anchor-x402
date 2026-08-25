@@ -751,7 +751,11 @@ _grade_bazaar_ext = declare_discovery_extension(
 )
 
 _tldr_bazaar_ext = declare_discovery_extension(
-    input={"url": "https://example.com/some-article"},
+    # A real, stable page we control. The old placeholder
+    # (https://example.com/some-article) does not exist, so an agent that sent
+    # the published example verbatim paid and then got a 502 from the fetch —
+    # found by paying our own declared examples through the PayAI seeding run.
+    input={"url": "https://anchor-x402.com/llms.txt"},
     input_schema={
         "properties": {
             "text": {"type": "string", "description": "Pasted text to summarize. Provide either `text` or `url`."},
