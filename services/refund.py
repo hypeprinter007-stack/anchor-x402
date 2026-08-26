@@ -63,23 +63,31 @@ def _svm_payer_from_tx(tx_b64: str) -> str | None:
     field to read — the buyer exists only inside the transaction, and reading it
     is the difference between knowing who to refund and not.
 
-    The x402 SVM client compiles the message with exactly two signers and pins
-    their order: index 0 is the facilitator's fee payer, index 1 is the buyer
-    (see x402/mechanisms/svm/exact/client.py, which builds
-    `signatures = [Signature.default(), client_signature]`). We require that
-    two-signer shape and return None otherwise, so an unfamiliar layout yields
-    "unknown" rather than a confidently wrong address that a refund is sent to.
+    The x402 SVM client convention is signer 0 = facilitator fee payer, signer 1
+    = buyer (see x402/mechanisms/svm/exact/client.py, which builds
+    `signatures = [Signature.default(), client_signature]`). But not every client
+    pins that order, and trusting index 1 blindly logged our OWN Solana recipient
+    as the "payer" on some settlements. So rather than return signer 1 outright,
+    pick the required signer that is neither the fee payer (signer 0) nor our own
+    recipient wallet; return None if it's ambiguous, so an undeterminable buyer
+    reads as "unknown" instead of a confidently wrong address (which a refund
+    could otherwise be sent to).
     """
     from solders.transaction import VersionedTransaction
 
     tx = VersionedTransaction.from_bytes(base64.b64decode(tx_b64))
     message = tx.message
-    if message.header.num_required_signatures < 2:
+    n = message.header.num_required_signatures
+    if n < 2:
         return None
-    keys = list(message.account_keys)
-    if len(keys) < 2:
+    signers = [str(k) for k in list(message.account_keys)[:n]]
+    if len(signers) < 2:
         return None
-    return str(keys[1])
+    excluded = {signers[0], os.getenv("SOLANA_TREASURY_ADDRESS", "")}
+    for key in signers[1:]:
+        if key not in excluded:
+            return key
+    return None
 
 
 def parse_buyer_from_x_payment(x_payment_header: str | None) -> tuple[str | None, str | None]:
