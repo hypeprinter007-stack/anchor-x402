@@ -1537,8 +1537,18 @@ class PrePaymentValidationMiddleware:
         if conditional is None and required is None:
             await self.app(scope, receive, send)  # not a guarded paid GET route
             return
+        hdrs = dict(scope.get("headers", []))
         # Internal / MCP-forwarded traffic authenticates + validates downstream.
-        if dict(scope.get("headers", [])).get(b"x-internal-auth"):
+        if hdrs.get(b"x-internal-auth"):
+            await self.app(scope, receive, send)
+            return
+        # Only enforce param validation on an actual paid attempt. An unpaid
+        # request (no payment header) must fall through so x402_mw can issue its
+        # 402 discovery challenge — otherwise a bare-GET probe/crawler reads the
+        # 400 as a broken route (reported independently by two agents, #4 + #5).
+        # A *paid* request missing params is still 400'd below before settling,
+        # so issue #3's "don't charge for an invalid request" guarantee holds.
+        if not (b"payment-signature" in hdrs or b"x-payment" in hdrs):
             await self.app(scope, receive, send)
             return
 
