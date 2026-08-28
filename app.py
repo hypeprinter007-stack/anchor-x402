@@ -948,6 +948,19 @@ x402_routes = {
         description="Signed + dual-chain-anchored x402 expense report (markdown + CSV, async job). $0.35 USDC.",
         extensions={**_ledger_report_bazaar_ext},
     ),
+    # GET twins so a bare probe reaches the 402 challenge instead of a 405
+    # (same discovery convention as every other route; the two ledger endpoints
+    # were the only POST-only pair left — nohumans.directory #5).
+    "GET /v1/ledger/summary": RouteConfig(
+        accepts=_accepts_at("$0.01"),
+        description="x402 spend accounting for any Base wallet — totals + per-service breakdown reconstructed from chain data. $0.01 USDC.",
+        extensions={**_ledger_summary_bazaar_ext},
+    ),
+    "GET /v1/ledger/report": RouteConfig(
+        accepts=_accepts_at("$0.35"),
+        description="Signed + dual-chain-anchored x402 expense report (markdown + CSV, async job). $0.35 USDC.",
+        extensions={**_ledger_report_bazaar_ext},
+    ),
     # GET wrappers for function-like callers (Virtuals ACP, etc.) — same price, no
     # bazaar extensions to avoid duplicate listings (POST is the canonical entry).
     "GET /v1/anchor": RouteConfig(
@@ -2227,6 +2240,29 @@ def ledger_report_dispatch(req: LedgerReportRequest, request: Request) -> Ledger
         status_url=f"{_PUBLIC_BASE}/v1/ledger/report/{job_id}",
         eta_seconds=120,
     )
+
+
+# GET twins for the two POST-only ledger endpoints, so a bare probe reaches the
+# 402 challenge instead of a 405 (same convention as the rest of the catalog).
+# Same price + response shape; inputs via query string, model defaults cover the
+# options POST callers set in the body.
+@app.get("/v1/ledger/summary", summary="Summarize a wallet's ledger into accounting totals")
+def ledger_summary_get(
+    wallet: str,
+    from_: str | None = Query(None, alias="from"),
+    to: str | None = None,
+) -> dict:
+    return ledger_summary(LedgerSummaryRequest.model_validate({"wallet": wallet, "from": from_, "to": to}))
+
+
+@app.get("/v1/ledger/report", response_model=LedgerReportAccepted, summary="Create a full accounting report job for a wallet ledger")
+def ledger_report_dispatch_get(
+    wallet: str,
+    request: Request,
+    from_: str | None = Query(None, alias="from"),
+    to: str | None = None,
+) -> LedgerReportAccepted:
+    return ledger_report_dispatch(LedgerReportRequest.model_validate({"wallet": wallet, "from": from_, "to": to}), request)
 
 
 @app.get("/v1/ledger/report/{job_id}", response_model=LedgerReportStatus, summary="Check a ledger report job and fetch the finished report")
