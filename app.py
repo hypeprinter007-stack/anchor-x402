@@ -84,7 +84,6 @@ from services import aura as aura_svc
 from services import calldata_decode as calldata_decode_svc
 from services import chat as chat_svc
 from services import datetime_parse as datetime_parse_svc
-from services import divigent as divigent_svc
 from services import grade as grade_svc
 from services import intel_wallet as intel_wallet_svc
 from services import name_resolve as name_resolve_svc
@@ -2610,46 +2609,6 @@ async def agentverse_chat(request: Request):
             continue
 
     return {"status": "ok" if delivered else "failed", "error": last_err}
-
-
-# ── Divigent yield integration ─────────────────────────────────────────
-# Lambda-native counterpart to signalfuse-divigent-router (which runs as a
-# long-running Node sidecar). See services/divigent.py + services/divigent_cron.py.
-# The /event/* receivers mirror SignalFuse's contract so the same dashboard
-# pattern works against either integration shape.
-
-@app.get("/divigent/dashboard", include_in_schema=False)
-def divigent_dashboard():
-    """Read-only snapshot of seller's Divigent position + idle USDC."""
-    return divigent_svc.get_dashboard_snapshot()
-
-
-_DIVIGENT_EVENT_TYPES = {
-    "snapshot", "idle-deposit", "manual-deposit", "manual-withdraw",
-    "sweep-failure", "non-fatal-error",
-}
-
-
-@app.post("/divigent/event/{event_type}", include_in_schema=False)
-async def divigent_event(event_type: str, request: Request):
-    """Lifecycle event sink for internal sidecars/crons. Requires x-internal-auth
-    header (constant-time check via _internal_auth_matches) and an allow-listed
-    event_type — was unauth previously, fixed 2026-05-26 after surface audit
-    flagged log-injection + cost-amplification risk on the open path-param sink."""
-    if not _internal_auth_matches(request):
-        raise HTTPException(status_code=401, detail="unauthorized")
-    if event_type not in _DIVIGENT_EVENT_TYPES:
-        raise HTTPException(status_code=400, detail="unknown event_type")
-    try:
-        body = await request.json()
-    except Exception:
-        body = None
-    logging.getLogger("divigent.events").info(
-        "divigent_event type=%s body=%s",
-        event_type,
-        json.dumps(body) if body is not None else "{}",
-    )
-    return Response(status_code=204)
 
 
 @app.post("/internal/refund/{job_id}", include_in_schema=False)

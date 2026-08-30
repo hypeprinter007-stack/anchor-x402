@@ -1,4 +1,4 @@
-# Minimal deps for the Divigent sweep + oracle keeper Lambdas.
+# Minimal deps for the RefundCron Lambda (USDC refund transfers on Base).
 # Excludes anchor's main-handler deps (fastapi, anthropic, x402, bedrock-agentcore,
 # uagents-core, virtuals-acp, mangum, etc.) — the cron only needs web3 + eth-account.
 # Result: ~10x smaller artifact, faster cold starts.

@@ -73,33 +73,9 @@ build-AnchorFunction:
 	# Note: *.dist-info dirs are kept — some packages query their own metadata
 	# (e.g. email-validator) and importlib.metadata.entry_points needs them.
 
-build-DivigentSweepFunction build-DivigentOracleKeeperFunction:
-	# Minimal cron build — web3 + eth-account only, plus the 4 Python files
-	# the cron path imports. boto3/botocore stripped (provided by Lambda runtime).
-	python3 -m pip install \
-		--platform manylinux2014_x86_64 \
-		--only-binary=:all: \
-		--python-version 3.12 \
-		--implementation cp \
-		--quiet \
-		-r requirements-divigent.txt \
-		-t "$(ARTIFACTS_DIR)"
-	mkdir -p "$(ARTIFACTS_DIR)/services/abis"
-	# services/__init__.py needs to exist for the package import to work.
-	touch "$(ARTIFACTS_DIR)/services/__init__.py"
-	cp services/divigent.py services/divigent_cron.py services/secrets.py "$(ARTIFACTS_DIR)/services/"
-	cp services/abis/divigent_router.json "$(ARTIFACTS_DIR)/services/abis/"
-	# Strip Lambda-runtime-provided + dev-time files only.
-	# Top-level package strips (ens/websockets) were tried — both auto-import
-	# during `import web3`, so removing them breaks the cron at runtime.
-	# Keep the conservative strip set; the 47 MB artifact is acceptable.
-	rm -rf "$(ARTIFACTS_DIR)/boto3" "$(ARTIFACTS_DIR)/botocore" "$(ARTIFACTS_DIR)/s3transfer" "$(ARTIFACTS_DIR)/jmespath"
-	find "$(ARTIFACTS_DIR)" -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null || true
-	find "$(ARTIFACTS_DIR)" -name "*.pyc" -delete 2>/dev/null || true
-
 build-RefundCronFunction:
 	# Daily refund backstop. Needs web3 + eth-account for USDC transfer +
-	# boto3 (Lambda-provided) for DDB. Reuses requirements-divigent.txt's
+	# boto3 (Lambda-provided) for DDB. Uses requirements-cron.txt's
 	# minimal web3 set; pulls in services/refund.py + secrets + refund_cron.
 	python3 -m pip install \
 		--platform manylinux2014_x86_64 \
@@ -107,7 +83,7 @@ build-RefundCronFunction:
 		--python-version 3.12 \
 		--implementation cp \
 		--quiet \
-		-r requirements-divigent.txt \
+		-r requirements-cron.txt \
 		-t "$(ARTIFACTS_DIR)"
 	mkdir -p "$(ARTIFACTS_DIR)/services"
 	touch "$(ARTIFACTS_DIR)/services/__init__.py"
