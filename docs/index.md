@@ -10,11 +10,9 @@ anchor-x402 is **eighteen stateless x402 endpoints** that any AI agent can call 
 
 If you don't have your own agent, **[chat.anchor-x402.com](https://chat.anchor-x402.com)** is a hosted Claude that runs the same services on your behalf. Connect a wallet (Coinbase Smart Wallet with a passkey, MetaMask, Rabby — any of them), chat for free, and approve each paid tool call one EIP-3009 signature at a time.
 
-## Have an x402 endpoint?
+## White-label / custom-bot tier
 
-If you run a paid x402 service and want it exposed through this agent — listed in the chat surface, included in the [`anchor-x402-mcp`](https://www.npmjs.com/package/anchor-x402-mcp) npm package, cross-linked from this site, and discoverable through our existing listings — email **[hello@anchor-x402.com](mailto:hello@anchor-x402.com?subject=x402%20endpoint%20listing)**. Include the endpoint URL, one-line description, and price. First listing is free if it covers something we don't already do well.
-
-White-label / custom-bot tier — your branding, your system prompt, your tool subset, your tenant-scoped subdomain, revenue share on tool calls — same address.
+Your branding, your system prompt, your tool subset, your tenant-scoped subdomain, revenue share on tool calls — a hosted agent on the same rails. Email **[hello@anchor-x402.com](mailto:hello@anchor-x402.com?subject=white-label%20bot)**.
 
 ## For institutional reviewers
 
