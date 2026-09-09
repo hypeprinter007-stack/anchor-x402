@@ -1,0 +1,89 @@
+{
+  "specVersion": "1.0",
+  "host": {
+    "displayName": "anchor-x402",
+    "identifier": "did:web:anchor-x402.com",
+    "documentationUrl": "https://anchor-x402.com"
+  },
+  "entries": [
+    {
+      "identifier": "urn:air:anchor-x402.com:agent:anchor-x402",
+      "type": "application/a2a-agent-card+json",
+      "displayName": "anchor-x402",
+      "description": "18 x402-paid services for AI agents — on-chain anchoring/attestation, wallet screening & due-diligence, Web3 data, verifiable signed RNG, LLM utilities, and x402 spend accounting. Pay-per-call USDC, no API keys, no accounts.",
+      "tags": ["x402", "payments", "agent", "web3", "security"],
+      "url": "https://api.anchor-x402.com/.well-known/agent-card.json",
+      "updatedAt": "2026-09-09T00:00:00Z",
+      "publisher": {
+        "identifier": "did:web:anchor-x402.com",
+        "displayName": "anchor-x402"
+      },
+      "extensions": {
+        "com.anchor-x402.access": {
+          "accessModel": {
+            "tier": "freemium",
+            "paymentProtocol": "x402",
+            "pricingUrl": "https://api.anchor-x402.com/openapi.json",
+            "price": { "amount": 0.001, "currency": "USD", "unit": "per_call" },
+            "freeTier": {
+              "unit": "per_call",
+              "quantity": null,
+              "note": "Discovery and agent-to-agent handshake are free: /health, /openapi.json, /docs, /v1/a2a (peer/hello, capabilities/list, peer/quote, peer/receipt), and MCP server/discover|initialize|tools/list. Every /v1/* service call is paid."
+            }
+          },
+          "_note": "Single-price echo is the service floor ($0.001). Per-call prices actually span $0.001–$1.77 across 18 routes; the authoritative per-route table is the OpenAPI at pricingUrl. Settlement is multi-rail: USDC on Base (eip155:8453) and Solana (solana:5eykt4…), plus JPYC on Polygon (eip155:137, fixed-yen tiers). Extension served under a provisional anchor namespace pending the WG's access/monetization namespace decision (ai-catalog#83).",
+          "rails": [
+            { "network": "eip155:8453", "asset": "USDC", "payTo": "0x127462e296fAc1A7F5cF33bA57bB2f0FFf5cD0B6" },
+            { "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp", "asset": "USDC", "payTo": "6apuZvJQ51Led9iEjnHw6f5jfnXL4qjt8S1h58PeXzuR" }
+          ]
+        }
+      }
+    },
+    {
+      "identifier": "urn:air:anchor-x402.com:mcp-server:anchor-x402",
+      "type": "application/mcp-server+json",
+      "displayName": "anchor-x402 MCP",
+      "description": "The same 18 services over MCP Streamable HTTP. server/discover, initialize and tools/list are free; tools/call settles per request in USDC via x402 (PAYMENT-SIGNATURE header). Stateless, no API key.",
+      "tags": ["mcp", "x402", "payments", "streamable-http"],
+      "url": "https://api.anchor-x402.com/.well-known/mcp/server-card.json",
+      "updatedAt": "2026-09-09T00:00:00Z",
+      "publisher": {
+        "identifier": "did:web:anchor-x402.com",
+        "displayName": "anchor-x402"
+      },
+      "extensions": {
+        "com.anchor-x402.access": {
+          "accessModel": {
+            "tier": "freemium",
+            "paymentProtocol": "x402",
+            "pricingUrl": "https://api.anchor-x402.com/openapi.json",
+            "price": { "amount": 0.001, "currency": "USD", "unit": "per_call" },
+            "freeTier": {
+              "unit": "per_call",
+              "quantity": null,
+              "note": "server/discover, initialize and tools/list are free; every tools/call is paid."
+            }
+          }
+        }
+      }
+    },
+    {
+      "identifier": "urn:air:anchor-x402.com:openapi:anchor-x402",
+      "type": "application/openapi+json",
+      "displayName": "anchor-x402 OpenAPI",
+      "description": "OpenAPI 3 spec for all 18 paid services, annotated with x402 payment metadata (per-route price and accepted rails). This is the authoritative per-route pricing source.",
+      "tags": ["openapi", "x402", "pricing"],
+      "url": "https://api.anchor-x402.com/openapi.json",
+      "updatedAt": "2026-09-09T00:00:00Z",
+      "publisher": {
+        "identifier": "did:web:anchor-x402.com",
+        "displayName": "anchor-x402"
+      },
+      "extensions": {
+        "com.anchor-x402.access": {
+          "accessModel": { "tier": "free" }
+        }
+      }
+    }
+  ]
+}

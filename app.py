@@ -158,6 +158,7 @@ _DISCOVERY_PATHS = frozenset({
     "/.well-known/agent-registration.json",
     "/.well-known/x402.json",
     "/.well-known/x402",
+    "/.well-known/ai-catalog.json",
     "/v1/a2a",
     "/mcp",
     "/.well-known/mcp/server-card.json",
@@ -2681,6 +2682,25 @@ def x402_resources_wellknown():
 @app.get("/x402-resources", include_in_schema=False)
 def x402_resources():
     return _serve_x402_discovery()
+
+
+_AI_CATALOG_PATH = os.path.join(
+    os.path.dirname(__file__), "docs", ".well-known", "ai-catalog.json"
+)
+
+
+@app.get("/.well-known/ai-catalog.json", include_in_schema=False)
+def ai_catalog():
+    """AI Catalog (ai-catalog.io) discovery doc — a typed, nestable container that
+    wraps anchor's A2A card, MCP server, and OpenAPI as catalog entries, each
+    carrying the proposed x402 access/monetization extension (ai-catalog#83)."""
+    if not os.path.exists(_AI_CATALOG_PATH):
+        raise HTTPException(status_code=404, detail="ai-catalog doc not bundled")
+    return FileResponse(
+        _AI_CATALOG_PATH,
+        media_type="application/json",
+        headers={"Cache-Control": "public, max-age=300"},
+    )
 
 
 _DOCS_DIR = os.path.join(os.path.dirname(__file__), "docs")

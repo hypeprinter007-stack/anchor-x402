@@ -62,6 +62,9 @@ build-AnchorFunction:
 	cp docs/.well-known/agent-card.json "$(ARTIFACTS_DIR)/docs/.well-known/agent-card.json"
 	# ERC-8004 registration file — proves this domain controls the registry agentId.
 	cp docs/.well-known/agent-registration.json "$(ARTIFACTS_DIR)/docs/.well-known/agent-registration.json"
+	# AI Catalog (ai-catalog.io) discovery doc — wraps our A2A card, MCP server,
+	# and OpenAPI as typed entries with the x402 access/monetization extension.
+	cp docs/.well-known/ai-catalog.json "$(ARTIFACTS_DIR)/docs/.well-known/ai-catalog.json"
 	cp docs/robots.txt "$(ARTIFACTS_DIR)/docs/robots.txt"
 	cp docs/llms.txt   "$(ARTIFACTS_DIR)/docs/llms.txt"
 	# Strip files Lambda doesn't need (size: 250 MB unzipped limit)
