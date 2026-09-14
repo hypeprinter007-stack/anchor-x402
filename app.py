@@ -2698,7 +2698,7 @@ def ai_catalog():
         raise HTTPException(status_code=404, detail="ai-catalog doc not bundled")
     return FileResponse(
         _AI_CATALOG_PATH,
-        media_type="application/json",
+        media_type="application/ai-catalog+json",
         headers={"Cache-Control": "public, max-age=300"},
     )
 

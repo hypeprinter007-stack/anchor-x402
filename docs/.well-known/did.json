@@ -1,0 +1,81 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/did/v1",
+    "https://w3id.org/security/suites/jws-2020/v1"
+  ],
+  "id": "did:web:anchor-x402.com",
+  "verificationMethod": [
+    {
+      "id": "did:web:anchor-x402.com#anchor-a2a-2026-01",
+      "type": "JsonWebKey2020",
+      "controller": "did:web:anchor-x402.com",
+      "publicKeyJwk": {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "x": "mkSQNeLBAltBCfr39EG25OAVXyOH0zdzFQO-4_-dSig",
+        "kid": "anchor-a2a-2026-01",
+        "use": "sig",
+        "alg": "EdDSA"
+      }
+    },
+    {
+      "id": "did:web:anchor-x402.com#anchor-card-2026-01",
+      "type": "JsonWebKey2020",
+      "controller": "did:web:anchor-x402.com",
+      "publicKeyJwk": {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "mm_YYcGVzj3vKlvNlnmtK17hkq5vftvEo4VahGJlE_E",
+        "y": "Y1PuJRaLw5lpzkeyl32deprXftNgPjw6ddmnoefkyOw",
+        "kid": "anchor-card-2026-01",
+        "use": "sig",
+        "alg": "ES256"
+      }
+    },
+    {
+      "id": "did:web:anchor-x402.com#anchor-fed-2026-08",
+      "type": "JsonWebKey2020",
+      "controller": "did:web:anchor-x402.com",
+      "publicKeyJwk": {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "x": "0PatLTb58f-WIf5g74MQkA3MnZq4xmUb6T0Xa0hyoTQ",
+        "kid": "anchor-fed-2026-08",
+        "use": "sig",
+        "alg": "EdDSA"
+      }
+    },
+    {
+      "id": "did:web:anchor-x402.com#anchor-pilot-2026-01",
+      "type": "JsonWebKey2020",
+      "controller": "did:web:anchor-x402.com",
+      "publicKeyJwk": {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "x": "c3PaOglz6Z19niAHIMg9YopEy8f1hINJq0r0kkAJbgQ",
+        "kid": "anchor-pilot-2026-01",
+        "use": "sig",
+        "alg": "EdDSA"
+      }
+    }
+  ],
+  "assertionMethod": [
+    "did:web:anchor-x402.com#anchor-card-2026-01",
+    "did:web:anchor-x402.com#anchor-a2a-2026-01"
+  ],
+  "authentication": [
+    "did:web:anchor-x402.com#anchor-a2a-2026-01"
+  ],
+  "service": [
+    {
+      "id": "did:web:anchor-x402.com#agent-card",
+      "type": "AgentCard",
+      "serviceEndpoint": "https://api.anchor-x402.com/.well-known/agent-card.json"
+    },
+    {
+      "id": "did:web:anchor-x402.com#ai-catalog",
+      "type": "AICatalog",
+      "serviceEndpoint": "https://api.anchor-x402.com/.well-known/ai-catalog.json"
+    }
+  ]
+}

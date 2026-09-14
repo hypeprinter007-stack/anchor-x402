@@ -41,7 +41,7 @@
     },
     {
       "identifier": "urn:air:anchor-x402.com:mcp-server:anchor-x402",
-      "type": "application/mcp-server+json",
+      "type": "application/mcp-server-card+json",
       "displayName": "anchor-x402 MCP",
       "description": "The same 18 services over MCP Streamable HTTP. server/discover, initialize and tools/list are free; tools/call settles per request in USDC via x402 (PAYMENT-SIGNATURE header). Stateless, no API key.",
       "tags": ["mcp", "x402", "payments", "streamable-http"],
