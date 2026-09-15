@@ -495,7 +495,11 @@ _attest_bazaar_ext = declare_discovery_extension(
             "signature": {"type": "string", "description": "0x-prefixed hex (eip191) or base58 (ed25519)."},
             "signer_pubkey": {"type": "string", "description": "Required for ed25519. Ignored for eip191."},
         },
-        "required": ["input_hash", "output_hash", "decision", "scheme", "signature"],
+        # scheme/signature are optional: omit them and the treasury signs (hosted-signer
+        # mode). Listing them as required contradicted the example body (which omits them
+        # by design) and the AttestRequest model — PayAI's AJV check failed the example
+        # against this schema and silently skipped the /v1/attest catalog write.
+        "required": ["input_hash", "output_hash", "decision"],
     },
     body_type="json",
     output=OutputConfig(example={
