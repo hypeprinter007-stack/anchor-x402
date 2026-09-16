@@ -23,14 +23,16 @@
       "name": "Base mainnet",
       "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
       "asset_name": "USDC",
-      "payment_address": "0x127462e296fAc1A7F5cF33bA57bB2f0FFf5cD0B6"
+      "payment_address": "0x127462e296fAc1A7F5cF33bA57bB2f0FFf5cD0B6",
+      "facilitator": "https://api.cdp.coinbase.com/platform/v2/x402"
     },
     {
       "id": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
       "name": "Solana mainnet",
       "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
       "asset_name": "USDC",
-      "payment_address": "6apuZvJQ51Led9iEjnHw6f5jfnXL4qjt8S1h58PeXzuR"
+      "payment_address": "6apuZvJQ51Led9iEjnHw6f5jfnXL4qjt8S1h58PeXzuR",
+      "facilitator": "https://facilitator.payai.network"
     },
     {
       "id": "eip155:137",
