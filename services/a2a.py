@@ -92,6 +92,7 @@ EXCHANGE_ID_RE = re.compile(r"^ax-[0-9a-f]{24}$")
 # to accept the wrong kind. Carried inside the payload rather than as a digest
 # prefix so the published verification recipe (canonicalize the payload minus the
 # signature fields) keeps working unchanged.
+TYPE_HELLO = "a2a.hello.v1"
 TYPE_QUOTE = "a2a.quote.v1"
 TYPE_RECEIPT = "a2a.receipt.v1"
 TYPE_RECEIPT_ROOT = "a2a.receipt-root.v1"

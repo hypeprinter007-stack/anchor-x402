@@ -2867,27 +2867,39 @@ def _a2a_skill(skill_id: Any) -> dict[str, Any]:
     )
 
 
-def _a2a_hello(origin: str, body: Any) -> dict[str, Any]:
+def _a2a_hello(origin: str, body: Any, *, nonce: str) -> dict[str, Any]:
     card = a2a_svc.our_card()
-    return {
+    # Signed and bound to the caller's nonce so peer/hello yields a
+    # non-repudiable, self-verifiable artifact of the verified round-trip —
+    # "anchor received a verified hello from `peer_verified` bearing this nonce
+    # at this time" — without minting a synthetic zero-value quote/receipt. The
+    # nonce is already verified and burned in verify() before dispatch; echoing
+    # it back signed is pure output. `signature`/`key_id` are added by sign(),
+    # so the request-signing scheme lives under `signature_scheme` to avoid the
+    # collision and keep the artifact's verification recipe identical to a
+    # quote/receipt (recompute digest over the payload minus sign()'s fields).
+    payload = {
+        "type": a2a_svc.TYPE_HELLO,
         "agent": card.get("name"),
         "peer_verified": origin,
+        "peer_nonce": nonce,
+        "responded_at": int(time.time()),
         "card_url": f"{_RESOURCE_BASE}/.well-known/agent-card.json",
         "endpoint": f"{_RESOURCE_BASE}/v1/a2a",
         "namespace": a2a_svc.NAMESPACE,
-        "key_id": a2a_svc.active_key_id(),
         # Full set, so a peer can verify a signature made by a key we have
         # since rotated away from without re-fetching the card.
         "keys": a2a_svc.our_keys(),
         "methods": list(a2a_svc.METHODS),
-        "signature": {
+        "signature_scheme": {
             "algorithm": "ed25519",
             "digest": "sha256-canonical-json",
-            "signed_fields": ["body", "exp", "method", "nonce", "origin"],
+            "signed_fields": ["aud", "body", "exp", "key_id", "method", "nonce", "origin"],
         },
         "policy_digest": a2a_svc.digest_of(a2a_svc.policy()),
         "x402": (card.get("extensions") or {}).get("anchor-x402:x402", {}),
     }
+    return a2a_svc.sign(payload)
 
 
 def _a2a_capabilities(origin: str, body: Any) -> dict[str, Any]:
@@ -3152,7 +3164,7 @@ async def a2a_rpc(request: Request):
         success log line, which the verified value is the only correct source for."""
         origin = a2a_svc.verify(method, params)
         if method == "peer/hello":
-            return origin, _a2a_hello(origin, params.get("body"))
+            return origin, _a2a_hello(origin, params.get("body"), nonce=str(params["nonce"]))
         if method == "capabilities/list":
             return origin, _a2a_capabilities(origin, params.get("body"))
         if method == "peer/quote":

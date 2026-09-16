@@ -295,6 +295,20 @@ def main() -> None:
     dev.public_key().verify(base64.b64decode(signed["signature"]), signed["digest"].encode("ascii"))
     ok("dev signature verifies with a stock Ed25519 verifier", True)
 
+    # peer/hello returns an anchor-signed artifact bound to the caller's nonce —
+    # the free, side-effect-free preflight primitive (no synthetic $0 quote).
+    hello_nonce = "hello-bind-nonce-0001"
+    hres = call(client, envelope("peer/hello", nonce=hello_nonce)).get("result") or {}
+    ok("peer/hello is a signed hello artifact",
+       hres.get("type") == a2a_svc.TYPE_HELLO and hres.get("signed") is True, json.dumps(hres)[:200])
+    ok("peer/hello binds the caller's nonce", hres.get("peer_nonce") == hello_nonce)
+    dev.public_key().verify(base64.b64decode(hres["signature"]), hres["digest"].encode("ascii"))
+    ok("peer/hello signature verifies with a stock Ed25519 verifier", True)
+    _recomputed = a2a_svc.digest_of(
+        {k: v for k, v in hres.items()
+         if k not in ("digest", "signed", "signature", "signature_algorithm", "key_id")})
+    ok("peer/hello digest covers the returned payload", _recomputed == hres["digest"])
+
     # ---------------------------------------------------------------------
     # Regressions for the 2026-07-28 self-audit. Each of these was a working
     # exploit against the first cut; the comment names what it was.
