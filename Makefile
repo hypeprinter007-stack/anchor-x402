@@ -1,4 +1,4 @@
-.PHONY: install lock bundle build deploy test clean
+.PHONY: install lock bundle build verify deploy test clean
 
 PY := .venv/bin/python
 
@@ -15,6 +15,12 @@ bundle:
 
 build: bundle
 	sam build
+	$(MAKE) verify
+
+# The cp lists below are hand-maintained and drift from what the code imports;
+# sam build never imports the result, so drift ships silently. Gate on it.
+verify:
+	$(PY) scripts/verify_artifacts.py
 
 # Invoked by SAM (BuildMethod: makefile). Lambda only needs the runtime files —
 # excluding node_modules, .venv, docs, tests, etc. keeps the unzipped artifact
@@ -118,7 +124,7 @@ build-CdpHeartbeatFunction:
 	find "$(ARTIFACTS_DIR)" -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null || true
 	find "$(ARTIFACTS_DIR)" -name "*.pyc" -delete 2>/dev/null || true
 
-deploy:
+deploy: verify
 	sam deploy --stack-name anchor-x402 --capabilities CAPABILITY_IAM --resolve-s3 --no-confirm-changeset --no-fail-on-empty-changeset --region us-east-1
 
 deploy-guided:
