@@ -51,6 +51,19 @@ def test_screen():
     ok("OFAC hit → exactly one ofac_sdn signal", [s["code"] for s in v["signals"]] == ["ofac_sdn"], str(v["signals"]))
     ok("OFAC hit with GoPlus down → partial", v["partial"] is True)
 
+    # An SDN address must not escape the OFAC floor on prefix case or
+    # whitespace alone — the unknown-chain branch skips the corpus entirely,
+    # which would report sanctions_match=false and let the refund gate pay out.
+    for label, variant in [
+        ("0X prefix", "0X" + TORNADO[2:]),
+        ("mixed-case body", "0x" + TORNADO[2:].upper()),
+        ("surrounding whitespace", f"  {TORNADO}\n"),
+    ]:
+        v = screen_svc.screen(variant)
+        ok(f"OFAC hit survives {label}",
+           v["sanctions_match"] is True and v["recommendation"] == "block",
+           str({k: v[k] for k in ("chain_inferred", "sanctions_match", "recommendation")}))
+
     all_zero = {k: "0" for k in screen_svc._GOPLUS_FLAGS}
     all_zero["contract_address"] = "0"
     screen_svc._goplus_lookup = _mock_goplus(dict(all_zero))

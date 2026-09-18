@@ -61,7 +61,7 @@ ENS_REVERSE_REGISTRAR = "0xa58E81fe9b61B5c3fE2afD33CF304c454AbFc7Cb"
 CACHE_TTL_SECONDS = 60
 RPC_TIMEOUT_SECONDS = 8
 
-_EVM_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
+_EVM_RE = re.compile(r"^0[xX][0-9a-fA-F]{40}$")
 _SOL_RE = re.compile(r"^[1-9A-HJ-NP-Za-km-z]{32,44}$")
 
 # Minimal balanceOf ABI for USDC.

@@ -50,7 +50,11 @@ _SOLANA_SANCTIONED: dict[str, list[str]] = {
     # populate from Treasury.gov once production pull is wired.
 }
 
-_BTC_HEX_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
+# The `0X` prefix is matched case-insensitively on purpose: an address that
+# only differs from the corpus by prefix case (or stray whitespace, stripped in
+# screen()) must not fall through to the unknown-chain branch, which skips the
+# OFAC floor entirely and reports sanctions_match=false for an SDN address.
+_EVM_HEX_RE = re.compile(r"^0[xX][0-9a-fA-F]{40}$")
 _SOL_RE = re.compile(r"^[1-9A-HJ-NP-Za-km-z]{32,44}$")
 
 # --- GoPlus address-security label map: key -> (severity, human detail) ---
@@ -80,7 +84,7 @@ _goplus_cache: dict[str, tuple[float, dict | None]] = {}
 
 
 def _infer_chain(wallet: str) -> Literal["ethereum", "solana", "unknown"]:
-    if _BTC_HEX_RE.match(wallet):
+    if _EVM_HEX_RE.match(wallet):
         return "ethereum"
     if _SOL_RE.match(wallet):
         return "solana"
@@ -138,6 +142,9 @@ def screen(wallet: str) -> dict:
       corpus_version  OFAC corpus stamp for provenance
       partial         true if the GoPlus layer was unavailable / not applicable
     """
+    # Normalize before inference: every caller (the /v1/screen route, the
+    # refund payout gate, the intel bundle) hands us whatever the buyer sent.
+    wallet = (wallet or "").strip()
     chain = _infer_chain(wallet)
     checked_at = int(time.time())
     if chain == "unknown":
