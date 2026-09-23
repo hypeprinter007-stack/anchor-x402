@@ -388,6 +388,9 @@ x402_server = x402ResourceServer(facilitator_clients=_facilitator_clients)
 x402_server.register("eip155:8453", ExactEvmServerScheme())
 if jpyc_facilitator is not None:
     x402_server.register("eip155:137", ExactEvmServerScheme())
+# Base Sepolia, for the bounded trial route only (see _SEPOLIA_TRIAL_WINDOW). CDP
+# settles it; no paid route in x402_routes offers this network.
+x402_server.register("eip155:84532", ExactEvmServerScheme())
 register_exact_svm_server(x402_server, networks=SOLANA_MAINNET_CAIP2)
 x402_server.register_extension(bazaar_resource_server_extension)
 
@@ -1102,6 +1105,42 @@ for _route_key, _cfg in x402_routes.items():
         _opt.extra["resource"] = _resource_url
 
 
+# --- Base Sepolia trial route ---------------------------------------------------
+# One bounded testnet call for a counterparty's release gate: the same /v1/screen
+# verdict, paid in Base Sepolia test USDC. The verdict is computed before
+# settlement, and settlement only happens on a 2xx. Kept out of x402_routes on
+# purpose so no discovery surface (OpenAPI, agent card, Bazaar card, x402.json,
+# MCP, A2A pricing) ever lists it, and the builder code is not declared on a
+# testnet rail.
+#
+# Off unless a window is set. The window is checked on every request, both
+# before the 402 and in the handler, so a deploy left in place past the end
+# closes itself; a published flag would not.
+_SEPOLIA_TRIAL_PATH = "/v1/trial/screen"
+_SEPOLIA_TRIAL_WINDOW: tuple[str, str] | None = None  # ("2026-09-25T14:00:00Z", "2026-09-25T16:00:00Z")
+_SEPOLIA_TRIAL_ROUTES = {
+    f"POST {_SEPOLIA_TRIAL_PATH}": RouteConfig(
+        accepts=[PaymentOption(
+            scheme="exact",
+            pay_to=TREASURY,
+            price="$0.02",
+            network="eip155:84532",
+            extra={"resource": f"{_RESOURCE_BASE}{_SEPOLIA_TRIAL_PATH}"},
+        )],
+        description="Base Sepolia trial of /v1/screen: allow/review/block wallet verdict. 0.02 test USDC.",
+    ),
+}
+
+
+def _sepolia_trial_open(now: float | None = None) -> bool:
+    if not _SEPOLIA_TRIAL_WINDOW or not TREASURY:
+        return False
+    from datetime import datetime
+    start, end = (datetime.fromisoformat(t.replace("Z", "+00:00")).timestamp() for t in _SEPOLIA_TRIAL_WINDOW)
+    t = time.time() if now is None else now
+    return start <= t < end
+
+
 from services import secrets as _secrets_mod
 _INTERNAL_AUTH = _secrets_mod.get("internal_auth_secret", env_fallback="INTERNAL_AUTH_SECRET")
 
@@ -1419,7 +1458,8 @@ async def x402_mw(request, call_next):
     if _internal_auth_matches(request):
         return await call_next(request)
     try:
-        response = await payment_middleware(x402_routes, x402_server)(request, call_next)
+        routes = {**x402_routes, **_SEPOLIA_TRIAL_ROUTES} if _sepolia_trial_open() else x402_routes
+        response = await payment_middleware(routes, x402_server)(request, call_next)
     except ValueError as e:
         # The x402 facilitator raises a bare ValueError when it REJECTS a payment
         # — bad/expired/reused authorization, or the payer's on-chain
@@ -1915,6 +1955,15 @@ class _TokenPriceBody(_BM):
 
 @app.post("/v1/screen", response_model=ScreenResponse, summary="Check a wallet address for sanctions and risk")
 def screen_post(req: _WalletBody) -> ScreenResponse:
+    return screen(req.wallet)
+
+
+@app.post(_SEPOLIA_TRIAL_PATH, response_model=ScreenResponse, include_in_schema=False)
+def screen_sepolia_trial(req: _WalletBody) -> ScreenResponse:
+    # Outside the window the middleware attaches no paywall, so refuse here
+    # rather than serve an unpaid verdict.
+    if not _sepolia_trial_open():
+        raise HTTPException(status_code=404, detail="Not Found")
     return screen(req.wallet)
 
 
