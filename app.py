@@ -91,6 +91,7 @@ from services import oracle as oracle_svc
 from services import roast as roast_svc
 from services import roll as roll_svc
 from services import screen as screen_svc
+from services import sepolia_trial
 from services import tldr as tldr_svc
 from services import token_price as token_price_svc
 from services import tx_decode as tx_decode_svc
@@ -388,7 +389,7 @@ x402_server = x402ResourceServer(facilitator_clients=_facilitator_clients)
 x402_server.register("eip155:8453", ExactEvmServerScheme())
 if jpyc_facilitator is not None:
     x402_server.register("eip155:137", ExactEvmServerScheme())
-# Base Sepolia, for the bounded trial route only (see _SEPOLIA_TRIAL_WINDOW). CDP
+# Base Sepolia, for the bounded trial route only (services/sepolia_trial.py). CDP
 # settles it; no paid route in x402_routes offers this network.
 x402_server.register("eip155:84532", ExactEvmServerScheme())
 register_exact_svm_server(x402_server, networks=SOLANA_MAINNET_CAIP2)
@@ -1106,39 +1107,27 @@ for _route_key, _cfg in x402_routes.items():
 
 
 # --- Base Sepolia trial route ---------------------------------------------------
-# One bounded testnet call for a counterparty's release gate: the same /v1/screen
-# verdict, paid in Base Sepolia test USDC. The verdict is computed before
-# settlement, and settlement only happens on a 2xx. Kept out of x402_routes on
-# purpose so no discovery surface (OpenAPI, agent card, Bazaar card, x402.json,
-# MCP, A2A pricing) ever lists it, and the builder code is not declared on a
-# testnet rail.
-#
-# Off unless a window is set. The window is checked on every request, both
-# before the 402 and in the handler, so a deploy left in place past the end
-# closes itself; a published flag would not.
-_SEPOLIA_TRIAL_PATH = "/v1/trial/screen"
-_SEPOLIA_TRIAL_WINDOW: tuple[str, str] | None = None  # ("2026-09-25T14:00:00Z", "2026-09-25T16:00:00Z")
+# One bounded testnet call for a counterparty's release gate; the protocol lives
+# in services/sepolia_trial.py. Kept out of x402_routes on purpose so no
+# discovery surface (OpenAPI, agent card, Bazaar card, x402.json, MCP, A2A
+# pricing) ever lists it, and the builder code is not declared on a testnet rail.
+_SEPOLIA_TRIAL_RESOURCE = f"{_RESOURCE_BASE}{sepolia_trial.PATH}"
 _SEPOLIA_TRIAL_ROUTES = {
-    f"POST {_SEPOLIA_TRIAL_PATH}": RouteConfig(
+    f"POST {sepolia_trial.PATH}": RouteConfig(
         accepts=[PaymentOption(
             scheme="exact",
             pay_to=TREASURY,
-            price="$0.02",
-            network="eip155:84532",
-            extra={"resource": f"{_RESOURCE_BASE}{_SEPOLIA_TRIAL_PATH}"},
+            price=sepolia_trial.PRICE,
+            network=sepolia_trial.NETWORK,
+            extra={"resource": _SEPOLIA_TRIAL_RESOURCE},
         )],
-        description="Base Sepolia trial of /v1/screen: allow/review/block wallet verdict. 0.02 test USDC.",
+        description="Base Sepolia trial of /v1/screen: allow/review/block wallet verdict, settled only on the counterparty verifier's signed allow. 0.02 test USDC.",
     ),
 }
 
 
-def _sepolia_trial_open(now: float | None = None) -> bool:
-    if not _SEPOLIA_TRIAL_WINDOW or not TREASURY:
-        return False
-    from datetime import datetime
-    start, end = (datetime.fromisoformat(t.replace("Z", "+00:00")).timestamp() for t in _SEPOLIA_TRIAL_WINDOW)
-    t = time.time() if now is None else now
-    return start <= t < end
+def _sepolia_trial_open() -> bool:
+    return bool(TREASURY) and sepolia_trial.is_open()
 
 
 from services import secrets as _secrets_mod
@@ -1958,13 +1947,25 @@ def screen_post(req: _WalletBody) -> ScreenResponse:
     return screen(req.wallet)
 
 
-@app.post(_SEPOLIA_TRIAL_PATH, response_model=ScreenResponse, include_in_schema=False)
-def screen_sepolia_trial(req: _WalletBody) -> ScreenResponse:
+@app.post(sepolia_trial.PATH, include_in_schema=False)
+def screen_sepolia_trial(req: _WalletBody, request: Request):
     # Outside the window the middleware attaches no paywall, so refuse here
     # rather than serve an unpaid verdict.
     if not _sepolia_trial_open():
         raise HTTPException(status_code=404, detail="Not Found")
-    return screen(req.wallet)
+    status, body = sepolia_trial.run(
+        req.wallet, req.model_dump(), request.headers, _SEPOLIA_TRIAL_RESOURCE, TREASURY
+    )
+    return JSONResponse(content=body, status_code=status)
+
+
+@app.get(f"{sepolia_trial.PATH}/quote", include_in_schema=False)
+def screen_sepolia_trial_quote():
+    # Free and available once configured, before the window opens, so the
+    # counterparty can pin the quote digest ahead of time.
+    if not (TREASURY and sepolia_trial.configured()):
+        raise HTTPException(status_code=404, detail="Not Found")
+    return sepolia_trial.quote(_SEPOLIA_TRIAL_RESOURCE, TREASURY)
 
 
 @app.post("/v1/resolve/name", response_model=NameResolveResponse, summary="Resolve an ENS or Solana name to a wallet address")
