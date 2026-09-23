@@ -132,7 +132,7 @@
       "price_usd": 0.02,
       "price": "$0.02",
       "category": "security",
-      "description": "Screen a wallet address before you pay or send funds to it. Checks OFAC SDN sanctions plus address reputation (drainer, phishing, mixer, money laundering) for EVM and Solana addresses and returns one verdict to branch on: allow, review, or block, with a 0-100 risk score and per-signal evidence. AML / KYT counterparty check for x402 payments.",
+      "description": "Is this address safe to pay? Screen a wallet address before you pay or send funds to it: an OFAC SDN sanctions check of the address plus address reputation (drainer, phishing, mixer, money laundering) for EVM and Solana. Returns one verdict to branch on (allow, review, or block) with a 0-100 risk score and per-signal evidence. AML / KYT counterparty check for x402 payments.",
       "description_ja": "エージェント決済向けウォレットリスク事前チェック：OFAC SDN制裁に加え、アドレス評価（ドレイナー、フィッシング、ミキサー、資金洗浄）を allow／review／block の推奨と各シグナルの詳細として返却します。",
       "params": {
         "wallet": {

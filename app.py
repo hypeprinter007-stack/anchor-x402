@@ -458,11 +458,11 @@ def _accepts_at(price: str) -> list[PaymentOption]:
 # Bazaar search is semantic over this text, so it leads with the task an agent
 # is doing ("screen before sending funds"), not our product vocabulary.
 _SCREEN_DESCRIPTION = (
-    "Screen a wallet address before you pay or send funds to it. Checks OFAC SDN "
-    "sanctions plus address reputation (drainer, phishing, mixer, money laundering) "
-    "for EVM and Solana addresses and returns one verdict to branch on: allow, "
-    "review, or block, with a 0-100 risk score and per-signal evidence. AML / KYT "
-    "counterparty check for x402 payments. $0.02 USDC."
+    "Is this address safe to pay? Screen a wallet address before you pay or send "
+    "funds to it: an OFAC SDN sanctions check of the address plus address reputation "
+    "(drainer, phishing, mixer, money laundering) for EVM and Solana. Returns one "
+    "verdict to branch on (allow, review, or block) with a 0-100 risk score and "
+    "per-signal evidence. AML / KYT counterparty check for x402 payments. $0.02 USDC."
 )
 
 _screen_bazaar_ext = declare_discovery_extension(
