@@ -455,6 +455,16 @@ def _accepts_at(price: str) -> list[PaymentOption]:
 
 # --- Bazaar declarations for /v1/screen and /v1/attest ---
 
+# Bazaar search is semantic over this text, so it leads with the task an agent
+# is doing ("screen before sending funds"), not our product vocabulary.
+_SCREEN_DESCRIPTION = (
+    "Screen a wallet address before you pay or send funds to it. Checks OFAC SDN "
+    "sanctions plus address reputation (drainer, phishing, mixer, money laundering) "
+    "for EVM and Solana addresses and returns one verdict to branch on: allow, "
+    "review, or block, with a 0-100 risk score and per-signal evidence. AML / KYT "
+    "counterparty check for x402 payments. $0.02 USDC."
+)
+
 _screen_bazaar_ext = declare_discovery_extension(
     input={"wallet": "0x8589427373d6d84e98730d7795d8f6f8731fda16"},  # Tornado Cash example
     input_schema={
@@ -469,9 +479,16 @@ _screen_bazaar_ext = declare_discovery_extension(
         "chain_inferred": "ethereum",
         "sanctions_match": True,
         "sanctioned_lists": ["OFAC SDN", "Tornado Cash"],
-        "risk_level": "high",
-        "notes": "Address matches 2 sanctions program(s)…",
-        "checked_at": 1746820000,
+        "risk_level": "critical",
+        "notes": "Address matches 2 sanctions program(s): OFAC SDN, Tornado Cash. DO NOT transact without a regulatory-approved exception.",
+        "address_type": "eoa",
+        "recommendation": "block",
+        "risk_score": 100,
+        "signals": [{"code": "ofac_sdn", "severity": "critical", "source": "treasury.gov", "detail": "OFAC SDN, Tornado Cash"}],
+        "labels": [],
+        "corpus_version": "2026-08-04-static",
+        "partial": False,
+        "checked_at": 1790190945,
     }),
 )
 
@@ -873,7 +890,7 @@ x402_routes = {
     ),
     "GET /v1/screen": RouteConfig(
         accepts=_accepts_at("$0.02"),
-        description="Wallet risk pre-flight for agent payments — OFAC sanctions + address-reputation (drainer/phishing/mixer) → allow/review/block verdict. $0.02 USDC.",
+        description=_SCREEN_DESCRIPTION,
     ),
     "POST /v1/attest": RouteConfig(
         accepts=_accepts_at("$0.01"),
@@ -995,7 +1012,7 @@ x402_routes = {
     # the 402 challenge instead of bouncing on 405 method-mismatch.
     "POST /v1/screen": RouteConfig(
         accepts=_accepts_at("$0.02"),
-        description="Wallet risk pre-flight (POST wrapper, body: {wallet}) — OFAC + address-reputation → allow/review/block. $0.02 USDC.",
+        description=_SCREEN_DESCRIPTION,
         extensions={**_screen_bazaar_ext},
     ),
     "POST /v1/resolve/name": RouteConfig(
@@ -1102,8 +1119,8 @@ _RESOURCE_METADATA: dict[str, dict[str, Any]] = {
         "iconUrl": _ICON_URL,
     },
     "/v1/screen": {
-        "serviceName": "Wallet Screen",
-        "tags": ["sanctions", "aml", "compliance", "wallet"],
+        "serviceName": "Wallet Sanctions & Risk Screen",
+        "tags": ["payment-screening", "sanctions", "ofac", "aml", "wallet"],
         "iconUrl": _ICON_URL,
     },
     "/v1/attest": {
