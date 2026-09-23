@@ -205,7 +205,7 @@ def _functions() -> list[tuple[str, str]]:
             continue
         props = res.get("Properties") or {}
         if not str(props.get("Runtime") or default_runtime).startswith("python"):
-            continue  # GatewayShim is nodejs; a JS artifact would need its own check
+            continue  # a non-Python artifact would need its own check
         handler = props.get("Handler", "")
         if "." in handler:
             out.append((logical, handler.rsplit(".", 1)[0]))
