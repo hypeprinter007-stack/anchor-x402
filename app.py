@@ -92,6 +92,8 @@ from services import roast as roast_svc
 from services import roll as roll_svc
 from services import screen as screen_svc
 from services import sepolia_trial
+from services import circle_facilitator as circle_facilitator_svc
+from services.circle_facilitator import CircleFacilitatorClient
 from services import tldr as tldr_svc
 from services import token_price as token_price_svc
 from services import tx_decode as tx_decode_svc
@@ -353,7 +355,8 @@ class _NetworkScopedFacilitator:
             supported = self._inner.get_supported()
         except Exception:
             logging.getLogger("anchor").warning(
-                "payai facilitator unreachable; leaving Solana on the default client"
+                "facilitator for %s unreachable; leaving it to the next client that claims it",
+                sorted(self._networks),
             )
             return SupportedResponse(kinds=[])
         kept = [k for k in supported.kinds if k.network in self._networks]
@@ -379,14 +382,23 @@ payai_facilitator = (
     else None
 )
 
+# Circle's Facilitator Service, scoped to Arc mainnet. Neither CDP nor PayAI
+# settles Arc, and Circle also advertises Base and Polygon, so the same scoping
+# keeps Base on CDP (builder code) and Polygon on the in-process JPYC rail.
+circle_facilitator = _NetworkScopedFacilitator(
+    CircleFacilitatorClient(), networks=[circle_facilitator_svc.ARC_MAINNET]
+)
+
 # PayAI first so it wins Solana; the scoping above is what keeps it off Base.
 _facilitator_clients = [payai_facilitator] if payai_facilitator else []
+_facilitator_clients.append(circle_facilitator)
 _facilitator_clients.append(cdp_facilitator)
 if jpyc_facilitator is not None:
     _facilitator_clients.append(jpyc_facilitator)
 
 x402_server = x402ResourceServer(facilitator_clients=_facilitator_clients)
 x402_server.register("eip155:8453", ExactEvmServerScheme())
+x402_server.register(circle_facilitator_svc.ARC_MAINNET, ExactEvmServerScheme())
 if jpyc_facilitator is not None:
     x402_server.register("eip155:137", ExactEvmServerScheme())
 # Base Sepolia, for the bounded trial route only (services/sepolia_trial.py). CDP
@@ -443,6 +455,19 @@ def _accepts_at(price: str) -> list[PaymentOption]:
         out.append(PaymentOption(scheme="exact", pay_to=TREASURY, price=price, network="eip155:8453"))
     if SOLANA_TREASURY:
         out.append(PaymentOption(scheme="exact", pay_to=SOLANA_TREASURY, price=price, network=SOLANA_MAINNET_CAIP2))
+    if TREASURY:
+        # The SDK has no default stablecoin for Arc, so the asset is explicit.
+        # Arc USDC has 6 decimals, like Base USDC.
+        out.append(PaymentOption(
+            scheme="exact",
+            pay_to=TREASURY,
+            price=AssetAmount(
+                amount=str(round(float(price[1:]) * 10**6)),
+                asset=circle_facilitator_svc.ARC_USDC,
+                extra=dict(circle_facilitator_svc.ARC_USDC_EXTRA),
+            ),
+            network=circle_facilitator_svc.ARC_MAINNET,
+        ))
     if POLYGON_TREASURY and jpyc_facilitator is not None and price in _JPYC_TIERS_ATOMIC:
         out.append(PaymentOption(
             scheme="exact",

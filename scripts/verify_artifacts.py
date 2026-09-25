@@ -235,9 +235,28 @@ def main() -> int:
         for p in problems:
             print(f"  FAIL  {logical}: {p}")
 
+    # Local tests only prove the code against the SDK they ran on. With x402 2.10
+    # in .venv and 2.9 in the artifact, a subclass that imported a 2.10-only
+    # helper passed every suite and took the API down on deploy.
+    local = _local_version("x402")
+    shipped = sorted(p.name.removeprefix("x402-").removesuffix(".dist-info")
+                     for p in (BUILD_DIR / "AnchorFunction").glob("x402-*.dist-info"))
+    if local and shipped and [local] != shipped:
+        print(f"  FAIL  x402 is {local} locally but {', '.join(shipped)} in the artifact; "
+              "tests ran against a different SDK than the one that ships")
+        failed = True
+
     print("\nartifact drift detected — these Lambdas would fail at invocation" if failed
           else "all artifacts carry every module their code imports")
     return 1 if failed else 0
+
+
+def _local_version(package: str) -> str | None:
+    from importlib.metadata import PackageNotFoundError, version
+    try:
+        return version(package)
+    except PackageNotFoundError:
+        return None
 
 
 if __name__ == "__main__":

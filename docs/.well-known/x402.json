@@ -35,6 +35,14 @@
       "facilitator": "https://facilitator.payai.network"
     },
     {
+      "id": "eip155:5042",
+      "name": "Arc mainnet",
+      "asset": "0x3600000000000000000000000000000000000000",
+      "asset_name": "USDC",
+      "payment_address": "0x127462e296fAc1A7F5cF33bA57bB2f0FFf5cD0B6",
+      "facilitator": "https://api.circle.com/v1/facilitator/x402"
+    },
+    {
       "id": "eip155:137",
       "name": "Polygon mainnet",
       "asset": "0x431D5dfF03120AFA4bDf332c61A6e1766eF37BDB",
