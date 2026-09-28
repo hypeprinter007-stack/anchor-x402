@@ -585,8 +585,8 @@
   "source": "https://github.com/hypeprinter007-stack/anchor-x402",
   "signatures": [
     {
-      "protected": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImFuY2hvci1jYXJkLTIwMjYtMDEiLCJ0eXAiOiJKT1NFIn0",
-      "signature": "D5OOmave3YZB_TkOEb0i0pPcL0wdQgN75yQOx_OWQjyb28QOThn3M1ykzBZpvsEkoFaQ8gWKWoigLGde9Rtl1A"
+      "protected": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImRpZDp3ZWI6YW5jaG9yLXg0MDIuY29tI2FuY2hvci1jYXJkLTIwMjYtMDEiLCJ0eXAiOiJKT1NFIn0",
+      "signature": "aAEptVjiL5gc304JtfeIQr4gjbyNN1wTtSlSIDCxM3wfCZmnjAQeS0bD4740S1oCbYYQ4oC86yJk_8uX1hO9PA"
     }
   ]
 }

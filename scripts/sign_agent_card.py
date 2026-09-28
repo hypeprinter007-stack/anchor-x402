@@ -30,6 +30,8 @@ sys.path.insert(0, ROOT)
 
 CARD_PATH = os.path.join(ROOT, "docs", ".well-known", "agent-card.json")
 KMS_ALIAS = os.getenv("A2A_KMS_KEY_ID", "alias/anchor-x402-a2a")
+DID = "did:web:anchor-x402.com"
+DID_PATH = os.path.join(ROOT, "docs", ".well-known", "did.json")
 
 
 def b64u(raw: bytes) -> str:
@@ -116,7 +118,10 @@ def sign() -> None:
 
     card = load_card()
     kid = os.getenv("A2A_CARD_KEY_ID", "anchor-card-2026-01")
-    protected = {"alg": "ES256", "kid": kid, "typ": "JOSE"}
+    # The header names the key by its full DID URL, so a verifier resolves
+    # did:web:anchor-x402.com and needs no out-of-band knowledge of where the
+    # key lives. The bare id stays the card's internal key_id.
+    protected = {"alg": "ES256", "kid": f"{DID}#{kid}", "typ": "JOSE"}
     message = signing_input(card, protected)
 
     digest = hashes.Hash(hashes.SHA256())
@@ -165,6 +170,17 @@ def sign() -> None:
     print(f"signed {CARD_PATH} as ES256 with {kid}")
 
 
+def _jwk_of(pub) -> dict:
+    """Public JWK members (RFC 7517/8037) for an EC P-256 or Ed25519 key."""
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
+    if isinstance(pub, ec.EllipticCurvePublicKey):
+        nums = pub.public_numbers()
+        return {"kty": "EC", "crv": "P-256", "x": b64u(nums.x.to_bytes(32, "big")), "y": b64u(nums.y.to_bytes(32, "big"))}
+    return {"kty": "OKP", "crv": "Ed25519", "x": b64u(pub.public_bytes(Encoding.Raw, PublicFormat.Raw))}
+
+
 def verify() -> None:
     """Verify exactly as an outside client would: public key from the card."""
     from cryptography.hazmat.primitives.serialization import load_der_public_key
@@ -180,14 +196,26 @@ def verify() -> None:
 
     ext = card["extensions"]["anchor-x402:a2a"]
     published = (ext.get("card_signing_keys") or []) + ext["keys"]
+    with open(DID_PATH) as f:
+        did_doc = json.load(f)
 
     for i, sig in enumerate(sigs):
         protected = json.loads(b64u_decode(sig["protected"]).decode())
         kid, alg = protected.get("kid"), protected.get("alg")
-        entry = next((k for k in published if k["key_id"] == kid), None)
+        if not (kid or "").startswith(f"{DID}#"):
+            sys.exit(f"signature {i}: kid {kid} is not a {DID} DID URL")
+        fragment = kid.split("#", 1)[1]
+        entry = next((k for k in published if k["key_id"] == fragment), None)
         if entry is None:
             sys.exit(f"signature {i}: kid {kid} is not published in this card")
+        # The card's copy of its own key proves integrity only. The DID document
+        # is the independent source, so the two must be the same key.
+        method = next((m for m in did_doc.get("verificationMethod", []) if m.get("id") == kid), None)
+        if method is None or kid not in did_doc.get("assertionMethod", []):
+            sys.exit(f"signature {i}: {kid} is not an assertionMethod in did.json")
         pub = load_der_public_key(base64.b64decode(entry["public_key_der_base64"]))
+        if _jwk_of(pub) != {k: method["publicKeyJwk"][k] for k in ("kty", "crv", "x", "y") if k in method["publicKeyJwk"]}:
+            sys.exit(f"signature {i}: the card's key for {kid} differs from did.json")
         message = signing_input(card, protected)
         raw = b64u_decode(sig["signature"])
         if alg == "ES256":
@@ -197,7 +225,7 @@ def verify() -> None:
         else:
             pub.verify(raw, message)
         print(f"signature {i}: VALID  alg={alg} kid={kid}")
-    print(f"card verifies against its own published key ({len(card['skills'])} skills)")
+    print(f"card verifies against its own key and did.json ({len(card['skills'])} skills)")
 
 
 def main() -> None:

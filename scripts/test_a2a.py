@@ -677,8 +677,9 @@ def main() -> None:
     ok("F17 card carries a signature", len(sigs) == 1, f"{len(sigs)} signatures")
     if sigs:
         prot = json.loads(signer.b64u_decode(sigs[0]["protected"]).decode())
+        ok("F17 kid is a did:web DID URL", prot.get("kid", "").startswith(f"{signer.DID}#"), prot.get("kid"))
         entry = next(k for k in signed_card["extensions"]["anchor-x402:a2a"]["card_signing_keys"]
-                     if k["key_id"] == prot["kid"])
+                     if k["key_id"] == prot["kid"].split("#", 1)[-1])
         pubkey = _ldpk(base64.b64decode(entry["public_key_der_base64"]))
         raw_sig = signer.b64u_decode(sigs[0]["signature"])
         der_sig = _dss(int.from_bytes(raw_sig[:32], "big"), int.from_bytes(raw_sig[32:], "big"))
