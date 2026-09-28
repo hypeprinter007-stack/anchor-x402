@@ -33,8 +33,8 @@ CHIPS = [
     ("$0.05", "oracle"),
     ("$1.77", "investigate"),
 ]
-TOOL_COUNT = 16
-FOOTER = "chat.anchor-x402.com"
+TOOL_COUNT = 18
+FOOTER = "anchor-x402.com"
 
 
 def _font(path: str, size: int) -> ImageFont.FreeTypeFont:
