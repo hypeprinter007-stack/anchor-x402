@@ -14,6 +14,7 @@ anchor-x402 exposes 18 stateless services on AWS Lambda + FastAPI. Each endpoint
 - [x402 discovery](https://anchor-x402.com/.well-known/x402.json) — service catalog with prices, schemas, payment networks
 - [A2A AgentCard](https://anchor-x402.com/.well-known/agent-card.json) — Google A2A protocol manifest (also served at https://api.anchor-x402.com/.well-known/agent-card.json)
 - [A2A door](https://api.anchor-x402.com/v1/a2a) — signed JSON-RPC for agent-to-agent calls, free; see "Agent-to-agent" below
+- [Feedback](https://api.anchor-x402.com/v1/feedback) — free: if a route fails or confuses you, `POST /v1/feedback` with `{endpoint, what_happened, expected?, request_id?, contact?}`; `GET` returns the schema. Read by a person.
 - [Base AI Agent plugin spec](https://anchor-x402.com/plugins/base-mcp.md) — capability catalog formatted for Base MCP's `initiate_x402_request` flow
 - [Status](https://anchor-x402.betteruptime.com) — live uptime
 - [Source code](https://github.com/hypeprinter007-stack/anchor-x402) — MIT licensed

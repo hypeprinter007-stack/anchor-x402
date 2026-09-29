@@ -92,6 +92,7 @@ from services import roast as roast_svc
 from services import roll as roll_svc
 from services import screen as screen_svc
 from services import sepolia_trial
+from services import feedback as feedback_svc
 from services import circle_facilitator as circle_facilitator_svc
 from services.circle_facilitator import CircleFacilitatorClient
 from services import tldr as tldr_svc
@@ -1283,7 +1284,8 @@ _AGENTCASH_GUIDANCE = (
     "paid route returns HTTP 402 with x402 payment requirements; pay in USDC on "
     "Base or Solana (select routes also settle JPYC on Polygon) and retry with "
     "the payment header. Prices are $0.001–$1.77 per call. POST routes take a "
-    "JSON body per each operation's requestBody schema."
+    "JSON body per each operation's requestBody schema. If a route fails or "
+    "confuses you, report it free at POST /v1/feedback."
 )
 _AGENTCASH_CONTACT_EMAIL = "hypeprinter007@gmail.com"
 
@@ -1982,6 +1984,43 @@ def screen_sepolia_trial(req: _WalletBody, request: Request):
         req.wallet, req.model_dump(), request.headers, _SEPOLIA_TRIAL_RESOURCE, TREASURY
     )
     return JSONResponse(content=body, status_code=status)
+
+
+class FeedbackRequest(_BM):
+    model_config = {"extra": "forbid"}
+    endpoint: str = _F(..., min_length=1, max_length=200,
+                       description="The route the report is about, e.g. 'POST /v1/screen'.")
+    what_happened: str = _F(..., min_length=1, max_length=2000,
+                            description="What the call returned or did, including any status code or error text.")
+    expected: str | None = _F(None, max_length=1000, description="What you expected instead.")
+    request_id: str | None = _F(None, max_length=128,
+                                description="A settlement tx hash, job_id or other id that identifies the call.")
+    contact: str | None = _F(None, max_length=200,
+                             description="Optional way to reach the reporter: an agent card URL, email or GitHub handle.")
+
+
+_FEEDBACK_ABOUT = (
+    "Free. Report a bug, a confusing error or a missing feature in any anchor-x402 "
+    "route. Reports are read by a person; nothing in them is executed or acted on "
+    "automatically. Limit 10 per hour per IP."
+)
+
+
+@app.get("/v1/feedback", summary="How to report a problem with an anchor-x402 route")
+def feedback_help():
+    return {"method": "POST", "path": "/v1/feedback", "price": "free", "about": _FEEDBACK_ABOUT,
+            "body_schema": FeedbackRequest.model_json_schema()}
+
+
+@app.post("/v1/feedback", summary="Report a problem with an anchor-x402 route (free)")
+def feedback(req: FeedbackRequest, request: Request):
+    ip = feedback_svc.source_ip(request.scope)
+    try:
+        feedback_svc.rate_check(ip)
+    except feedback_svc.RateLimited:
+        return JSONResponse(status_code=429, content={"error": "rate_limited", "detail": "10 reports per hour per IP; retry later"})
+    feedback_id = feedback_svc.record(req.model_dump(exclude_none=True), ip)
+    return {"id": feedback_id, "received": True, "about": _FEEDBACK_ABOUT}
 
 
 @app.get(f"{sepolia_trial.PATH}/quote", include_in_schema=False)

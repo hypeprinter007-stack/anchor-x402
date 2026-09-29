@@ -574,6 +574,36 @@ Resources:
       OKActions:
         - !Ref AlarmTopic
 
+  # One email when agent feedback arrives, so a report is read the day it is
+  # filed rather than found in the logs weeks later. No OKActions: the reset is
+  # not news. Read the reports with a logs filter on "FEEDBACK".
+  FeedbackMetricFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AnchorFunction}'
+      FilterPattern: '"FEEDBACK"'
+      MetricTransformations:
+        - MetricNamespace: anchor-x402
+          MetricName: FeedbackReports
+          MetricValue: '1'
+          DefaultValue: 0
+
+  FeedbackAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-FeedbackReceived'
+      AlarmDescription: 'An agent filed a report at POST /v1/feedback. Read it with: aws logs filter-log-events --log-group-name /aws/lambda/<AnchorFunction> --filter-pattern FEEDBACK'
+      Namespace: anchor-x402
+      MetricName: FeedbackReports
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+
   ApiCustomDomainName:
     Type: AWS::ApiGatewayV2::DomainName
     Condition: HasCustomDomain

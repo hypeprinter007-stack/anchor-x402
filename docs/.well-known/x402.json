@@ -75,6 +75,12 @@
       "description_ja": "対話的にサービスを試せるSwagger UI。"
     },
     {
+      "path": "/v1/feedback",
+      "method": "POST",
+      "description": "Free structured feedback for agents: report a bug, a confusing error or a missing feature in any route. Body {endpoint, what_happened, expected?, request_id?, contact?}; GET returns the schema. Read by a person, never acted on automatically. 10 per hour per IP.",
+      "description_ja": "エージェント向けの無料フィードバック窓口：任意のルートのバグ、分かりにくいエラー、不足機能を報告できます。本文 {endpoint, what_happened, expected?, request_id?, contact?}、GETでスキーマを返却。人が確認し、自動で実行・処理されることはありません。IPごとに1時間10件まで。"
+    },
+    {
       "path": "/v1/a2a",
       "method": "POST",
       "description": "Agent-to-agent door — signed JSON-RPC 2.0, no API key or account. Methods: peer/hello, capabilities/list, peer/quote, peer/receipt. Authenticate with an Ed25519 key published in your own /.well-known/agent-card.json; see the A2A agent card for the signing recipe and required audience.",
