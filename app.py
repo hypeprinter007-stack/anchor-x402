@@ -186,14 +186,14 @@ async def _access_log(request, call_next):
     # field to all ~20k daily requests.
     if request.url.path in _DISCOVERY_PATHS:
         try:
-            fwd = request.headers.get("x-forwarded-for", "")
             print("DISCOVERY " + json.dumps({
                 "ts": int(time.time()),
                 "path": request.url.path,
                 "status": response.status_code,
                 "host": host,
-                # First hop only; the rest is proxy chain. Public client address.
-                "ip": fwd.split(",")[0].strip()[:45],
+                # API Gateway's sourceIp, not x-forwarded-for, whose first entry
+                # the caller sets (a forged "1.2.3.4" was logged verbatim).
+                "ip": feedback_svc.source_ip(request.scope),
                 "ua": request.headers.get("user-agent", "")[:120],
             }, separators=(",", ":")))
         except Exception:
@@ -3273,7 +3273,9 @@ async def a2a_rpc(request: Request):
     if method in a2a_tasks.METHODS:
         try:
             # No verified origin to key a limit on, so bound by client address.
-            a2a_svc.rate_check(f"ip:{(request.headers.get('x-forwarded-for','') or 'unknown').split(',')[0].strip()[:45]}")
+            # sourceIp, not x-forwarded-for: a caller that rotates a forged first
+            # XFF entry would otherwise get a fresh per-client bucket each time.
+            a2a_svc.rate_check(f"ip:{feedback_svc.source_ip(request.scope)}")
             result = await run_in_threadpool(_a2a_spec_dispatch, method, params)
         except a2a_svc.A2AError as e:
             return fail(e.code, e.message)
