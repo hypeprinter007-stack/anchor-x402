@@ -100,7 +100,7 @@ build-RefundCronFunction:
 	# the pre-payout sanctions gate, so omitting it made `from services import
 	# refund` raise ImportError and killed the whole cron invocation. Its only
 	# third-party import is requests, which web3 already pulls in transitively.
-	cp services/refund.py services/refund_cron.py services/secrets.py services/screen.py "$(ARTIFACTS_DIR)/services/"
+	cp services/refund.py services/refund_cron.py services/secrets.py services/screen.py services/ofac_sdn.py "$(ARTIFACTS_DIR)/services/"
 	rm -rf "$(ARTIFACTS_DIR)/boto3" "$(ARTIFACTS_DIR)/botocore" "$(ARTIFACTS_DIR)/s3transfer" "$(ARTIFACTS_DIR)/jmespath"
 	find "$(ARTIFACTS_DIR)" -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null || true
 	find "$(ARTIFACTS_DIR)" -name "*.pyc" -delete 2>/dev/null || true

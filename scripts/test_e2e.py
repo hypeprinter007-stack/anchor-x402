@@ -58,13 +58,13 @@ def test_anchor(s) -> bool:
 
 
 def test_screen(s) -> bool:
-    # Tornado Cash address — should match
-    r = s.get(f"{API}/v1/screen?wallet=0x8589427373d6d84e98730d7795d8f6f8731fda16")
+    # Lazarus Group (OFAC SDN) address — should match
+    r = s.get(f"{API}/v1/screen?wallet=0x098b716b8aaf21512996dc57eb0615e2383e2f96")
     j = r.json()
     if r.status_code != 200:
         return _ok("screen", r.status_code, j)
     matched = j.get("sanctions_match")
-    print(f"  ✓ screen: 200 — sanctions_match={matched} (expected True for Tornado Cash)")
+    print(f"  ✓ screen: 200 — sanctions_match={matched} (expected True for Lazarus Group)")
     return matched is True
 
 

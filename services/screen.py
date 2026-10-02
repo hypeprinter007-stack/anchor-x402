@@ -4,8 +4,8 @@ An agent about to send USDC to a counterparty wants one machine-actionable
 answer — allow / review / block — backed by why. This composes three layers,
 cheapest-and-most-authoritative first:
 
-  1. OFAC SDN floor (local, instant, critical). Hardcoded corpus below;
-     production should refresh from treasury.gov/ofac/downloads/sdn.csv daily.
+  1. OFAC SDN floor (local, instant, critical). Every digital-currency
+     address on Treasury's SDN list, generated into services/ofac_sdn.py.
   2. GoPlus address-security (drainer / phishing / mixer / laundering labels
      and contract-vs-EOA). One cached HTTP call; degrades to `partial` on
      timeout rather than failing the verdict — this call sits in the payment
@@ -23,31 +23,24 @@ from typing import Literal
 
 import requests
 
-# --- Hardcoded sanctions corpus (lowercased EVM, raw Solana) ---
-# Production: replace with daily Treasury.gov CSV pull.
-_OFAC_CORPUS_VERSION = "2026-08-04-static"
+from services import ofac_sdn
 
-_EVM_SANCTIONED = {
-    # Tornado Cash (OFAC SDN, August 2022)
-    "0x8589427373d6d84e98730d7795d8f6f8731fda16": ["OFAC SDN", "Tornado Cash"],
-    "0x722122df12d4e14e13ac3b6895a86e84145b6967": ["OFAC SDN", "Tornado Cash"],
-    "0xd96f2b1c14db8458374d9aca76e26c3d18364307": ["OFAC SDN", "Tornado Cash"],
-    "0x4736dcf1b7a3d580672ccce6213fe0b7e0c89e60": ["OFAC SDN", "Tornado Cash"],
-    "0xd90e2f925da726b50c4ed8d0fb90ad053324f31b": ["OFAC SDN", "Tornado Cash"],
-    "0x07687e702b410fa43f4cb4af7fa097918ffd2730": ["OFAC SDN", "Tornado Cash"],
-    "0x910cbd523d972eb0a6f4cae4618ad62622b39dbf": ["OFAC SDN", "Tornado Cash"],
-    # Lazarus Group (DPRK)
-    "0x098b716b8aaf21512996dc57eb0615e2383e2f96": ["OFAC SDN", "Lazarus Group", "DPRK"],
-    "0xa7e5d5a720f06526557c513402f2e6b5fa20b008": ["OFAC SDN", "Lazarus Group", "DPRK"],
-    # Hydra Market (sanctioned April 2022)
-    "0xeac3b16c1ce81bd23663ef0ae8e5ffadc4f64eef": ["OFAC SDN", "Hydra Market"],
-    # Blender.io (sanctioned May 2022)
-    "0x9c2bc757b66f24d60f016b6237f8cdd414a879fa": ["OFAC SDN", "Blender.io"],
-}
+# --- Sanctions corpus: Treasury's SDN list (regenerate: scripts/refresh_sdn.py) ---
+_OFAC_CORPUS_VERSION = ofac_sdn.VERSION
+_EVM_SANCTIONED = ofac_sdn.EVM
+_SOLANA_SANCTIONED = ofac_sdn.SOLANA
 
-_SOLANA_SANCTIONED: dict[str, list[str]] = {
-    # Solana wallets sanctioned by OFAC are rarer in the public list;
-    # populate from Treasury.gov once production pull is wired.
+# Tornado Cash contracts. OFAC delisted them on 2025-03-21 (after Van Loon v.
+# Treasury), so they are not a sanctions match, but a payment to a mixer still
+# needs a human look and GoPlus does not flag them.
+_KNOWN_MIXERS = {
+    "0x8589427373d6d84e98730d7795d8f6f8731fda16": "Tornado Cash mixer (OFAC delisted 2025-03-21)",
+    "0x722122df12d4e14e13ac3b6895a86e84145b6967": "Tornado Cash mixer (OFAC delisted 2025-03-21)",
+    "0xd96f2b1c14db8458374d9aca76e26c3d18364307": "Tornado Cash mixer (OFAC delisted 2025-03-21)",
+    "0x4736dcf1b7a3d580672ccce6213fe0b7e0c89e60": "Tornado Cash mixer (OFAC delisted 2025-03-21)",
+    "0xd90e2f925da726b50c4ed8d0fb90ad053324f31b": "Tornado Cash mixer (OFAC delisted 2025-03-21)",
+    "0x07687e702b410fa43f4cb4af7fa097918ffd2730": "Tornado Cash mixer (OFAC delisted 2025-03-21)",
+    "0x910cbd523d972eb0a6f4cae4618ad62622b39dbf": "Tornado Cash mixer (OFAC delisted 2025-03-21)",
 }
 
 # The `0X` prefix is matched case-insensitively on purpose: an address that
@@ -174,6 +167,10 @@ def screen(wallet: str) -> dict:
     if ofac:
         signals.append({"code": "ofac_sdn", "severity": "critical", "source": "treasury.gov", "detail": ", ".join(ofac)})
         score = 100
+    mixer = _KNOWN_MIXERS.get(normalized)
+    if mixer:
+        signals.append({"code": "mixer", "severity": "high", "source": "anchor-x402", "detail": mixer})
+        score = max(score, _SEVERITY_SCORE["high"])
 
     # Layer 2 — GoPlus (EVM only; Solana falls through as partial).
     partial = chain != "ethereum"
@@ -207,7 +204,7 @@ def screen(wallet: str) -> dict:
         risk_level, recommendation = "low", "allow"
 
     if ofac:
-        notes = f"Address matches {len(ofac)} sanctions program(s): {', '.join(ofac)}. DO NOT transact without a regulatory-approved exception."
+        notes = f"Address is on the OFAC SDN list as {ofac[1]} (program {', '.join(ofac[2:])}). DO NOT transact without a regulatory-approved exception."
     elif signals:
         notes = f"{len(signals)} risk signal(s) found — recommendation: {recommendation}. Review `signals` before transacting."
     elif partial:

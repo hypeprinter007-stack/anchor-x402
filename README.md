@@ -113,7 +113,7 @@ Returns: `{merkle_root, base: {tx, explorer_url}, solana: {tx, explorer_url}, an
 
 Returns: `{wallet, recommendation, risk_score, signals, address_type, sanctions_match, sanctioned_lists, risk_level, checked_at, ...}`. `recommendation` (`allow` / `review` / `block`) and `risk_score` (0-100) are the fields an agent branches on before sending funds; the legacy `sanctions_match` / `risk_level` fields are retained for back-compat.
 
-Active corpus: OFAC SDN crypto entries (Tornado Cash, Lazarus Group, Hydra Market, Garantex, Blender.io, etc.) plus GoPlus address-reputation (drainer, phishing, mixer, laundering).
+Active corpus: every digital-currency address on Treasury's OFAC SDN list (Lazarus Group, Garantex and others), regenerated with `scripts/refresh_sdn.py`, plus GoPlus address-reputation (drainer, phishing, mixer, laundering).
 
 ### `POST /v1/attest` — signed decision attestation
 

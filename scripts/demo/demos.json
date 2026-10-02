@@ -20,15 +20,15 @@
     "endpoint": "GET /v1/screen",
     "price": "0.001",
     "duration_s": 30,
-    "user_text": "is 0x8589427373d6d84e98730d7795d8f6f8731fda16 sanctioned?",
+    "user_text": "is 0x098b716b8aaf21512996dc57eb0615e2383e2f96 sanctioned?",
     "agent_quote": "Wallet risk screen for that address — $0.02 USDC to call GET /v1/screen. Approve?",
-    "approval_body": "{\n  \"wallet\": \"0x8589427373d6d84e98730d7795d8f6f8731fda16\"\n}",
+    "approval_body": "{\n  \"wallet\": \"0x098b716b8aaf21512996dc57eb0615e2383e2f96\"\n}",
     "result_title": "screen_wallet · result",
     "pretty_rows": [
-      ["wallet",     "0x8589…fda16",                  "mono"],
+      ["wallet",     "0x098b…2f96",                  "mono"],
       ["sanctioned", "true",                          "err"],
       ["risk tier",  "high",                          "err"],
-      ["programs",   "OFAC SDN, Tornado Cash"],
+      ["programs",   "OFAC SDN, LAZARUS GROUP, DPRK3"],
       ["checked",    "2026-05-11 17:13 UTC"]
     ]
   },
@@ -72,9 +72,9 @@
     "endpoint": "POST /v1/investigate",
     "price": "1.770",
     "duration_s": 90,
-    "user_text": "investigate 0x8589427373d6d84e98730d7795d8f6f8731fda16",
+    "user_text": "investigate 0x098b716b8aaf21512996dc57eb0615e2383e2f96",
     "agent_quote": "Full multi-step due diligence on that wallet — $1.770 USDC to call POST /v1/investigate. ETA 5-10 min. Approve?",
-    "approval_body": "{\n  \"address\": \"0x8589427373d6d84e98730d7795d8f6f8731fda16\"\n}",
+    "approval_body": "{\n  \"address\": \"0x098b716b8aaf21512996dc57eb0615e2383e2f96\"\n}",
     "poll_steps": [
       "step 1/8: sanctions screen — OFAC SDN match",
       "step 2/8: balance + activity timeline (Base + Solana)",

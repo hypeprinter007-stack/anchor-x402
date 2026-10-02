@@ -21,7 +21,7 @@
     },
     {
       "name": "getSanctionsScreen",
-      "description": "Sanctions + AML screening for any EVM or Solana wallet. Returns sanctions match boolean, specific OFAC SDN programs flagged (Tornado Cash, Lazarus, Hydra, Garantex, Blender.io etc.), inferred chain, and a low/medium/high risk verdict.",
+      "description": "Sanctions + AML screening for any EVM or Solana wallet. Returns sanctions match boolean, the OFAC SDN entry and program matched (Lazarus Group, Garantex and others), inferred chain, and a low/medium/high risk verdict.",
       "url": "https://api.anchor-x402.com/v1/screen?wallet={{wallet}}",
       "params": {
         "type": "object",

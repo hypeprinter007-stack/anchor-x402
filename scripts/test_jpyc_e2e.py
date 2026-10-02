@@ -122,7 +122,7 @@ def main() -> int:
     failures = 0
 
     tests = [
-        ("screen", lambda: s.get(f"{API}/v1/screen?wallet=0x8589427373d6d84e98730d7795d8f6f8731fda16"), 10**17),  # ¥0.1
+        ("screen", lambda: s.get(f"{API}/v1/screen?wallet=0x098b716b8aaf21512996dc57eb0615e2383e2f96"), 10**17),  # ¥0.1
         ("anchor", lambda: s.post(f"{API}/v1/anchor", json={
             "hash": hashlib.sha256(b"jpyc e2e " + os.urandom(8)).hexdigest(),
         }), 10**18),  # ¥1

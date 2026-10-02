@@ -391,7 +391,7 @@
         "risk"
       ],
       "examples": [
-        "{\"wallet\": \"0x8589427373d6d84e98730d7795d8f6f8731fda16\"}"
+        "{\"wallet\": \"0x098b716b8aaf21512996dc57eb0615e2383e2f96\"}"
       ]
     },
     {
@@ -586,7 +586,7 @@
   "signatures": [
     {
       "protected": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImRpZDp3ZWI6YW5jaG9yLXg0MDIuY29tI2FuY2hvci1jYXJkLTIwMjYtMDEiLCJ0eXAiOiJKT1NFIn0",
-      "signature": "aAEptVjiL5gc304JtfeIQr4gjbyNN1wTtSlSIDCxM3wfCZmnjAQeS0bD4740S1oCbYYQ4oC86yJk_8uX1hO9PA"
+      "signature": "tSZTjRALdtkufRM8qEMvVmKjVpmuvmCEnZEy46K23CRsPIw7PI7I1Ev-RvDK-pQFpSBy8eRDBespxL60-6WPVQ"
     }
   ]
 }

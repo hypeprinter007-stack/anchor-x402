@@ -49,8 +49,8 @@ export BASE_PRIVATE_KEY=0xYourAgentEOA
 ## Run
 
 ```bash
-# A wallet known to be on the OFAC SDN list (Tornado Cash)
-python agent.py 0x8589427373d6d84e98730d7795d8f6f8731fda16
+# A wallet known to be on the OFAC SDN list (Lazarus Group)
+python agent.py 0x098b716b8aaf21512996dc57eb0615e2383e2f96
 
 # A wallet known to be clean (vitalik.eth)
 python agent.py 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045

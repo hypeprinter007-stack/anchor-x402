@@ -124,13 +124,13 @@ Everything below references files at `https://github.com/<owner>/anchor-x402` an
 **Concern.** A reviewer must be able to verify every entry in the screening list against an authoritative public source (OFAC) — no proprietary, undisclosed, or arbitrary additions.
 
 **What to read.**
-- `services/screen.py:1-39` — the `_EVM_SANCTIONED` and `_SOLANA_SANCTIONED` dicts with inline comments.
-- `services/screen.py:14-15` — explicit comment: "Production: replace with daily Treasury.gov CSV pull."
-- `services/screen.py:53-99` — the `screen()` function, which is pure and stateless.
+- `scripts/refresh_sdn.py` — downloads Treasury's SDN file and writes every digital-currency address it can screen (EVM `0x` addresses under any ticker, Solana under `SOL`) with the entry's listed name and programs.
+- `services/ofac_sdn.py` — the generated corpus, stamped with the date it was pulled (`VERSION`).
+- `services/screen.py` — the `screen()` function. The sanctions layer is an exact lookup against that corpus.
 
-**What you'll see.** Every EVM entry is annotated with the OFAC sanctions program name and (in the case of Tornado Cash, Hydra, Garantex, Blender.io) the publication date — e.g. `# Tornado Cash (OFAC SDN, August 2022)` (line 17). Reviewers can cross-check each address against `https://www.treasury.gov/ofac/downloads/sdn.csv` or the SDN search UI. The Solana dict (lines 36-39) is intentionally empty with a comment that production should populate it from the Treasury feed. The `screen()` function (lines 53-99) only does a dict lookup against the lowercased EVM address (line 76-77) or raw base58 Solana pubkey (line 80) — there is no fuzzy match, no scoring, no proprietary data.
+**What you'll see.** Every entry carries the SDN name and program exactly as Treasury publishes them, e.g. `['OFAC SDN', 'LAZARUS GROUP', 'DPRK3']`. Reviewers can regenerate the file with `scripts/refresh_sdn.py` and diff it, or cross-check any address in the SDN search UI. There are no hand-added sanctions entries. The one hand-maintained list, `_KNOWN_MIXERS` (Tornado Cash, delisted by OFAC on 2025-03-21), is reported as a `mixer` signal that yields `review`, never as a sanctions match.
 
-**Residual risk.** This is a static MVP corpus, not a daily pull. An address sanctioned after this code was last edited will not be flagged. The README at the file head (lines 1-7) is candid that production should pair this with a daily Treasury.gov CSV refresh and ideally Chainabuse / GoPlus / proprietary AML data. There is no clustering or transaction-graph analysis — a wallet that *received* funds from a sanctioned address but is not itself listed will not match.
+**Residual risk.** The corpus is regenerated and deployed, not pulled live, so an address listed after the `VERSION` stamp will not match until the next refresh. There is no clustering or transaction-graph analysis — a wallet that *received* funds from a sanctioned address but is not itself listed will not match.
 
 ---
 

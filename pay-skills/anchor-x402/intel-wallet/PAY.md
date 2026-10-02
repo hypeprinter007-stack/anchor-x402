@@ -26,8 +26,8 @@ The address shape is auto-inferred:
   a best-effort reverse SNS lookup via Bonfida.
 
 Every response — EVM or Solana — also carries the sanctions verdict
-from the same OFAC SDN corpus that powers `/v1/screen` (Tornado Cash,
-Lazarus Group, Hydra Market, Garantex, Blender.io, and more).
+from the same OFAC SDN corpus that powers `/v1/screen` (every
+digital-currency address on Treasury's SDN list).
 
 Per-source failures degrade gracefully: a slot returns `null` and a
 typed entry lands in `errors[]` — the bundle never fails as a whole.

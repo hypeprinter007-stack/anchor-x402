@@ -10,7 +10,7 @@ response back transparently. Total spend per agent run: ~$0.006 USDC.
 Run:
     OPENAI_API_KEY=sk-...   \\
     BASE_PRIVATE_KEY=0x...  \\
-    python agent.py 0x8589427373d6d84e98730d7795d8f6f8731fda16
+    python agent.py 0x098b716b8aaf21512996dc57eb0615e2383e2f96
 """
 from __future__ import annotations
 

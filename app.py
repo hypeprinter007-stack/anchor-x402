@@ -496,7 +496,7 @@ _SCREEN_DESCRIPTION = (
 )
 
 _screen_bazaar_ext = declare_discovery_extension(
-    input={"wallet": "0x8589427373d6d84e98730d7795d8f6f8731fda16"},  # Tornado Cash example
+    input={"wallet": "0x098b716b8aaf21512996dc57eb0615e2383e2f96"},  # Lazarus Group (OFAC SDN) example
     input_schema={
         "properties": {
             "wallet": {"type": "string", "description": "Wallet address — EVM 0x… (40 hex) or Solana base58 pubkey."},
@@ -505,20 +505,24 @@ _screen_bazaar_ext = declare_discovery_extension(
     },
     body_type="json",
     output=OutputConfig(example={
-        "wallet": "0x8589427373d6d84e98730d7795d8f6f8731fda16",
+        "wallet": "0x098b716b8aaf21512996dc57eb0615e2383e2f96",
         "chain_inferred": "ethereum",
         "sanctions_match": True,
-        "sanctioned_lists": ["OFAC SDN", "Tornado Cash"],
+        "sanctioned_lists": ["OFAC SDN", "LAZARUS GROUP", "DPRK3"],
         "risk_level": "critical",
-        "notes": "Address matches 2 sanctions program(s): OFAC SDN, Tornado Cash. DO NOT transact without a regulatory-approved exception.",
+        "notes": "Address is on the OFAC SDN list as LAZARUS GROUP (program DPRK3). DO NOT transact without a regulatory-approved exception.",
         "address_type": "eoa",
         "recommendation": "block",
         "risk_score": 100,
-        "signals": [{"code": "ofac_sdn", "severity": "critical", "source": "treasury.gov", "detail": "OFAC SDN, Tornado Cash"}],
+        "signals": [
+            {"code": "ofac_sdn", "severity": "critical", "source": "treasury.gov", "detail": "OFAC SDN, LAZARUS GROUP, DPRK3"},
+            {"code": "sanctioned", "severity": "critical", "source": "goplus", "detail": "On a sanctions list"},
+            {"code": "stealing_attack", "severity": "critical", "source": "goplus", "detail": "Linked to token-stealing attacks"},
+        ],
         "labels": [],
-        "corpus_version": "2026-08-04-static",
+        "corpus_version": "ofac-sdn-2026-10-02",
         "partial": False,
-        "checked_at": 1790190945,
+        "checked_at": 1790985600,
     }),
 )
 

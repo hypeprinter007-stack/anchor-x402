@@ -33,7 +33,8 @@ def _mock_goplus(flags: dict | None):
     return lambda _addr: flags
 
 
-TORNADO = "0x8589427373d6d84e98730d7795d8f6f8731fda16"  # OFAC in corpus
+SDN = "0x098b716b8aaf21512996dc57eb0615e2383e2f96"  # Lazarus Group, on the SDN list
+TORNADO = "0x8589427373d6d84e98730d7795d8f6f8731fda16"  # delisted 2025-03-21; known mixer
 CLEAN = "0x1111111111111111111111111111111111111111"
 
 
@@ -45,7 +46,7 @@ def test_screen():
 
     # OFAC floor stands even when the enrichment layer is down.
     screen_svc._goplus_lookup = _mock_goplus(None)
-    v = screen_svc.screen(TORNADO)
+    v = screen_svc.screen(SDN)
     ok("OFAC hit → block/critical/score100", v["recommendation"] == "block" and v["risk_level"] == "critical" and v["risk_score"] == 100)
     ok("OFAC hit → sanctions_match true", v["sanctions_match"] is True)
     ok("OFAC hit → exactly one ofac_sdn signal", [s["code"] for s in v["signals"]] == ["ofac_sdn"], str(v["signals"]))
@@ -55,14 +56,18 @@ def test_screen():
     # whitespace alone — the unknown-chain branch skips the corpus entirely,
     # which would report sanctions_match=false and let the refund gate pay out.
     for label, variant in [
-        ("0X prefix", "0X" + TORNADO[2:]),
-        ("mixed-case body", "0x" + TORNADO[2:].upper()),
-        ("surrounding whitespace", f"  {TORNADO}\n"),
+        ("0X prefix", "0X" + SDN[2:]),
+        ("mixed-case body", "0x" + SDN[2:].upper()),
+        ("surrounding whitespace", f"  {SDN}\n"),
     ]:
         v = screen_svc.screen(variant)
         ok(f"OFAC hit survives {label}",
            v["sanctions_match"] is True and v["recommendation"] == "block",
            str({k: v[k] for k in ("chain_inferred", "sanctions_match", "recommendation")}))
+
+    v = screen_svc.screen(TORNADO)
+    ok("Tornado Cash → not a sanctions match (delisted)", v["sanctions_match"] is False and v["sanctioned_lists"] == [], str(v))
+    ok("Tornado Cash → review on the mixer signal", v["recommendation"] == "review" and [s["code"] for s in v["signals"]] == ["mixer"], str(v["signals"]))
 
     all_zero = {k: "0" for k in screen_svc._GOPLUS_FLAGS}
     all_zero["contract_address"] = "0"

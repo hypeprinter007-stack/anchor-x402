@@ -406,8 +406,8 @@ const DEMOS = {
             output: { answer: "MAYBE", explanation: "Possible if you cut the bottom three items and stop opening Twitter.", merkle_root: "ab0898397c…dcb9bd686b3", base_tx: "0x7fb4d107d8…0974e96", solana_tx: "u8rqU4oSQk…ZMPKW2" } },
   tldr:   { input: "tldr https://anchor-x402.com", price: "$0.01",
             output: { summary_bullets: ["Fifteen x402-paid AI services for agents.", "Pay per call in USDC on Base or Solana.", "Indexed across CDP Bazaar, agentic.market, Virtuals ACP, MCP registries."], source_chars: 5200 } },
-  screen: { input: "is 0x8589427373d6d84e98730d7795d8f6f8731fda16 sanctioned?", price: "$0.02",
-            output: { wallet: "0x8589…fda16", sanctions_match: true, sanctioned_lists: ["OFAC SDN", "Tornado Cash"], risk_level: "high" } },
+  screen: { input: "is 0x098b716b8aaf21512996dc57eb0615e2383e2f96 sanctioned?", price: "$0.02",
+            output: { wallet: "0x098b…2f96", sanctions_match: true, sanctioned_lists: ["OFAC SDN", "LAZARUS GROUP", "DPRK3"], risk_level: "critical" } },
   grade:  { input: 'grade "uber but for sourdough starters"', price: "$0.01",
             output: { letter_grade: "C-", marginalia: ["Live-culture cargo is a regulatory mood.", "Brand assumes sourdough discourse is monetizable. It isn't.", "Vertical-niche food platforms have surprised before. Keep one eye on it."], summary: "Adventurous concept, brutal unit economics." } },
 };
@@ -500,7 +500,7 @@ function prefillInput(p) {
 // ====================== rotating placeholder ======================
 const PLACEHOLDERS = [
   "ask anything…",
-  "is 0x8589427373d6d84e98730d7795d8f6f8731fda16 sanctioned?",
+  "is 0x098b716b8aaf21512996dc57eb0615e2383e2f96 sanctioned?",
   "aura check vitalik.eth",
   "grade my startup pitch: …",
   "oracle: will the market be up tomorrow?",

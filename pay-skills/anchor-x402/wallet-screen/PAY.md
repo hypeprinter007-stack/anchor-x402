@@ -1,7 +1,7 @@
 ---
 name: wallet-screen
 title: "anchor-x402: wallet screening"
-description: "Wallet risk pre-flight for agent payments. OFAC SDN sanctions (Tornado Cash, Lazarus Group, Hydra Market, Blender.io, etc.) plus address-reputation (drainer, phishing, mixer, laundering) resolved to an allow/review/block recommendation with a 0-100 risk score and per-signal detail — for $0.02 USDC per call."
+description: "Wallet risk pre-flight for agent payments. OFAC SDN sanctions (every digital-currency address on Treasury's OFAC SDN list (Lazarus Group, Garantex and others)) plus address-reputation (drainer, phishing, mixer, laundering) resolved to an allow/review/block recommendation with a 0-100 risk score and per-signal detail — for $0.02 USDC per call."
 use_case: "Use for AML pre-flight checks before any treasury transfer, KYC onboarding, vendor diligence, payroll wallet verification, marketplace counterparty checks, payment processor compliance, or any agent workflow that needs cheap, fast sanctions clearance."
 category: security
 service_url: https://api.anchor-x402.com
@@ -18,10 +18,10 @@ back. Address shape detection is automatic: `0x` + 40 hex → EVM, base58
 `notes` field. It degrades to a `partial` verdict rather than failing if
 the reputation layer is unavailable.
 
-The corpus covers OFAC SDN crypto entries (Tornado Cash, Lazarus Group
-[DPRK], Hydra Market, Blender.io, and other publicly documented targets)
-plus an address-reputation layer from GoPlus (drainer / phishing / mixer
-/ laundering flags). Sanctions data refreshed from public sources.
+The corpus covers every digital-currency address on Treasury's OFAC SDN
+list (Lazarus Group, Garantex and others), generated from the official
+SDN file, plus an address-reputation layer from GoPlus (drainer /
+phishing / mixer / laundering flags).
 
 ## Spend-aware usage
 

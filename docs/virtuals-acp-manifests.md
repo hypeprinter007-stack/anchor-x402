@@ -34,7 +34,7 @@ https://api.anchor-x402.com/v1/anchor?hash={{hash}}&note={{note}}
 
 **Description:**
 ```
-Wallet risk pre-flight for agent payments. OFAC SDN sanctions (Tornado Cash, Lazarus, Hydra, Blender.io, etc.) plus address-reputation (drainer, phishing, mixer, laundering) resolved to an allow / review / block recommendation with a 0-100 risk score, per-signal detail, and inferred chain.
+Wallet risk pre-flight for agent payments. OFAC SDN sanctions (every digital-currency address on Treasury's OFAC SDN list (Lazarus Group, Garantex and others)) plus address-reputation (drainer, phishing, mixer, laundering) resolved to an allow / review / block recommendation with a 0-100 risk score, per-signal detail, and inferred chain.
 ```
 
 **URL:**

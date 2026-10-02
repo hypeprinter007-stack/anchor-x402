@@ -26,7 +26,7 @@ export BASE_PRIVATE_KEY=0xYourPrivateKey  # NOT the treasury — use a fresh age
 
 ```bash
 node agent.mjs 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045   # vitalik.eth, expected: clean
-node agent.mjs 0x8589427373d6d84e98730d7795d8f6f8731fda16   # tornado-cash address, expected: sanctioned
+node agent.mjs 0x098b716b8aaf21512996dc57eb0615e2383e2f96   # Lazarus Group address, expected: sanctioned
 ```
 
 Real captured output (run 2026-05-13 against vitalik.eth, with the test agent EOA elided):

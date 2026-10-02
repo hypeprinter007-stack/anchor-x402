@@ -36,7 +36,7 @@ def ok(name: str, cond: bool, detail: str = "") -> None:
         _fails += 1
 
 
-FIXTURE = "0x8589427373d6d84e98730d7795d8f6f8731fda16"
+FIXTURE = "0x098b716b8aaf21512996dc57eb0615e2383e2f96"
 RESOURCE = "https://api.anchor-x402.com/v1/trial/screen"
 PAY_TO = "0x127462e296fAc1A7F5cF33bA57bB2f0FFf5cD0B6"
 NONCE = "0x" + "ab" * 32
