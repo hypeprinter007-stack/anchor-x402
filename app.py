@@ -24,6 +24,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from mangum import Mangum
 from starlette.concurrency import run_in_threadpool
+from web3.exceptions import TransactionNotFound
 
 logging.basicConfig(
     level=logging.INFO,
@@ -565,7 +566,7 @@ _attest_bazaar_ext = declare_discovery_extension(
 )
 
 _tx_decode_bazaar_ext = declare_discovery_extension(
-    input={"chain": "base", "tx_hash": "0x7fb4d107d8c1b65b33851434c6fd178b682a143904a2bfa89ff2c1fa70974e96"},
+    input={"chain": "base", "tx_hash": "0x41bc6bb80ae970d96a6db2ff9d8c831f749d11726e97b4976ba4130e77c3758b"},  # a real x402 USDC settlement
     input_schema={
         "properties": {
             "chain": {"type": "string", "enum": ["base", "ethereum", "solana"]},
@@ -575,10 +576,10 @@ _tx_decode_bazaar_ext = declare_discovery_extension(
     },
     body_type="json",
     output=OutputConfig(example={
-        "chain": "base", "tx_hash": "0x7fb4...", "block_number": 24000000,
-        "timestamp": 1746820000, "from_address": "0xFE70...", "to_address": "0xFE70...",
-        "value_wei": "0", "value_eth": "0", "gas_used": 21064, "status": 1,
-        "input_calldata_hex": "0xab08...", "native_currency": "ETH",
+        "chain": "base", "tx_hash": "0x41bc6bb80ae970d96a6db2ff9d8c831f749d11726e97b4976ba4130e77c3758b", "block_number": 51400631,
+        "timestamp": 1789590609, "from_address": "0x14fDa13953Fc30428938E6BF950d036e77214e52", "to_address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "value_wei": "0", "value_eth": "0", "gas_used": 86514, "status": 1,
+        "input_calldata_hex": "0xe3ee160e...", "native_currency": "ETH",
     }),
 )
 
@@ -1882,6 +1883,9 @@ def decode_tx(req: TxDecodeRequest) -> TxDecodeResponse:
         decoded = tx_decode_svc.decode(req.chain, req.tx_hash)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except TransactionNotFound:
+        # The caller's hash, not our fault: a 4xx, and the payment never settles.
+        raise HTTPException(status_code=404, detail=f"transaction not found on {req.chain}")
     except Exception as e:
         logging.getLogger("tx_decode").exception("decode failed")
         raise HTTPException(status_code=502, detail=f"decode failed: {type(e).__name__}: {e}")
