@@ -917,6 +917,65 @@ for _ext, _cat in (
     _ext["bazaar"]["discoverable"] = True
     _ext["bazaar"]["category"] = _cat
 
+# Declare each route's output schema, taken from the same Pydantic model that
+# shapes the response, so buyers and validators (vet402's L2) know which keys
+# come back. PayAI validates `info` against `schema` with AJV and silently
+# drops a route whose example fails, so the schema is reduced to plain
+# keywords AJV accepts in strict mode (no descriptions: the whole declaration
+# rides in one 402 header), and scripts/test_bazaar_schema.py checks every live
+# example against it.
+_SCHEMA_KEYWORDS = {
+    "type", "properties", "required", "items", "anyOf", "enum", "const",
+    "additionalProperties", "minimum", "maximum",
+    "minLength", "maxLength", "minItems", "maxItems",
+}
+
+
+def _plain_schema(node: Any, defs: dict) -> Any:
+    if isinstance(node, list):
+        return [_plain_schema(n, defs) for n in node]
+    if not isinstance(node, dict):
+        return node
+    if "$ref" in node:
+        return _plain_schema(defs[node["$ref"].rsplit("/", 1)[-1]], defs)
+    out = {}
+    for k, v in node.items():
+        if k == "properties":
+            out[k] = {name: _plain_schema(sub, defs) for name, sub in v.items()}
+        elif k in _SCHEMA_KEYWORDS:
+            out[k] = _plain_schema(v, defs) if isinstance(v, (dict, list)) else v
+    return out
+
+
+def _declare_output_schema(ext: dict, model: type) -> None:
+    raw = model.model_json_schema()
+    schema = _plain_schema(raw, raw.get("$defs", {}))
+    ext["bazaar"]["schema"]["properties"]["output"]["properties"]["example"] = schema
+
+
+from models import InvestigateAcceptedResponse, LedgerReportAccepted  # noqa: E402
+
+for _ext, _model in (
+    (_anchor_bazaar_ext, AnchorResponse),
+    (_screen_bazaar_ext, ScreenResponse),
+    (_attest_bazaar_ext, AttestResponse),
+    (_tx_decode_bazaar_ext, TxDecodeResponse),
+    (_name_resolve_bazaar_ext, NameResolveResponse),
+    (_token_price_bazaar_ext, TokenPriceResponse),
+    (_calldata_decode_bazaar_ext, CalldataDecodeResponse),
+    (_intel_wallet_bazaar_ext, IntelWalletResponse),
+    (_investigate_bazaar_ext, InvestigateAcceptedResponse),
+    (_datetime_parse_bazaar_ext, DatetimeParseResponse),
+    (_roast_bazaar_ext, RoastResponse),
+    (_oracle_bazaar_ext, OracleResponse),
+    (_aura_bazaar_ext, AuraResponse),
+    (_grade_bazaar_ext, GradeResponse),
+    (_tldr_bazaar_ext, TldrResponse),
+    (_roll_bazaar_ext, RollResponse),
+    (_ledger_report_bazaar_ext, LedgerReportAccepted),
+):
+    _declare_output_schema(_ext, _model)
+
 x402_routes = {
     "POST /v1/anchor": RouteConfig(
         accepts=_accepts_at("$0.005"),
@@ -1006,16 +1065,15 @@ x402_routes = {
     ),
     # GET twins so a bare probe reaches the 402 challenge instead of a 405
     # (same discovery convention as every other route; the two ledger endpoints
-    # were the only POST-only pair left — nohumans.directory #5).
+    # were the only POST-only pair left — nohumans.directory #5). No bazaar
+    # extension, like every other GET twin: POST is the one listing.
     "GET /v1/ledger/summary": RouteConfig(
         accepts=_accepts_at("$0.01"),
         description="x402 spend accounting for any Base wallet — totals + per-service breakdown reconstructed from chain data. $0.01 USDC.",
-        extensions={**_ledger_summary_bazaar_ext},
     ),
     "GET /v1/ledger/report": RouteConfig(
         accepts=_accepts_at("$0.35"),
         description="Signed + dual-chain-anchored x402 expense report (markdown + CSV, async job). $0.35 USDC.",
-        extensions={**_ledger_report_bazaar_ext},
     ),
     # GET wrappers for function-like callers (Virtuals ACP, etc.) — same price, no
     # bazaar extensions to avoid duplicate listings (POST is the canonical entry).
