@@ -102,8 +102,8 @@ def sign_with_treasury(input_hash: str, output_hash: str, decision: str) -> tupl
 def confirm_base_anchor(base_tx: str, expected_root: str) -> dict:
     """Confirm a Base tx anchored exactly `expected_root` as its calldata.
 
-    Anchors are self-transfer txs whose calldata is `0x<root>` (see
-    services/anchor.anchor_to_base). Stateless — reads the chain, stores
+    Anchors are treasury txs whose calldata is `0x<root>` (see
+    services/anchor.anchor_to_base); older ones are self-transfers. Stateless — reads the chain, stores
     nothing. Never raises; returns a structured verdict.
     """
     import os

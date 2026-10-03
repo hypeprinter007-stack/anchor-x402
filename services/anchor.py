@@ -17,6 +17,10 @@ log = logging.getLogger("anchor")
 BASE_RPC_URL = os.getenv("BASE_RPC_URL", "https://mainnet.base.org")
 SOLANA_RPC_URL = os.getenv("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com")
 _MEMO_PROGRAM_ID = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
+# Base anchors carry the root as calldata to a codeless sink. They used to be
+# self-transfers, but the treasury now has EIP-7702 delegation code, so a call
+# to itself runs the delegate and reverts. Verifiers read only the calldata.
+_BASE_ANCHOR_SINK = "0x000000000000000000000000000000000000dEaD"
 
 
 def _treasury_evm_key() -> str:
@@ -28,7 +32,7 @@ def _treasury_solana_key() -> str:
 
 
 def anchor_to_base(merkle_root: str) -> str:
-    """Post merkle_root as EIP-1559 calldata to Base. Returns 0x-prefixed tx hash."""
+    """Post merkle_root as EIP-1559 calldata from the treasury to Base. Returns 0x-prefixed tx hash."""
     from web3 import Web3
     w3 = Web3(Web3.HTTPProvider(BASE_RPC_URL))
     key = _treasury_evm_key()
@@ -39,7 +43,7 @@ def anchor_to_base(merkle_root: str) -> str:
     gas_price = w3.eth.gas_price
     tx = {
         "from": acct.address,
-        "to": acct.address,
+        "to": _BASE_ANCHOR_SINK,
         "value": 0,
         "data": "0x" + merkle_root,
         "nonce": nonce,
