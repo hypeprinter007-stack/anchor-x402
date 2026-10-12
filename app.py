@@ -2056,8 +2056,10 @@ class FeedbackRequest(_BM):
     model_config = {"extra": "forbid"}
     endpoint: str = _F(..., min_length=1, max_length=200,
                        description="The route the report is about, e.g. 'POST /v1/screen'.")
-    what_happened: str = _F(..., min_length=1, max_length=2000,
-                            description="What the call returned or did, including any status code or error text.")
+    # 10 characters: a real report clears it, a scanner filling required
+    # fields with "1" (weekly since 2026-10-04) gets a 422, not an alarm.
+    what_happened: str = _F(..., min_length=10, max_length=2000,
+                            description="What the call returned or did, including any status code or error text. At least 10 characters.")
     expected: str | None = _F(None, max_length=1000, description="What you expected instead.")
     request_id: str | None = _F(None, max_length=128,
                                 description="A settlement tx hash, job_id or other id that identifies the call.")

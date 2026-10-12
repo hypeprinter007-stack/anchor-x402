@@ -60,6 +60,8 @@ ok("injected text is data, not a second record", json.loads(lines[0].removeprefi
 ok("missing required field → 422", post({"endpoint": "x"})[0].status_code == 422)
 ok("unknown field → 422", post({**REPORT, "run": "rm -rf /"})[0].status_code == 422)
 ok("oversize what_happened → 422", post({**REPORT, "what_happened": "a" * 2001})[0].status_code == 422)
+r, lines = post({"endpoint": "1", "what_happened": "1"})
+ok("placeholder report (\"1\") → 422, nothing logged", r.status_code == 422 and not lines)
 
 a2a._local_store.clear()
 feedback._tripped.clear()
