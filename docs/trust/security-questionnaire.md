@@ -269,7 +269,7 @@ We treat IR as a single-person playbook with crisp obligations rather than a mul
 
 **Q31. Cyber-liability insurance?** **No.** Known gap. Customers requiring insurer-backed indemnification should treat this as a hard gap.
 
-**Q32. Bug bounty?** Not formal. Will pay reasonable bounties (out-of-pocket) for valid reports of (a) auth bypass on the x402 payment check, (b) treasury-key extraction, (c) cross-tenant data leakage. Email security@anchor-x402.com.
+**Q32. Bug bounty?** No monetary bounty. Valid reports are credited in a GitHub Security Advisory. Email security@anchor-x402.com.
 
 **Q33. Incident history?** GitHub Security advisories on the source repo. No separate page yet.
 

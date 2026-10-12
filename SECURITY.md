@@ -12,7 +12,7 @@ We acknowledge security disclosures within **5 business days** and aim to publis
 
 In scope (we want to hear about these):
 
-- Bypassing the x402 payment check on any of the 9 paid endpoints
+- Bypassing the x402 payment check on any of the 18 paid endpoints (including getting a route to run more than once for one payment)
 - Treasury private-key extraction or compromise paths (Lambda, IAM, Secrets Manager)
 - CDP facilitator JWT auth bypass
 - Cross-tenant data leakage (note: by design we store no per-customer PII; report any path that disproves this)
@@ -40,13 +40,7 @@ Out of scope:
 
 ## Bug bounty
 
-Not a formal program. We pay reasonable bounties out-of-pocket for valid reports of:
-
-- Auth bypass on the x402 payment middleware (treasury can be drained without paying)
-- Treasury-key extraction (any path that exfiltrates the EVM or Solana private keys from Secrets Manager or Lambda memory)
-- Cross-tenant data leakage in any paid response
-
-Bounty range: case-by-case, generally **$50–$500 USDC** for critical reports during the early commercial phase. Full bounty matrix will be posted at [anchor-x402.com/trust/](https://anchor-x402.com/trust/) once the program is formal.
+This project does **not** offer a monetary bug bounty. We credit good-faith researchers in the security advisory and the acknowledgments below (or keep it anonymous — your call).
 
 ## What this codebase IS NOT certified for
 
