@@ -668,29 +668,40 @@ def main() -> None:
     # calls and revenue in the same ledger /v1/ledger/* reports from.
     import io, contextlib
     import app as _app2
-    # PAID_CALL only fires on a <400 response, so a real paid tool would 402 here
-    # and prove nothing. Route the tool at the free POST route instead: the inner
-    # hop returns 200 with a parseable payment header, so PAID_CALL genuinely
-    # fires for it — and the /mcp hop must still not appear.
-    _app2._MCP_TOOLS["__probe"] = "/v1/a2a"
+    # PAID_CALL fires only for a paid route whose payment settled, so stub the
+    # payment middleware to pass through (as a settled payment would) and route
+    # the tool at /v1/roll: the inner hop then books exactly one PAID_CALL, and
+    # the /mcp hop must not appear.
+    _app2._MCP_TOOLS["__probe"] = "/v1/roll"
+    _real_pm = _app2.payment_middleware
+
+    def _settled(routes, server):
+        async def mw(request, call_next):
+            return await call_next(request)
+        return mw
+
+    _app2.payment_middleware = _settled
+    from services import a2a as _a2a
+    _a2a._local_store.clear()
     signed = base64.b64encode(json.dumps({
         "x402Version": 2,
         "accepted": {"network": "eip155:8453"},
         "payload": {"authorization": {
-            "from": "0x0000000000000000000000000000000000000bad"}},
+            "from": "0x0000000000000000000000000000000000000bad", "nonce": "0x01"}},
     }).encode()).decode()
     buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(buf):
             client.post("/mcp", json=modern_body(
-                "tools/call", {"name": "__probe", "arguments": {"jsonrpc": "2.0", "id": 1}}),
+                "tools/call", {"name": "__probe", "arguments": {"low": 1, "high": 6}}),
                 headers={**modern_headers("tools/call", "__probe"),
                          "payment-signature": signed})
     finally:
         _app2._MCP_TOOLS.pop("__probe", None)
+        _app2.payment_middleware = _real_pm
     lines = [ln for ln in buf.getvalue().splitlines() if ln.startswith("PAID_CALL")]
     ok("the test payment header does reach the telemetry branch (guard is live)",
-       any('"/v1/a2a"' in ln for ln in lines), str(lines)[:200])
+       any('"/v1/roll"' in ln for ln in lines), str(lines)[:200])
     ok("the /mcp hop is never booked as a paid call",
        not [ln for ln in lines if '"path":"/mcp"' in ln], str(lines)[:200])
     ok("exactly one PAID_CALL per settlement", len(lines) == 1, f"{len(lines)}: {lines}")

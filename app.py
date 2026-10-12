@@ -79,6 +79,7 @@ from models import (
 )
 from services import a2a as a2a_svc
 from services import a2a_tasks
+from services import payment_claim
 from services import anchor as anchor_svc
 from services import attest as attest_svc
 from services import aura as aura_svc
@@ -199,12 +200,19 @@ async def _access_log(request, call_next):
             }, separators=(",", ":")))
         except Exception:
             pass
-    # Settled-payment telemetry. This middleware is innermost (inside x402_mw),
-    # so a request carrying X-PAYMENT that reached here has already passed
-    # verification — a <400 response means a paid call was delivered. One
-    # structured line per paid call gives per-rail / per-route / per-payer usage
-    # via Insights (the routes are otherwise stateless). Payer is a public
-    # on-chain address; best-effort, never raises into the request path.
+    return response
+
+
+def _record_paid_call(request, response) -> None:
+    """One PAID_CALL line per settled payment.
+
+    Called by x402_mw on the response the buyer actually gets, i.e. after
+    settlement. It used to run inside the payment middleware, before
+    settlement, so a verified payment that then failed to settle (a reused
+    authorization) was still counted as a paid call. Gives per-rail / per-route
+    / per-payer usage via Insights. Payer is a public on-chain address;
+    best-effort, never raises into the request path.
+    """
     pay_header = request.headers.get("payment-signature") or request.headers.get("x-payment")
     # The MCP endpoint is not itself metered: it forwards the payment inward to the
     # real route, which logs its own PAID_CALL. Counting the outer hop too would
@@ -249,7 +257,6 @@ async def _access_log(request, call_next):
                 ))
         except Exception:
             pass
-    return response
 
 
 # Cross-sell pointers up the value ladder, injected into paid JSON responses.
@@ -1536,8 +1543,20 @@ def _internal_auth_matches(request) -> bool:
 async def x402_mw(request, call_next):
     if _internal_auth_matches(request):
         return await call_next(request)
+    routes = {**x402_routes, **_SEPOLIA_TRIAL_ROUTES} if _sepolia_trial_open() else x402_routes
+    paid_route = f"{request.method} {request.url.path}" in routes
+    pay_header = request.headers.get("payment-signature") or request.headers.get("x-payment")
+    if paid_route and pay_header and not await run_in_threadpool(payment_claim.claim, pay_header):
+        # A copy of an authorization already presented: refuse before the route
+        # runs, or N concurrent copies run it N times for one settlement.
+        _log_402(request, "payment_replayed")
+        return JSONResponse(status_code=402, content={
+            "error": "payment_replayed",
+            "detail": "This payment authorization was already presented. Sign a fresh "
+                      "authorization for each request.",
+            "retry_hint": {"retryable": True, "action": "sign_fresh_authorization"},
+        })
     try:
-        routes = {**x402_routes, **_SEPOLIA_TRIAL_ROUTES} if _sepolia_trial_open() else x402_routes
         response = await payment_middleware(routes, x402_server)(request, call_next)
     except ValueError as e:
         # The x402 facilitator raises a bare ValueError when it REJECTS a payment
@@ -1572,8 +1591,9 @@ async def x402_mw(request, call_next):
         raise
     if response.status_code == 402:
         response = _inject_402_challenge_body(response)
-        has_pay = request.headers.get("payment-signature") or request.headers.get("x-payment")
-        _log_402(request, "payment_rejected" if has_pay else "challenge")
+        _log_402(request, "payment_rejected" if pay_header else "challenge")
+    elif paid_route:
+        _record_paid_call(request, response)
     return response
 
 
@@ -2231,9 +2251,9 @@ def investigate_dispatch(req: InvestigateRequest, request: Request) -> Investiga
         "requester": "x402",
         "source": "x402",
     }
-    # Deliver-or-die: the x402 payment is already settled by the time we get
-    # here, so a transient lambda invoke failure must not leave the buyer paid
-    # but undelivered. Retry with exponential backoff before marking FAILED.
+    # Deliver-or-die: the payment settles right after this returns (the
+    # authorization was claimed once in x402_mw), so a transient lambda invoke
+    # failure must not leave the buyer paid but undelivered. Retry with exponential backoff before marking FAILED.
     # Most observed failures are network blips or throttling, both transient.
     _DISPATCH_BACKOFF_S = [0.5, 1.0, 2.0, 4.0, 8.0]  # 5 attempts, ~15.5s worst case
     last_err: Exception | None = None
