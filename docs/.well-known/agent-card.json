@@ -373,10 +373,10 @@
     {
       "id": "screen_wallet",
       "name": "screen",
-      "description": "Wallet risk pre-flight for agent payments: OFAC SDN sanctions plus address-reputation (drainer, phishing, mixer, laundering) resolved to an allow/review/block recommendation with per-signal detail. $0.02 USDC.",
+      "description": "Wallet risk pre-flight for agent payments: OFAC SDN sanctions plus address-reputation (drainer, phishing, mixer, laundering) resolved to an allow/review/block recommendation with per-signal detail. $0.005 USDC.",
       "url": "https://api.anchor-x402.com/v1/screen",
       "method": "GET",
-      "price_usd": 0.02,
+      "price_usd": 0.005,
       "inputModes": [
         "application/json"
       ],
@@ -586,7 +586,7 @@
   "signatures": [
     {
       "protected": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImRpZDp3ZWI6YW5jaG9yLXg0MDIuY29tI2FuY2hvci1jYXJkLTIwMjYtMDEiLCJ0eXAiOiJKT1NFIn0",
-      "signature": "tSZTjRALdtkufRM8qEMvVmKjVpmuvmCEnZEy46K23CRsPIw7PI7I1Ev-RvDK-pQFpSBy8eRDBespxL60-6WPVQ"
+      "signature": "GkBuVP-kmBC9JMnVPUMTwZQXkb8RJYm4FYp9oPUGOH_atchkVJ_x8aEYa-XXBXoAuckw7J6INO3ICdEYwOtiOQ"
     }
   ]
 }

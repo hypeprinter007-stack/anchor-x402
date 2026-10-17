@@ -500,7 +500,7 @@ _SCREEN_DESCRIPTION = (
     "funds to it: an OFAC SDN sanctions check of the address plus address reputation "
     "(drainer, phishing, mixer, money laundering) for EVM and Solana. Returns one "
     "verdict to branch on (allow, review, or block) with a 0-100 risk score and "
-    "per-signal evidence. AML / KYT counterparty check for x402 payments. $0.02 USDC."
+    "per-signal evidence. AML / KYT counterparty check for x402 payments. $0.005 USDC."
 )
 
 _screen_bazaar_ext = declare_discovery_extension(
@@ -990,7 +990,7 @@ x402_routes = {
         extensions={**_anchor_bazaar_ext},
     ),
     "GET /v1/screen": RouteConfig(
-        accepts=_accepts_at("$0.02"),
+        accepts=_accepts_at("$0.005"),
         description=_SCREEN_DESCRIPTION,
     ),
     "POST /v1/attest": RouteConfig(
@@ -1111,7 +1111,7 @@ x402_routes = {
     # POST wrappers for GET-only endpoints — every crawler probe now reaches
     # the 402 challenge instead of bouncing on 405 method-mismatch.
     "POST /v1/screen": RouteConfig(
-        accepts=_accepts_at("$0.02"),
+        accepts=_accepts_at("$0.005"),
         description=_SCREEN_DESCRIPTION,
         extensions={**_screen_bazaar_ext},
     ),

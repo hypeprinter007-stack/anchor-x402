@@ -35,7 +35,7 @@ If the user's USDC balance is below the chosen endpoint's price, halt with a cle
 | # | Endpoint | Method | Price | Category | One-liner |
 |---|----------|--------|-------|----------|-----------|
 | 1 | `/v1/anchor` | POST / GET | $0.005 | security | Dual-chain hash anchoring (Base + Solana) |
-| 2 | `/v1/screen` | GET / POST | $0.02 | security | Wallet risk pre-flight — OFAC + address-reputation → allow/review/block |
+| 2 | `/v1/screen` | GET / POST | $0.005 | security | Wallet risk pre-flight — OFAC + address-reputation → allow/review/block |
 | 3 | `/v1/attest` | POST / GET | $0.010 | security | Verify signature → dual-chain anchor |
 | 4 | `/v1/decode/tx` | POST / GET | $0.001 | devtools | Structured mainnet tx decode (Base/Eth/Sol) |
 | 5 | `/v1/resolve/name` | GET / POST | $0.001 | identity | ENS + Bonfida SNS resolver |
@@ -114,7 +114,7 @@ Anchor a 32-byte hash to **Base + Solana mainnet in parallel**. Returns both tra
 
 ---
 
-### 2. `/v1/screen` — wallet risk pre-flight · $0.02
+### 2. `/v1/screen` — wallet risk pre-flight · $0.005
 
 Returns an `allow` / `review` / `block` recommendation with a risk score and per-signal detail: OFAC SDN sanctions plus address-reputation (drainer, phishing, mixer, laundering) from GoPlus. Degrades to a partial verdict rather than failing if the reputation layer is unavailable.
 

@@ -15,7 +15,7 @@
 | Endpoint | Method | Price | Purpose |
 |---|---|---|---|
 | `/v1/anchor` | POST | $0.005 | Anchor a 32-byte hash to Base + Solana mainnet in parallel |
-| `/v1/screen` | GET | $0.02 | OFAC sanctions + address-reputation (drainer/phishing/mixer) → allow/review/block verdict |
+| `/v1/screen` | GET | $0.005 | OFAC sanctions + address-reputation (drainer/phishing/mixer) → allow/review/block verdict |
 | `/v1/attest` | POST | $0.010 | Verify a wallet signature, dual-chain anchor the result |
 | `/v1/decode/tx` | POST | $0.001 | Structured decode of any mainnet tx (Base / Ethereum / Solana) |
 | `/v1/resolve/name` | GET | $0.001 | Cross-chain name resolution (ENS, Bonfida SNS) |

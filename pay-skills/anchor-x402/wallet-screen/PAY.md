@@ -1,7 +1,7 @@
 ---
 name: wallet-screen
 title: "anchor-x402: wallet screening"
-description: "Wallet risk pre-flight for agent payments. OFAC SDN sanctions (every digital-currency address on Treasury's OFAC SDN list (Lazarus Group, Garantex and others)) plus address-reputation (drainer, phishing, mixer, laundering) resolved to an allow/review/block recommendation with a 0-100 risk score and per-signal detail — for $0.02 USDC per call."
+description: "Wallet risk pre-flight for agent payments. OFAC SDN sanctions (every digital-currency address on Treasury's OFAC SDN list (Lazarus Group, Garantex and others)) plus address-reputation (drainer, phishing, mixer, laundering) resolved to an allow/review/block recommendation with a 0-100 risk score and per-signal detail — for $0.005 USDC per call."
 use_case: "Use for AML pre-flight checks before any treasury transfer, KYC onboarding, vendor diligence, payroll wallet verification, marketplace counterparty checks, payment processor compliance, or any agent workflow that needs cheap, fast sanctions clearance."
 category: security
 service_url: https://api.anchor-x402.com
@@ -9,7 +9,7 @@ openapi:
   url: https://api.anchor-x402.com/openapi.json
 ---
 
-`GET /v1/screen?wallet=<address>` — pay $0.02 USDC, get a risk verdict
+`GET /v1/screen?wallet=<address>` — pay $0.005 USDC, get a risk verdict
 back. Address shape detection is automatic: `0x` + 40 hex → EVM, base58
 (32-44 chars) → Solana. The verdict carries `recommendation`
 (`allow`/`review`/`block` — the field to branch on), `risk_score`

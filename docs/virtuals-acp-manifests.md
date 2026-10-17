@@ -28,7 +28,7 @@ https://api.anchor-x402.com/v1/anchor?hash={{hash}}&note={{note}}
 
 ---
 
-## 2. `getSanctionsScreen` — $0.02
+## 2. `getSanctionsScreen` — $0.005
 
 **Name:** `getSanctionsScreen`
 

@@ -192,7 +192,7 @@
     ]
   },
   "screen_wallet": {
-    "description": "Wallet risk pre-flight for agent payments: OFAC SDN sanctions plus address-reputation (drainer, phishing, mixer, laundering) resolved to an allow/review/block recommendation with per-signal detail. $0.02 USDC.",
+    "description": "Wallet risk pre-flight for agent payments: OFAC SDN sanctions plus address-reputation (drainer, phishing, mixer, laundering) resolved to an allow/review/block recommendation with per-signal detail. $0.005 USDC.",
     "examples": [
       {
         "wallet": "0x098b716b8aaf21512996dc57eb0615e2383e2f96"
