@@ -31,8 +31,10 @@ def claim_key(header: str) -> str:
     """Stable id for the authorization a payment header carries.
 
     EVM (Base, Arc, Polygon): the EIP-3009 nonce, which the signer chose and
-    the token contract consumes exactly once. Solana: the signed transaction.
-    Anything else: the header bytes.
+    the token contract consumes exactly once. Solana: the message the payer
+    signed. Not the whole transaction: the fee payer's signature slot is
+    outside the payer's signature, so a copy with different bytes there is
+    the same payment. Anything else: the header bytes.
     """
     try:
         payload = json.loads(base64.b64decode(header))
@@ -42,10 +44,22 @@ def claim_key(header: str) -> str:
         if auth.get("nonce") and auth.get("from"):
             return f"pay:{network}:{str(auth['from']).lower()}:{str(auth['nonce']).lower()}"
         if isinstance(inner.get("transaction"), str):
-            return f"pay:{network}:{hashlib.sha256(inner['transaction'].encode()).hexdigest()}"
+            return f"pay:{network}:{_svm_message_digest(inner['transaction'])}"
     except Exception:
         pass
     return "pay:raw:" + hashlib.sha256(header.encode()).hexdigest()
+
+
+def _svm_message_digest(tx_b64: str) -> str:
+    try:
+        from solders.message import to_bytes_versioned
+        from solders.transaction import VersionedTransaction
+
+        message = VersionedTransaction.from_bytes(base64.b64decode(tx_b64)).message
+        return "msg:" + hashlib.sha256(to_bytes_versioned(message)).hexdigest()
+    except Exception:
+        # Unparseable: fall back to the raw bytes, which still catches exact copies.
+        return hashlib.sha256(tx_b64.encode()).hexdigest()
 
 
 def claim(header: str) -> bool:

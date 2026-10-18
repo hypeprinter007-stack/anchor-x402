@@ -43,7 +43,31 @@ ok("EVM key is network + payer + nonce", k1 == "pay:eip155:8453:0xabc:0xaa", k1)
 ok("same authorization re-encoded → same key",
    payment_claim.claim_key(base64.b64encode(json.dumps(json.loads(base64.b64decode(header("0xAA"))), indent=2).encode()).decode()) == k1)
 sol = base64.b64encode(json.dumps({"accepted": {"network": "solana:x"}, "payload": {"transaction": "AQID"}}).encode()).decode()
-ok("Solana key is the signed transaction", payment_claim.claim_key(sol).startswith("pay:solana:x:"))
+ok("unparseable Solana tx falls back to its bytes", payment_claim.claim_key(sol).startswith("pay:solana:x:"))
+# Solana: a copy that differs only in the fee payer's signature slot is the same payment
+from solders.hash import Hash  # noqa: E402
+from solders.instruction import AccountMeta, Instruction  # noqa: E402
+from solders.keypair import Keypair  # noqa: E402
+from solders.message import MessageV0, to_bytes_versioned  # noqa: E402
+from solders.pubkey import Pubkey  # noqa: E402
+from solders.signature import Signature  # noqa: E402
+from solders.transaction import VersionedTransaction  # noqa: E402
+
+_fee, _payer = Keypair(), Keypair()
+_ix = Instruction(Pubkey.from_string("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"), b"x",
+                  [AccountMeta(_payer.pubkey(), True, False)])
+_msg = MessageV0.try_compile(_fee.pubkey(), [_ix], [], Hash.default())
+_sig = _payer.sign_message(to_bytes_versioned(_msg))
+
+
+def _svm_header(fee_slot: Signature) -> str:
+    tx = base64.b64encode(bytes(VersionedTransaction.populate(_msg, [fee_slot, _sig]))).decode()
+    return base64.b64encode(json.dumps({"accepted": {"network": "solana:x"},
+                                        "payload": {"transaction": tx}}).encode()).decode()
+
+
+ok("Solana copy with a different fee-payer slot → same key",
+   payment_claim.claim_key(_svm_header(Signature.default())) == payment_claim.claim_key(_svm_header(Signature.new_unique())))
 ok("garbage header still gets a key", payment_claim.claim_key("not base64!").startswith("pay:raw:"))
 
 # claim
