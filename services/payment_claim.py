@@ -20,9 +20,14 @@ import time
 
 from services import a2a
 
-# Covers the longest payment window anchor quotes (maxTimeoutSeconds 300) with
-# margin; after that the facilitator rejects the authorization on its own.
+# Minimum claim lifetime: covers the longest payment window anchor quotes
+# (maxTimeoutSeconds 300) with margin. EVM claims last longer when the signed
+# authorization does; see claim_expiry.
 CLAIM_TTL_S = 900
+CLOCK_SKEW_S = 60
+# The signer can pick any validBefore, up to 2**256; DynamoDB numbers stop at 38
+# digits, and a failed write fails open. A year is far past any real payment.
+MAX_CLAIM_S = 366 * 24 * 3600
 
 log = logging.getLogger("payment_claim")
 
@@ -62,6 +67,23 @@ def _svm_message_digest(tx_b64: str) -> str:
         return hashlib.sha256(tx_b64.encode()).hexdigest()
 
 
+def claim_expiry(header: str, now: int) -> int:
+    """When a claim may be dropped: not before the authorization itself expires.
+
+    The signer picks EIP-3009 validBefore, and verification does not cap it at
+    maxTimeoutSeconds. With a fixed TTL, a copy of a still-valid authorization
+    whose settlement failed without consuming it could run the route again once
+    the claim lapsed. (Found in review of x402-foundation/x402#3865.)
+    """
+    floor = now + CLAIM_TTL_S
+    try:
+        payload = json.loads(base64.b64decode(header))
+        valid_before = int(((payload.get("payload") or {}).get("authorization") or {})["validBefore"])
+    except Exception:
+        return floor
+    return min(max(floor, valid_before + CLOCK_SKEW_S), now + MAX_CLAIM_S)
+
+
 def claim(header: str) -> bool:
     """True if this authorization has not been presented before.
 
@@ -69,7 +91,8 @@ def claim(header: str) -> bool:
     second settlement, so a store outage must not block paying buyers.
     """
     try:
-        return a2a._put_once(claim_key(header), int(time.time()) + CLAIM_TTL_S)
+        now = int(time.time())
+        return a2a._put_once(claim_key(header), claim_expiry(header, now))
     except Exception:
         log.exception("payment claim store unavailable; allowing")
         return True

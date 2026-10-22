@@ -11,6 +11,7 @@ import io
 import json
 import os
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ.setdefault("A2A_ALLOW_MEMORY_STORE", "1")
@@ -75,6 +76,37 @@ a2a._local_store.clear()
 ok("first presentation is claimed", payment_claim.claim(header("0x01")) is True)
 ok("second presentation is refused", payment_claim.claim(header("0x01")) is False)
 ok("a different nonce is independent", payment_claim.claim(header("0x02")) is True)
+
+
+# claim lifetime follows the signed authorization, not a fixed TTL
+def header_vb(nonce: str, valid_before) -> str:
+    return base64.b64encode(json.dumps({
+        "x402Version": 2, "accepted": {"network": "eip155:8453"},
+        "payload": {"authorization": {"from": "0xAbC", "nonce": nonce, "validBefore": str(valid_before)},
+                    "signature": "0x00"},
+    }).encode()).decode()
+
+
+T = 1_800_000_000
+F = T + payment_claim.CLAIM_TTL_S
+ok("short authorization keeps the 900 s floor", payment_claim.claim_expiry(header_vb("0x10", T + 300), T) == F)
+ok("1 h authorization is kept past its validBefore",
+   payment_claim.claim_expiry(header_vb("0x11", T + 3600), T) == T + 3600 + payment_claim.CLOCK_SKEW_S)
+ok("absurd validBefore is capped (DynamoDB numbers stop at 38 digits)",
+   payment_claim.claim_expiry(header_vb("0x12", 2**256), T) == T + payment_claim.MAX_CLAIM_S)
+ok("missing or junk validBefore → floor",
+   payment_claim.claim_expiry(header("0x13"), T) == F and payment_claim.claim_expiry(header_vb("0x14", "soon"), T) == F)
+ok("Solana / raw headers → floor", payment_claim.claim_expiry(sol, T) == F and payment_claim.claim_expiry("junk", T) == F)
+
+a2a._local_store.clear()
+_real_time = time.time  # a2a and payment_claim both read the time module
+h1 = header_vb("0x20", int(_real_time()) + 3600)
+ok("1 h authorization claimed", payment_claim.claim(h1) is True)
+time.time = lambda: _real_time() + 16 * 60   # past the old fixed TTL
+ok("copy at 16 min is still refused", payment_claim.claim(h1) is False)
+time.time = lambda: _real_time() + 3600 + payment_claim.CLOCK_SKEW_S + 1
+ok("after validBefore + skew the claim lapses", payment_claim.claim(h1) is True)
+time.time = _real_time
 
 # middleware: a replayed authorization never reaches the route
 a2a._local_store.clear()
