@@ -10,48 +10,19 @@ result and deploy; the stamp in the file is today's UTC date.
 """
 from __future__ import annotations
 
-import csv
-import io
 import os
-import re
 import sys
-import urllib.request
 from datetime import datetime, timezone
 
-URL = "https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/SDN.CSV"
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from services.sdn_watch import MIN_EVM, fetch_sdn  # noqa: E402
+
 OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "services", "ofac_sdn.py")
-
-_ADDR_RE = re.compile(r"Digital Currency Address - ([A-Za-z0-9]+) ([A-Za-z0-9]+)")
-_EVM_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
-_SOL_RE = re.compile(r"^[1-9A-HJ-NP-Za-km-z]{32,44}$")
-
-
-def _programs(field: str) -> list[str]:
-    return [p.strip(" []") for p in field.split("] [") if p.strip(" []")]
-
-
-def parse(text: str) -> tuple[dict, dict]:
-    evm: dict[str, list[str]] = {}
-    sol: dict[str, list[str]] = {}
-    for row in csv.reader(io.StringIO(text)):
-        if len(row) < 12:
-            continue
-        name, program, remarks = row[1].strip(), row[3], row[11]
-        listing = ["OFAC SDN", name, *_programs(program)]
-        for ticker, addr in _ADDR_RE.findall(remarks):
-            if _EVM_RE.match(addr):
-                evm.setdefault(addr.lower(), listing)
-            elif ticker.upper() == "SOL" and _SOL_RE.match(addr):
-                sol.setdefault(addr, listing)
-    return evm, sol
 
 
 def main() -> int:
-    req = urllib.request.Request(URL, headers={"User-Agent": "anchor-x402 sdn refresh"})
-    with urllib.request.urlopen(req, timeout=120) as resp:
-        text = resp.read().decode("latin-1")
-    evm, sol = parse(text)
-    if len(evm) < 50:
+    evm, sol = fetch_sdn()
+    if len(evm) < MIN_EVM:
         print(f"only {len(evm)} EVM addresses parsed; refusing to overwrite (format change?)")
         return 1
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")

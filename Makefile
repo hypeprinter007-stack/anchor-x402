@@ -124,6 +124,13 @@ build-CdpHeartbeatFunction:
 	find "$(ARTIFACTS_DIR)" -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null || true
 	find "$(ARTIFACTS_DIR)" -name "*.pyc" -delete 2>/dev/null || true
 
+build-SdnWatchFunction:
+	# Weekly SDN drift check. Standard library only: compares Treasury's list
+	# with the deployed services/ofac_sdn.py.
+	mkdir -p "$(ARTIFACTS_DIR)/services"
+	touch "$(ARTIFACTS_DIR)/services/__init__.py"
+	cp services/sdn_watch.py services/ofac_sdn.py "$(ARTIFACTS_DIR)/services/"
+
 deploy: verify
 	sam deploy --stack-name anchor-x402 --capabilities CAPABILITY_IAM --resolve-s3 --no-confirm-changeset --no-fail-on-empty-changeset --region us-east-1
 

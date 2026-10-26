@@ -368,6 +368,22 @@ Resources:
                 - secretsmanager:GetSecretValue
               Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${AcpPulseSecretName}-*"
 
+  SdnWatchFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      CodeUri: ./
+      Handler: services.sdn_watch.handler
+      Timeout: 180
+      MemorySize: 256
+      Events:
+        WeeklyCheck:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 15 ? * MON *)
+            Description: Mondays 15:00 UTC, compare Treasury's SDN digital-currency addresses with the deployed screen corpus.
+
   # Composite runtime secret. Seeded from CloudFormation parameters on
   # first deploy; rotate independently afterward via:
   #   aws secretsmanager update-secret --secret-id <arn> \
@@ -595,6 +611,44 @@ Resources:
       AlarmDescription: 'An agent filed a report at POST /v1/feedback. Read it with: aws logs filter-log-events --log-group-name /aws/lambda/<AnchorFunction> --filter-pattern FEEDBACK'
       Namespace: anchor-x402
       MetricName: FeedbackReports
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+
+  # One email when Treasury's SDN addresses no longer match the corpus /v1/screen
+  # uses, or when the weekly check cannot tell. Refresh with
+  # scripts/refresh_sdn.py, review the diff, then deploy.
+  # Declared so the filter below has a log group to attach to on the first
+  # deploy; Lambda only creates its own on the first invocation.
+  SdnWatchLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${SdnWatchFunction}'
+      RetentionInDays: 90
+
+  SdnDriftMetricFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref SdnWatchLogGroup
+      FilterPattern: '?SDN_DRIFT ?SDN_WATCH_FAILED'
+      MetricTransformations:
+        - MetricNamespace: anchor-x402
+          MetricName: SdnDrift
+          MetricValue: '1'
+          DefaultValue: 0
+
+  SdnDriftAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-SdnDrift'
+      AlarmDescription: "Treasury's SDN list differs from services/ofac_sdn.py, or the weekly check failed. Read the SDN_DRIFT / SDN_WATCH_FAILED line in the SdnWatch log group, then run scripts/refresh_sdn.py."
+      Namespace: anchor-x402
+      MetricName: SdnDrift
       Statistic: Sum
       Period: 300
       EvaluationPeriods: 1
