@@ -1,7 +1,7 @@
 ---
 layout: page
 title: anchor-x402 demo — 30 seconds, end-to-end
-description: "Watch the full anchor-x402 flow in 30 seconds — chat free, type a target, see the price the agent quotes, approve with passkey, see the result. No accounts, no API keys; pay-per-call USDC on Base or Solana, or JPYC on Polygon."
+description: "Watch the full anchor-x402 flow in 30 seconds — chat free, type a target, see the price the agent quotes, approve with passkey, see the result. No accounts, no API keys; pay-per-call USDC on Base, Solana or Arc, or JPYC on Polygon."
 permalink: /demo/
 ---
 

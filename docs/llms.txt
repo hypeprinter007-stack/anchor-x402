@@ -2,7 +2,7 @@
 
 > 日本語版 / Japanese: [llms.ja.txt](https://anchor-x402.com/llms.ja.txt)
 
-> Eighteen x402-paid services for AI agents on three settlement rails — Base USDC, Solana USDC, and JPYC on Polygon — plus a hosted chatbot at chat.anchor-x402.com. Pay-per-call, no API keys, no accounts, no subscriptions.
+> Eighteen x402-paid services for AI agents on four settlement rails — USDC on Base, Solana and Arc, and JPYC on Polygon — plus a hosted chatbot at chat.anchor-x402.com. Pay-per-call, no API keys, no accounts, no subscriptions.
 
 anchor-x402 exposes 18 stateless services on AWS Lambda + FastAPI. Each endpoint returns an x402 v2 PaymentRequired challenge with `extensions.bazaar`; clients pay $0.001–$1.77 USDC (or the JPYC equivalent ¥0.1–¥350) per call from any Base, Solana, or Polygon wallet via EIP-3009 transferWithAuthorization. USDC settles via Coinbase's CDP facilitator; JPYC settles via an in-process facilitator on Polygon. Live at https://api.anchor-x402.com.
 

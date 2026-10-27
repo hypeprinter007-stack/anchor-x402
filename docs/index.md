@@ -1,7 +1,7 @@
 ---
 layout: home
 title: "anchor-x402 — 18 x402-paid services for AI agents"
-description: "Eighteen x402-paid endpoints on three rails — Base USDC, Solana USDC, JPYC on Polygon. Hosted agent chatbot at chat.anchor-x402.com. Pay-per-call, no API keys, no accounts."
+description: "Eighteen x402-paid endpoints on four rails — USDC on Base, Solana and Arc, plus JPYC on Polygon. Hosted agent chatbot at chat.anchor-x402.com. Pay-per-call, no API keys, no accounts."
 ---
 
 ## What this is, in one paragraph

@@ -326,7 +326,7 @@ If the institution's workflow today is exploratory, sandboxed, or layered on top
 | Deployment | AWS Lambda + API Gateway, region `us-east-1` |
 | Base URL | `https://api.anchor-x402.com` |
 | Endpoints | 18 total; 13 trust-relevant covered in the threat model (anchor, screen, attest, intel/wallet, investigate, ledger/summary, ledger/report, roll, decode/tx, decode/calldata, resolve/name, price/token, parse/datetime) + 5 LLM content endpoints out of scope |
-| Pricing | $0.001 - $1.77 USDC per call, paid on Base or Solana |
+| Pricing | $0.001 - $1.77 per call, paid in USDC on Base, Solana or Arc, or JPYC on Polygon |
 | Authentication | x402 payment authorization only (no API keys) |
 | Data classification of leg A | Customer-controlled. Should be PUBLIC only. |
 | Data retention at vendor | None at app layer. CloudWatch operational logs only at IaaS layer. |

@@ -341,13 +341,14 @@ Every endpoint in this plugin has a **GET form** with query-string parameters fo
 
 ## Multi-rail availability (outside Base MCP)
 
-Base MCP's `initiate_x402_request` settles on **Base mainnet USDC only**. anchor-x402 itself accepts three rails:
+Base MCP's `initiate_x402_request` settles on **Base mainnet USDC only**. anchor-x402 itself accepts four rails:
 
 - **Base USDC** (this plugin) — `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`
 - **Solana USDC** — `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`. Use a Solana x402 client outside Base MCP.
+- **Arc USDC** — `0x3600000000000000000000000000000000000000`. Use an x402 client that supports Arc (`eip155:5042`) outside Base MCP.
 - **JPYC on Polygon** — yen-denominated pricing (e.g. ¥1 for `/v1/anchor`). Use a Polygon x402 client outside Base MCP.
 
-If the user holds USDC on Solana or JPYC on Polygon and wants to use those rails, point them at the direct API + an x402 client SDK; Base MCP itself can't route those settlements today.
+If the user holds USDC on Solana or Arc, or JPYC on Polygon and wants to use those rails, point them at the direct API + an x402 client SDK; Base MCP itself can't route those settlements today.
 
 ## Troubleshooting
 

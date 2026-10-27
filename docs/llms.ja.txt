@@ -2,7 +2,7 @@
 
 > English / 英語版: [llms.txt](https://anchor-x402.com/llms.txt)
 
-> AIエージェント向けのx402従量課金サービス18種。決済レールは3系統 — Base USDC、Solana USDC、Polygon上のJPYC — に加え、chat.anchor-x402.comで提供されるホスト型チャットボット。コール単位の決済で、APIキー・アカウント登録・サブスクリプション、いずれも不要です。
+> AIエージェント向けのx402従量課金サービス18種。決済レールは4系統 — Base・Solana・ArcのUSDC、Polygon上のJPYC — に加え、chat.anchor-x402.comで提供されるホスト型チャットボット。コール単位の決済で、APIキー・アカウント登録・サブスクリプション、いずれも不要です。
 
 anchor-x402は、AWS Lambda + FastAPI上で動作する18種のステートレスサービスを公開しています。各エンドポイントは `extensions.bazaar` を含むx402 v2のPaymentRequiredチャレンジを返却し、クライアントはBase・Solana・Polygonいずれかのウォレットから、EIP-3009 transferWithAuthorizationを用いて1コールあたり $0.001〜$1.77 USDC（またはJPYC換算で ¥0.1〜¥350）を支払います。USDCはCoinbase CDPファシリテーター経由、JPYCはPolygon上のインプロセス・ファシリテーター経由で決済されます。本番稼働中：https://api.anchor-x402.com
 

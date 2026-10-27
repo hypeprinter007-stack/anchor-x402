@@ -4,7 +4,7 @@ POST /v1/anchor — accept a hash (or arbitrary JSON to be hashed),
 write the resulting 32-byte digest to Base mainnet (calldata) and
 Solana mainnet (Memo program) in parallel, return both tx hashes.
 
-Pay-per-call: $0.005 USDC, settle on Base or Solana.
+Pay-per-call: $0.005 USDC, settle on Base, Solana or Arc.
 """
 from __future__ import annotations
 
@@ -119,7 +119,7 @@ PAYAI_FACILITATOR_URL = os.getenv("PAYAI_FACILITATOR_URL", "https://facilitator.
 
 app = FastAPI(
     title="anchor-x402",
-    description="18 pay-per-call x402 services for AI agents — on-chain anchoring & attestation, wallet/address security screening, Web3 data (tx & calldata decode, ENS, token prices), x402 spend accounting, content analysis, and verifiable randomness. No API keys or accounts; settle per request in USDC on Base or Solana. $0.001–$1.77 per call.",
+    description="18 pay-per-call x402 services for AI agents — on-chain anchoring & attestation, wallet/address security screening, Web3 data (tx & calldata decode, ENS, token prices), x402 spend accounting, content analysis, and verifiable randomness. No API keys or accounts; settle per request in USDC on Base, Solana or Arc. $0.001–$1.77 per call.",
     version="0.3.0",
     docs_url=None,  # custom /docs below — directory scrapers read its <title> + favicon
 )
@@ -1352,7 +1352,7 @@ for _route_key, _route_cfg in x402_routes.items():
 _AGENTCASH_GUIDANCE = (
     "Pay-per-call x402 services for AI agents — no API keys or accounts. Each "
     "paid route returns HTTP 402 with x402 payment requirements; pay in USDC on "
-    "Base or Solana (select routes also settle JPYC on Polygon) and retry with "
+    "Base, Solana or Arc (select routes also settle JPYC on Polygon) and retry with "
     "the payment header. Prices are $0.001–$1.77 per call. POST routes take a "
     "JSON body per each operation's requestBody schema. If a route fails or "
     "confuses you, report it free at POST /v1/feedback."
@@ -3521,7 +3521,7 @@ _MCP_INSTRUCTIONS = (
     "sanctions screening, Web3 data (tx/calldata decode, ENS/SNS, token prices), x402 "
     "spend accounting, content analysis, and verifiable randomness.\n\n"
     "No API key and no account. Every tool is priced in its description ($0.001-$1.77) and "
-    "settles per call in USDC on Base or Solana via x402. Calling a tool without payment is "
+    "settles per call in USDC on Base, Solana or Arc via x402. Calling a tool without payment is "
     "not an error you should give up on: the result comes back with isError=true and a "
     "structuredContent.accepts array — that is the x402 challenge. Sign one of those "
     "payment options and retry the identical tools/call with a PAYMENT-SIGNATURE header "
@@ -4079,7 +4079,7 @@ def _mcp_server_card_doc() -> dict:
                     "header": "PAYMENT-SIGNATURE",
                     "headerLegacy": "X-PAYMENT",
                     "description": ("No API key or account. Each tools/call settles per request "
-                                    "in USDC on Base or Solana. Call without payment to receive "
+                                    "in USDC on Base, Solana or Arc. Call without payment to receive "
                                     "the 402 challenge in structuredContent.accepts, then retry "
                                     "with a signed PAYMENT-SIGNATURE header."),
                     "freeMethods": ["server/discover", "initialize", "tools/list"],

@@ -1,7 +1,7 @@
 {
   "protocolVersion": "0.3.0",
   "name": "anchor-x402",
-  "description": "18 x402-paid services for AI agents — pay-per-call USDC on Base or Solana mainnet. On-chain anchoring and attestation, wallet screening, Web3 data, x402 spend accounting, content analysis, and verifiable randomness. No API keys, no accounts; settle per request.",
+  "description": "18 x402-paid services for AI agents — pay-per-call USDC on Base, Solana or Arc mainnet, or JPYC on Polygon. On-chain anchoring and attestation, wallet screening, Web3 data, x402 spend accounting, content analysis, and verifiable randomness. No API keys, no accounts; settle per request.",
   "version": "0.4.0",
   "url": "https://api.anchor-x402.com/v1/a2a",
   "preferredTransport": "JSONRPC",
@@ -586,7 +586,7 @@
   "signatures": [
     {
       "protected": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImRpZDp3ZWI6YW5jaG9yLXg0MDIuY29tI2FuY2hvci1jYXJkLTIwMjYtMDEiLCJ0eXAiOiJKT1NFIn0",
-      "signature": "GkBuVP-kmBC9JMnVPUMTwZQXkb8RJYm4FYp9oPUGOH_atchkVJ_x8aEYa-XXBXoAuckw7J6INO3ICdEYwOtiOQ"
+      "signature": "bQ_ymtfoO8cCaziCQ6iWaPxJOso3_pVWyXzK1N1nxNZ42HNDHVDsbMGoSD-gHMu4UUu85i8TYt1T56twwthOiw"
     }
   ]
 }

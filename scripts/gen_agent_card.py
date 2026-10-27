@@ -192,8 +192,8 @@ def build() -> dict:
         "protocolVersion": PROTOCOL_VERSION,
         "name": "anchor-x402",
         "description": (
-            f"{len(skills)} x402-paid services for AI agents — pay-per-call USDC on Base or "
-            "Solana mainnet. On-chain anchoring and attestation, wallet screening, Web3 data, "
+            f"{len(skills)} x402-paid services for AI agents — pay-per-call USDC on Base, "
+            "Solana or Arc mainnet, or JPYC on Polygon. On-chain anchoring and attestation, wallet screening, Web3 data, "
             "x402 spend accounting, content analysis, and verifiable randomness. No API keys, "
             "no accounts; settle per request."
         ),
