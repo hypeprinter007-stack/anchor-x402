@@ -2210,6 +2210,10 @@ _PUBLIC_BASE = os.environ.get("PUBLIC_BASE_URL", "https://api.anchor-x402.com")
 
 _lambda = boto3.client("lambda")
 _ddb = boto3.resource("dynamodb").Table(_JOBS_TABLE)
+# DynamoDB TTL attribute on the jobs table (risk-investigator infra). 400 days
+# matches LedgerReportsBucket, so a job record and its report file expire
+# together; the refund cron settles FAILED jobs daily, long before that.
+JOB_RETENTION_S = 400 * 86400
 
 
 @app.post("/v1/investigate", response_model=InvestigateAcceptedResponse, summary="Create an agent-driven wallet due-diligence investigation")
@@ -2229,6 +2233,7 @@ def investigate_dispatch(req: InvestigateRequest, request: Request) -> Investiga
             "source": "x402",
             "created_at": now,
             "updated_at": now,
+            "expires_at": now + JOB_RETENTION_S,
         }
         # Captured at dispatch time so the refund path (status-poll or daily
         # cron) has a destination for FAILED-job auto-refunds. Internal-auth
@@ -2402,6 +2407,7 @@ def ledger_report_dispatch(req: LedgerReportRequest, request: Request) -> Ledger
         "price_atomic": 350_000,  # $0.35 — read by the job-aware refund path
         "created_at": now,
         "updated_at": now,
+        "expires_at": now + JOB_RETENTION_S,
     }
     if buyer_wallet:
         item["buyer_wallet"] = buyer_wallet

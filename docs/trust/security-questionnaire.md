@@ -97,11 +97,11 @@ Yes; bus factor is 1. Mitigated by (a) minimal state: short-lived DynamoDB recor
 | Store | What is in it | Kept for | Why |
 |---|---|---|---|
 | DynamoDB `A2AStateTable` (this stack) | Payment claims: network, payer wallet address and payment nonce, or the hash of a Solana payment message. Agent-to-agent records: request nonces, quotes, signed receipts and their Merkle roots. | Payment claims until the signed authorization expires (15 min to 1 year); receipt roots up to 400 days; the rest expires automatically sooner | Run each paid route once per payment; keep dispute evidence for agent-to-agent exchanges |
-| DynamoDB `risk-investigator-jobs` (risk-investigator stack) | `/v1/investigate` jobs: target wallet address, status, timestamps, the generated report, and the buyer's wallet address and network | No automatic expiry today | Return the report on status polls; refund the buyer if a job fails |
+| DynamoDB `risk-investigator-jobs` (risk-investigator stack) | `/v1/investigate` jobs: target wallet address, status, timestamps, the generated report, and the buyer's wallet address and network | 400 days, then deleted (same as the report files) | Return the report on status polls; refund the buyer if a job fails |
 | S3 `LedgerReportsBucket` (this stack) | `/v1/ledger/report` files: the requested wallet's x402 spending, as Markdown and CSV | 400 days, then deleted | Serve the report at its unguessable URL |
 | CloudWatch Logs | Request metadata, payment events (payer address, route, network), feedback reports | 30 days | Operations and accounting |
 
-DynamoDB and S3 data are encrypted at rest by AWS defaults (S3 SSE-S3, AES-256); there are no backups or snapshots. Losing `A2AStateTable` reopens a replay window for unexpired payments and loses agent-to-agent receipts; losing `risk-investigator-jobs` loses in-flight job status and the data needed to refund failed jobs. On-chain anchors do not depend on any of these stores.
+DynamoDB and S3 data are encrypted at rest by AWS defaults (S3 SSE-S3, AES-256). `risk-investigator-jobs` has point-in-time recovery (35 days, which also means a deleted record stays recoverable for 35 days); the other stores have no backups. Losing `A2AStateTable` reopens a replay window for unexpired payments and loses agent-to-agent receipts; losing `risk-investigator-jobs` loses in-flight job status and the data needed to refund failed jobs. On-chain anchors do not depend on any of these stores.
 
 **Q12. DPA available?** Yes, on request. Standard processor-side DPA with SCCs for EU/UK. Because we store no direct identifiers, only wallet addresses (Q11a), the DPA largely covers the AWS sub-processor relationship.
 
@@ -167,7 +167,7 @@ Disk is FileVault-encrypted. AWS access requires both the IAM access key and a h
 | On-call | Single operator, best-effort, US business-hours-biased. We do not commit to 24/7 on-call until customer contracts justify it. |
 | Uptime targets | **Best-effort today.** No SLA offered to public callers. Underlying AWS API Gateway + Lambda is documented at 99.95% AWS-side. Institutional-tier SLA (99.9%+ with credit) on roadmap, priced per-customer. |
 | Patch cadence | Lambda runtime (Python 3.12) is AWS-managed. App dependencies re-locked and re-deployed on every release. Critical-CVE patches: 5 business days. |
-| Backup / snapshots | None. The stores in Q11a are not backed up; what losing each one costs is stated there. Secrets Manager secret has `DeletionPolicy: Retain` and `UpdateReplacePolicy: Retain`; rotation history preserved by Secrets Manager versioning. |
+| Backup / snapshots | Point-in-time recovery (35 days) on `risk-investigator-jobs`; the other Q11a stores are not backed up, and what losing each one costs is stated there. Secrets Manager secret has `DeletionPolicy: Retain` and `UpdateReplacePolicy: Retain`; rotation history preserved by Secrets Manager versioning. |
 | Configuration management | IaC: AWS SAM (`template.yaml`). Application: Git. Both versioned and reproducible. |
 | Change management | Operator commits to `main` → `make build && make deploy-guided`. No staging today; smoke tests via paid mainnet e2e (`scripts/test_e2e.py`) post-deploy. Pre-prod stage on roadmap. |
 
@@ -187,7 +187,7 @@ Disk is FileVault-encrypted. AWS access requires both the IAM access key and a h
 |---|---|
 | Single-region today? | **Yes** (`us-east-1`). |
 | RTO | **~10 minutes** — wall-clock time to redeploy `template.yaml` from clean Git (verified during routine deploys). |
-| RPO | Unbounded for the Q11a stores (no backups): losing them costs a replay window, job status, stored investigation and ledger reports, and the data needed to refund failed jobs. On-chain anchor artifacts on Base + Solana mainnet are durable independent of our infrastructure. |
+| RPO | Seconds for `risk-investigator-jobs` (point-in-time recovery); unbounded for the other Q11a stores, which have no backups. Losing them costs a replay window, job status, stored investigation and ledger reports, and the data needed to refund failed jobs. On-chain anchor artifacts on Base + Solana mainnet are durable independent of our infrastructure. |
 | Multi-AZ within `us-east-1`? | Yes — AWS Lambda + API Gateway run multi-AZ by default. |
 | Regional failure plan | Today: downtime until region recovers, or a manual SAM redeploy into a backup region (`us-west-2` is operator-tested). Treasury Secrets Manager values must be re-seeded in the failover region. Estimated full failover: ~30 minutes. |
 | Tested DR drill | Not formally drilled. Redeploy path is exercised in routine development. Quarterly DR drill is a roadmap item. |
