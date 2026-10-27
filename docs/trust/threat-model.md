@@ -24,7 +24,7 @@ Reviewers should treat the service as a stateless oracle with on-chain evidence 
 | 1 | The TLS endpoint at `*.execute-api.us-east-1.amazonaws.com` | Must trust AWS to terminate TLS correctly and route to the right Lambda | Standard AWS API Gateway threat surface; mitigated by ACM certs + AWS managed cert rotation |
 | 2 | The Lambda execution environment | Must trust that Lambda is running unmodified `app.py` from the deployed artifact | Mitigated by AWS code signing on the deployment and CloudTrail of `UpdateFunctionCode` |
 | 3 | AWS Secrets Manager (`anchor-x402/runtime`) | Must trust the secret store to release the treasury key only to the Lambda role | Mitigated by per-ARN IAM scoping and KMS encryption at rest |
-| 4 | The CDP x402 facilitator (Coinbase) | Must trust the facilitator to verify and settle the USDC payment honestly before the Lambda processes the call | Inherited from x402 protocol; payment correctness is independent of business response correctness |
+| 4 | The x402 facilitators: Coinbase CDP (Base), PayAI (Solana), Circle (Arc) | Must trust the facilitator for the payment's network to verify and settle the USDC payment honestly before the Lambda processes the call | Inherited from x402 protocol; payment correctness is independent of business response correctness |
 | 5 | Base + Solana mainnet finality | Must trust that confirmed L1 calldata / Memo entries are not reorged | This is a chain-security property, not an `anchor-x402` property |
 
 ### 2.2 What the consumer does **not** have to trust
@@ -59,11 +59,12 @@ Reviewers should treat the service as a stateless oracle with on-chain evidence 
       │         │         │         │                        │
       ▼         ▼         ▼         ▼                        │
 ┌──────────┐┌────────┐┌────────┐┌─────────────┐              │
-│ AWS      ││ CDP    ││ Public ││ Public RPC  │              │
-│ Secrets  ││ x402   ││ APIs   ││ (Base+Sol)  │              │
-│ Manager  ││ facil. ││ (CG,   ││ + ENS / SNS │              │
-│ (KMS)    ││ (set-  ││ open-  ││             │              │
-│          ││  tle)  ││ chain) ││             │              │
+│ AWS      ││ x402   ││ Public ││ Public RPC  │              │
+│ Secrets  ││ facil- ││ APIs   ││ (Base+Sol)  │              │
+│ Manager  ││ itators││ (CG,   ││ + ENS / SNS │              │
+│ (KMS)    ││ (CDP,  ││ open-  ││             │              │
+│          ││ PayAI, ││ chain) ││             │              │
+│          ││ Circle)││        ││             │              │
 └──────────┘└────────┘└────────┘└──────┬──────┘              │
                                        │                     │
                                        ▼                     │
@@ -268,14 +269,14 @@ These apply uniformly to the endpoints documented here and are not repeated in t
 | **Mitigation** | Keys are in Secrets Manager (KMS-encrypted, IAM-scoped), never in env vars or CI. Rotation is a single `aws secretsmanager update-secret` plus a Lambda cold-start nudge; no redeploy. Roadmap: hot/master split so the hot key only holds gas. |
 | **Residual risk** | Forged anchors signed by the leaked key would land on chain and be indistinguishable from legitimate ones during the leak window. **A consumer can defend:** the on-chain trust is in the calldata, not the signer — verify the merkle root matches your own Merkle, not the signer address. |
 
-### 4.3 x402 facilitator (CDP) compromise
+### 4.3 x402 facilitator compromise
 
 | | |
 |---|---|
-| **Scenario** | The Coinbase Developer Platform x402 facilitator is compromised, briefly down, or returns wrong settlement verdicts. |
+| **Scenario** | One of the x402 facilitators (Coinbase CDP for Base, PayAI for Solana, Circle for Arc) is compromised, briefly down, or returns wrong settlement verdicts. |
 | **Impact** | (a) consumer's USDC payment is lost / double-charged; (b) Lambda accepts an unpaid request because the facilitator returned a false verify; (c) Lambda rejects a paid request because the facilitator returned a false fail. |
-| **Mitigation** | Facilitator settlement is independent of business logic — even if free / overcharged calls happen briefly, the on-chain anchor record is unaffected. Per-request EdDSA JWT auth (`services/cdp_auth.py`) means a leaked CDP credential cannot be replayed beyond its 120s `exp`. |
-| **Residual risk** | Inherited from CDP's own posture; no consumer-side mitigation. |
+| **Mitigation** | Facilitator settlement is independent of business logic — even if free / overcharged calls happen briefly, the on-chain anchor record is unaffected. Per-request EdDSA JWT auth (`services/cdp_auth.py`) means a leaked CDP credential cannot be replayed beyond its 120s `exp`. Each facilitator client is scoped to one network in `app.py`, so a faulty facilitator affects only payments on its own network. The Circle API key is a long-lived Bearer token restricted to facilitator read/write; a leak is usable until rotation. PayAI takes no credential. |
+| **Residual risk** | Inherited from each facilitator's own posture; no consumer-side mitigation. |
 
 ### 4.4 Upstream API compromise
 
@@ -428,7 +429,7 @@ If you discover a vulnerability:
 - **Email:** `security@anchor-x402.com` (subject: `[anchor-x402 security] <one-line summary>`).
 - **PGP:** key on request.
 - **Response SLA:** acknowledgement within 72 hours; status update within 7 days; coordinated disclosure on resolution.
-- **Scope:** the deployed Lambda, the services in this repository, and the published OpenAPI spec. Out of scope: third-party services we depend on (CoinGecko, openchain.xyz, public RPCs, the CDP facilitator, AWS infrastructure) — please report those upstream.
+- **Scope:** the deployed Lambda, the services in this repository, and the published OpenAPI spec. Out of scope: third-party services we depend on (CoinGecko, openchain.xyz, public RPCs, the CDP, PayAI and Circle facilitators, AWS infrastructure) — please report those upstream.
 - **Safe harbor:** good-faith research that does not exfiltrate user data, drain treasury beyond the price of one paid call, or degrade availability is welcome. We will not pursue legal action against researchers acting in good faith.
 - **No bounty fund yet.** Public credit on resolution is offered.
 

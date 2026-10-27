@@ -34,7 +34,7 @@ The diagram below shows where data crosses trust boundaries when an institution 
 |  - Internal audit log (immutable)       | ---> |  FastAPI + x402 middleware      | ---> |  Solana mainnet RPC              |
 |  - PII / KYC / transaction data         |      |  Stateless: no DB, no S3        |      |  CoinGecko (price)               |
 |  - Decision engine, AI agent, traders   | <--- |  Treasury keys in Secrets Mgr   | <--- |  openchain.xyz (4byte registry) |
-|                                         |  B   |  CloudWatch logs (request meta) |  D   |  CDP facilitator (settlement)    |
+|                                         |  B   |  CloudWatch logs (request meta) |  D   |  x402 facilitators (settlement)  |
 |  - Caller's wallet (USDC on Base/SVM)   |      |                                 |      |  ENS / Bonfida SNS resolvers     |
 +-----------------------------------------+      +---------------------------------+      +----------------------------------+
 ```
@@ -48,7 +48,7 @@ The diagram below shows where data crosses trust boundaries when an institution 
 - **Leg C — `anchor-x402` → on-chain RPCs (HTTPS):**
   Carries: signed transactions (for the anchor / attest paths) and read RPC calls (for tx-decode, price, name-resolve, intel). The signed transactions are constructed inside the Lambda using the treasury keys held in AWS Secrets Manager; the customer's wallet never signs an on-chain transaction here. The hash being anchored is publicly visible on the chain. **Sensitivity:** anything a hash anchors is permanently public. This is by design — the anchor is the public timestamp.
 - **Leg D — `anchor-x402` → external read APIs (HTTPS):**
-  CoinGecko (price), openchain.xyz (4byte selector lookup), public ENS/SNS resolvers, and the CDP facilitator (settlement validation). These are public APIs. The customer's payload is forwarded only to the extent needed (e.g. a wallet address goes to a public block explorer's RPC). No credentials, no PII, no auth tokens of the customer ever leave the Lambda.
+  CoinGecko (price), openchain.xyz (4byte selector lookup), public ENS/SNS resolvers, and the x402 facilitators (settlement validation: Coinbase CDP for Base, PayAI for Solana, Circle for Arc). These are public APIs. The customer's payload is forwarded only to the extent needed (e.g. a wallet address goes to a public block explorer's RPC). No credentials, no PII, no auth tokens of the customer ever leave the Lambda.
 
 **Privilege levels.** The customer is the owner of leg A (they choose what to send) and is the consumer of leg B (they choose what to do with the response). `anchor-x402` is the operator of legs C and D — it owns the treasury keys, the RPC endpoint configuration, and the external API contracts. The customer **never** delegates an authority to `anchor-x402` that could move customer funds, write to a customer system, or sign on behalf of a customer principal.
 
@@ -291,7 +291,7 @@ These are the concrete properties the institution should expect from the public 
 - **Treasury balance and gas.** `anchor` and `attest` and `intel-wallet` cost real native gas (Base ETH, Solana SOL) on the `anchor-x402` side. The operator funds this wallet, but expect occasional Solana RPC failures (Solana is more flaky than Base under load). When Solana fails, `/v1/anchor` and `/v1/attest` still complete with a Base anchor and a `null` Solana anchor — the response shape is stable. The institution's verification logic should treat `solana == null` as a degradation, not a failure.
 - **Endpoint stability.** The base URL `https://api.anchor-x402.com` is the stable handle. Future deployments may add a custom domain; the API Gateway URL will continue to redirect / serve.
 - **Versioning.** The path prefix `/v1/...` is the stable contract. Breaking changes will land under `/v2/...`. Field additions are non-breaking. The institution should pin to `/v1/`.
-- **Authentication.** None at the IAM / API key layer. The only authentication is the x402 USDC payment itself, validated by the CDP facilitator. The institution's wallet **is** its identity for billing purposes; treat the wallet's private key with operational-key sensitivity.
+- **Authentication.** None at the IAM / API key layer. The only authentication is the x402 USDC payment itself, validated by the facilitator for the payment's network (CDP, PayAI or Circle). The institution's wallet **is** its identity for billing purposes; treat the wallet's private key with operational-key sensitivity.
 - **Logs.** CloudWatch logs are kept for operational debugging. Log retention is not contractually defined and should not be relied on for the institution's audit. Re-emphasizing: the institution's own log is the legal record.
 - **Incident response.** There is no 24/7 on-call. The operator monitors CloudWatch alarms (errors, p95, 5xx, Solana anchor failure rate) and responds best-effort. Do not architect a workflow that requires a human at `anchor-x402` to be reachable.
 

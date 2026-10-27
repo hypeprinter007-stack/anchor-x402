@@ -73,14 +73,14 @@ Yes; bus factor is 1. Mitigated by (a) fully stateless system, (b) MIT source so
 | Sell or share data? | No. |
 | Caller-data caching? | Only a 60-second in-process token-price cache (`services/token_price.py`) — public CoinGecko prices, never caller-supplied data. |
 | Data residency | AWS `us-east-1` (Northern Virginia), single region. |
-| Encryption at rest | AWS-managed by default: Lambda code (S3-backed) SSE-KMS; CloudWatch Logs KMS-encrypted; Secrets Manager (treasury keys, CDP secret) AWS-managed KMS. No DB or S3 customer-data bucket. Future stores will use S3 Object Lock + SSE-KMS. |
-| Encryption in transit | TLS 1.2+ on API Gateway (ACM-issued cert). All outbound (Base/Solana RPC, CDP, CoinGecko, openchain.xyz) is HTTPS. |
-| Key management | Treasury private keys (Base + Solana) and CDP API key secret live in **AWS Secrets Manager** (`anchor-x402/runtime`). Lambda IAM role: `secretsmanager:GetSecretValue` on that single ARN only. CloudTrail logs every read. Composite secret fetched once at cold-start (`services/secrets.py`); held in process memory. **Sensitive values never appear in Lambda env vars** (which are visible to anyone with `lambda:GetFunctionConfiguration`). |
+| Encryption at rest | AWS-managed by default: Lambda code (S3-backed) SSE-KMS; CloudWatch Logs KMS-encrypted; Secrets Manager (treasury keys, CDP secret, Circle API key) AWS-managed KMS. No DB or S3 customer-data bucket. Future stores will use S3 Object Lock + SSE-KMS. |
+| Encryption in transit | TLS 1.2+ on API Gateway (ACM-issued cert). All outbound (Base/Solana RPC, the CDP, PayAI and Circle facilitators, CoinGecko, openchain.xyz) is HTTPS. |
+| Key management | Treasury private keys (Base + Solana), the CDP API key secret and the Circle API key live in **AWS Secrets Manager** (`anchor-x402/runtime`). Lambda IAM role: `secretsmanager:GetSecretValue` on that single ARN only. CloudTrail logs every read. Composite secret fetched once at cold-start (`services/secrets.py`); held in process memory. **Sensitive values never appear in Lambda env vars** (which are visible to anyone with `lambda:GetFunctionConfiguration`). |
 | Key rotation | Manual via `aws secretsmanager update-secret` + Lambda config-touch to force fresh cold start. Target 90 days; on-demand on suspicion of compromise. Automated rotation Lambda is roadmap (planned alongside the hot/cold split). |
 | BYOK | Not supported. The customer's own wallet key never leaves the customer's environment; the customer pays into our treasury via x402. |
 | Customer data deletion | Largely N/A — no customer data stored beyond ephemeral logs. Best-effort deletion against logs honored on signed wallet-operator request. |
 
-**Q9. Lifecycle of one request.** (1) x402 client signs USDC payment authorization (EIP-3009 on Base or SPL-Token transfer auth on Solana) targeting our treasury. (2) Request lands on API Gateway over TLS 1.2+. (3) API Gateway invokes `AnchorFunction` Lambda. (4) x402 middleware verifies payment with the CDP facilitator (server-to-server, Ed25519 JWT from `services/cdp_auth.py`). (5) On verified payment, dispatch to one of nine route handlers. (6) Handler validates input via Pydantic, calls public RPC/API endpoints as needed, returns JSON. (7) CloudWatch records the invocation; no request body durably stored beyond log retention.
+**Q9. Lifecycle of one request.** (1) x402 client signs a payment authorization targeting our treasury: EIP-3009 for USDC on Base or Arc (or JPYC on Polygon), or a signed SPL token transfer for USDC on Solana. (2) Request lands on API Gateway over TLS 1.2+. (3) API Gateway invokes `AnchorFunction` Lambda. (4) The authorization is claimed once in DynamoDB, so a copy of the same payment cannot run the route twice (`services/payment_claim.py`), then the x402 middleware verifies it with the facilitator for its network: CDP for Base (Ed25519 JWT from `services/cdp_auth.py`), PayAI for Solana, Circle for Arc, or in-process for JPYC. (5) On verified payment, dispatch to one of 18 paid route handlers. (6) Handler validates input via Pydantic, calls public RPC/API endpoints as needed, returns JSON. (7) CloudWatch records the invocation; no request body durably stored beyond log retention.
 
 **Q10. Data residency outside `us-east-1`?** Not today. Customers with hard residency requirements should self-host the MIT source in their chosen region — `template.yaml` is region-agnostic.
 
@@ -105,12 +105,12 @@ Yes; bus factor is 1. Mitigated by (a) fully stateless system, (b) MIT source so
 | AWS root for deploys? | **No.** `sam deploy` runs under a scoped IAM user. Root is used only for billing and IAM-user provisioning. |
 | Lambda least-privilege? | Per `template.yaml`, the execution role has exactly `secretsmanager:GetSecretValue` on a single ARN, plus SAM-default log writes. No `s3:*`, no `dynamodb:*`, no broad wildcards. |
 | SSO / SAML for customers? | N/A. No customer accounts; auth is per-call x402 payment. |
-| First-party API keys? | Only the CDP facilitator key. Held in Secrets Manager and consumed as a per-request EdDSA JWT (`services/cdp_auth.py`); the secret never appears in headers. |
+| First-party API keys? | Two, both for payment facilitators and both held in Secrets Manager. The CDP key (Base) is consumed as a per-request EdDSA JWT (`services/cdp_auth.py`); the secret never appears in headers. The Circle key (Arc) is sent as a Bearer token, which is how Circle authenticates; it is restricted to facilitator read/write (`services/circle_facilitator.py`). PayAI (Solana) needs no key. |
 | Customer auth model | Per-call x402 payment is the auth. No long-lived API key to rotate. A leaked payment authorization is single-use, time-bound, scoped to a specific resource — not replayable. |
 | Privileged-access reviews | N/A — one operator, one IAM user. |
 
 **Q13. If the operator's laptop is stolen?**
-Disk is FileVault-encrypted. AWS access requires both the IAM access key and a hardware FIDO2 key (not on the laptop). Treasury keys never live on the laptop in plaintext beyond the brief moment of seeding `anchor-x402/runtime` at first deploy. On detection: revoke IAM, rotate Secrets Manager values, revoke CDP key — all within hours.
+Disk is FileVault-encrypted. AWS access requires both the IAM access key and a hardware FIDO2 key (not on the laptop). Treasury keys never live on the laptop in plaintext beyond the brief moment of seeding `anchor-x402/runtime` at first deploy. On detection: revoke IAM, rotate Secrets Manager values, revoke the CDP and Circle keys — all within hours.
 
 **Q14. Offboarding?** One operator; offboarding equals shutdown. We say plainly that for a single-person vendor, "offboarding" is a discontinuity event for the customer, not a personnel change.
 
@@ -126,12 +126,12 @@ Disk is FileVault-encrypted. AWS access requires both the IAM access key and a h
 | Static analysis | Not yet automated. Codebase is small (< 4 kLOC) so human review is the primary control today. Adding `ruff` + `bandit` to CI is roadmap. |
 | Input validation | All bodies and query parameters are typed Pydantic models in `models.py`. FastAPI auto-validates and returns 422 on schema violation before the handler runs. |
 | Output encoding | JSON only. No HTML rendering, so XSS is not in the threat model. |
-| Auth for state-changing routes | x402 payment verification via the CDP facilitator. The middleware short-circuits unpaid requests with a 402 before the handler runs. |
+| Auth for state-changing routes | x402 payment verification via the facilitator for the payment's network (CDP for Base, PayAI for Solana, Circle for Arc; in-process for JPYC). The middleware short-circuits unpaid requests with a 402 before the handler runs. |
 | Authorization | Per-call payment authorizes one call. No multi-tenant data model; no cross-tenant access surface. |
 | CSRF | N/A — no cookies, no browser-form state. |
 | Rate limiting | Today: implicit, via API Gateway account throttling and Lambda concurrency caps. Per-caller (per-wallet) limits are roadmap. |
 | Secrets in code | Zero. Verifiable by reading `app.py`, `services/*.py`, `template.yaml`. Sensitive values resolve at runtime through `services/secrets.py`. |
-| Payment validation | Delegated to the **CDP (Coinbase Developer Platform) facilitator** at `https://api.cdp.coinbase.com/platform/v2/x402`. The facilitator independently verifies on-chain payment authorization (signature, allowance, settle-on-completion) before our Lambda admits the request. Auth to the facilitator is per-request EdDSA JWTs (`services/cdp_auth.py`), nonced and 120s-lived. |
+| Payment validation | Delegated to one facilitator per network: **Coinbase CDP** (`https://api.cdp.coinbase.com/platform/v2/x402`) for Base, **PayAI** (`https://facilitator.payai.network`) for Solana, and **Circle's Facilitator Service** (`https://api.circle.com/v1/facilitator/x402`) for Arc; JPYC on Polygon is verified and settled in-process. Each client is scoped to its network in `app.py`, so a facilitator can only verify payments on the network routed to it. The facilitator independently verifies on-chain payment authorization (signature, balance, settle-on-completion) before our Lambda admits the request. Auth: CDP uses per-request EdDSA JWTs (`services/cdp_auth.py`), nonced and 120s-lived; Circle uses a restricted API key as a Bearer token; PayAI is unauthenticated. |
 
 **Q15. Threat model.**
 - **Most likely:** unpaid request slipping through. Mitigated by facilitator-side payment check.
@@ -181,10 +181,10 @@ Disk is FileVault-encrypted. AWS access requires both the IAM access key and a h
 | Regional failure plan | Today: downtime until region recovers, or a manual SAM redeploy into a backup region (`us-west-2` is operator-tested). Treasury Secrets Manager values must be re-seeded in the failover region. Estimated full failover: ~30 minutes. |
 | Tested DR drill | Not formally drilled. Redeploy path is exercised in routine development. Quarterly DR drill is a roadmap item. |
 | AWS vendor failure | Not in our threat model (low likelihood, high impact). Mitigation = same as regional failure plus self-hosting via the MIT source on a non-AWS host. |
-| CDP facilitator failure | Possible. If down, x402 payment verification fails, API returns 5xx, no caller is charged. Recovery is automatic on facilitator restoration. Pluggable second facilitator is roadmap. |
+| Facilitator failure | Possible. Each network is routed to one facilitator, so an outage affects that network only: payment verification on it fails, the API returns an error, and no caller is charged. Callers can pay on another network the same route accepts. If PayAI is unreachable when a Lambda instance starts, that instance settles Solana through CDP instead; Arc has no fallback, since only Circle settles it. Recovery is automatic on facilitator restoration. |
 | On-chain anchor durability | **Independent of our infrastructure.** Once `/v1/anchor` returns Base + Solana txhashes, those proofs live on the public chains and are verifiable via any RPC or block explorer. We could disappear and the proofs would remain. |
 
-**Q22. What if you simply stop operating?** MIT source is public; a customer can fork and self-host in ~30 minutes. Existing on-chain anchors remain valid forever and need no infrastructure of ours to verify. CDP facilitator and public Base/Solana RPCs are third-party-operated and unaffected. Customers with hard continuity requirements should pre-clone the source and dry-run the deploy.
+**Q22. What if you simply stop operating?** MIT source is public; a customer can fork and self-host in ~30 minutes. Existing on-chain anchors remain valid forever and need no infrastructure of ours to verify. The CDP, PayAI and Circle facilitators and public Base/Solana RPCs are third-party-operated and unaffected. Customers with hard continuity requirements should pre-clone the source and dry-run the deploy.
 
 **Q23. Code escrow?** Source is public on GitHub under MIT — that is the escrow.
 
@@ -235,7 +235,9 @@ A customer can rely on AWS's controls for the infrastructure stratum (physical s
 | Subprocessor / dependency | Role | Data shared | Geography |
 |---|---|---|---|
 | **Amazon Web Services** | Primary IaaS — Lambda, API Gateway, Secrets Manager, CloudWatch, SNS, KMS | All operational data flows through AWS by definition | `us-east-1` |
-| **Coinbase / CDP** | x402 payment facilitator (verify + settle) | Caller wallet address, payment authorization, target resource path | Coinbase-managed (US control plane) |
+| **Coinbase / CDP** | x402 payment facilitator for Base (verify + settle) | Caller wallet address, payment authorization, target resource path | Coinbase-managed (US control plane) |
+| **PayAI** | x402 payment facilitator for Solana (verify + settle) | Caller wallet address, signed payment transaction, target resource path | PayAI-managed |
+| **Circle** | x402 payment facilitator for Arc (verify + settle) | Caller wallet address, payment authorization, target resource path | Circle-managed |
 | **Public Base RPC** (`mainnet.base.org`) | Base mainnet read/write | Hex hashes (already public after submission) | Coinbase-operated |
 | **Public Solana RPC** (`api.mainnet-beta.solana.com`) | Solana mainnet read/write | Hex hashes (already public after submission) | Solana Foundation-operated |
 | **CoinGecko (free tier)** | Backing source for `/v1/price/token` | Token symbol / contract (public) | CoinGecko-managed |
@@ -246,7 +248,7 @@ A customer can rely on AWS's controls for the infrastructure stratum (physical s
 
 **Q27. Dependency-upgrade vetting?** Direct deps named in `requirements.in`. Major-version upgrades go through manual code review and a paid mainnet e2e (`scripts/test_e2e.py`). Transitive deps re-pinned each deploy; major transitive bumps trigger manual review.
 
-**Q28. CDP pricing/terms change?** We pass per-call CDP fees through transparently in the published per-call price. Material CDP terms change is an operational decision: stay on CDP, swap to a self-hosted x402 facilitator, or both.
+**Q28. Facilitator pricing/terms change?** Any facilitator fees are passed through transparently in the published per-call price. A material change in CDP, PayAI or Circle terms is an operational decision: stay, move that network to another facilitator, or self-host one. Facilitators are configured per network, so a change on one does not touch the others.
 
 **Q29. Public RPC outage?** Today we rely on the canonical public RPC for each chain. If `mainnet.base.org` or `api.mainnet-beta.solana.com` is unhealthy, anchor calls return 5xx until recovery. The `SolanaAnchorFailureRateHigh` alarm catches the Solana side. Fallback RPC array (Alchemy, Helius, etc.) on roadmap.
 
@@ -265,7 +267,7 @@ We treat IR as a single-person playbook with crisp obligations rather than a mul
 | Public post-mortem | Operator | Within 14 days of resolution, posted to GitHub Security advisories |
 | Coordinated disclosure | Operator | Standard 90-day default; no threats to good-faith reporters |
 
-**Q30. What counts as "breach affecting customer data" given you store none?** Largely N/A by design. Cases where it would apply: (1) treasury key compromise leading to misuse of inbound USDC — notify all callers identifiable via on-chain payment history within 72h; (2) CloudWatch log exfiltration capturing wallet addresses or freeform datetime strings beyond what's on-chain — best-effort 72h notification; (3) CDP API key compromise — rotate immediately, notify CDP per their disclosure process.
+**Q30. What counts as "breach affecting customer data" given you store none?** Largely N/A by design. Cases where it would apply: (1) treasury key compromise leading to misuse of inbound USDC — notify all callers identifiable via on-chain payment history within 72h; (2) CloudWatch log exfiltration capturing wallet addresses or freeform datetime strings beyond what's on-chain — best-effort 72h notification; (3) CDP or Circle API key compromise — rotate immediately, notify the provider per their disclosure process.
 
 **Q31. Cyber-liability insurance?** **No.** Known gap. Customers requiring insurer-backed indemnification should treat this as a hard gap.
 

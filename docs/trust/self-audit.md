@@ -8,7 +8,7 @@ Everything below references files at `https://github.com/<owner>/anchor-x402` an
 
 ## 1. Treasury private keys are not in Lambda environment variables at runtime
 
-**Concern.** A reviewer with `lambda:GetFunctionConfiguration` on the AWS account must not be able to read the Base treasury private key, the Solana treasury keypair, or the CDP API secret out of the function's env block.
+**Concern.** A reviewer with `lambda:GetFunctionConfiguration` on the AWS account must not be able to read the Base treasury private key, the Solana treasury keypair, the CDP API secret or the Circle API key out of the function's env block.
 
 **What to read.**
 - `template.yaml:44-76` — the `AnchorFunction` resource and its `Environment.Variables` block.
@@ -32,7 +32,7 @@ Everything below references files at `https://github.com/<owner>/anchor-x402` an
 
 **What you'll see.** A single inline statement: `Effect: Allow`, `Action: secretsmanager:GetSecretValue` (only — no `PutSecretValue`, no `DescribeSecret`, no list/tag actions), `Resource: !Ref AnchorRuntimeSecret`. The `!Ref` resolves at deploy time to the ARN of *this* secret only; SAM does not permit it to expand to a wildcard. There is no `AWSLambdaBasicExecutionRole` managed policy attached, no implicit `*` resource grant, and no separate role attachment elsewhere in the template. The remaining permissions the function holds are the SAM-default CloudWatch Logs writer for its own log group (added implicitly by SAM and visible after deploy via `aws iam get-role-policy`).
 
-**Residual risk.** SAM's implicit policies for CloudWatch Logs are not visible in the template; reviewers should run `aws iam list-attached-role-policies --role-name <generated>` post-deploy to confirm they are not over-broad. The Lambda's outbound network access is unrestricted (no VPC, no egress filter) — by design, since the service must reach Base RPC, Solana RPC, the CDP facilitator, CoinGecko, and openchain.xyz. An institutional deployment that needs egress allow-listing should re-house the function inside a VPC with a NAT and an outbound proxy.
+**Residual risk.** SAM's implicit policies for CloudWatch Logs are not visible in the template; reviewers should run `aws iam list-attached-role-policies --role-name <generated>` post-deploy to confirm they are not over-broad. The Lambda's outbound network access is unrestricted (no VPC, no egress filter) — by design, since the service must reach Base RPC, Solana RPC, the CDP, PayAI and Circle facilitators, CoinGecko, and openchain.xyz. An institutional deployment that needs egress allow-listing should re-house the function inside a VPC with a NAT and an outbound proxy.
 
 ---
 
@@ -66,6 +66,8 @@ Everything below references files at `https://github.com/<owner>/anchor-x402` an
 **What you'll see.** Every facilitator call (`verify`, `settle`, `supported`) is authenticated by a freshly minted EdDSA JWT with a 120-second `exp` (line 39). The signing key is the CDP API secret loaded via `secrets.get("cdp_api_key_secret", …)` (line 23) — that is, fetched from Secrets Manager per concern #1. The JWT header (line 37) carries `alg: EdDSA`, `typ: JWT`, `kid` set to the (non-sensitive) `CDP_API_KEY_ID`, and a fresh 16-byte hex `nonce` (`secrets.token_hex(16)`). The payload (line 38-39) binds the token to the specific `METHOD path` URI being called, so a captured token cannot be replayed against a different endpoint. The Ed25519 private key bytes never leave Lambda memory; only the signed compact JWS travels in the `Authorization: Bearer …` header (line 53-55).
 
 **Residual risk.** The CDP secret is still a symmetric-equivalent (Ed25519 seed) — anyone who reads it from Secrets Manager can mint valid tokens. Token lifetime is 120s, which is short, but a stolen secret is fully exploitable until rotated. The 2-minute clock skew tolerance is implicit; a clock-skewed Lambda would fail to authenticate (a *fail-closed* property, not a vulnerability).
+
+**The other facilitators do not meet this bar the same way.** Base payments go to CDP. Solana payments go to PayAI (`https://facilitator.payai.network`), which takes no credential, so nothing secret is sent. Arc payments go to Circle's Facilitator Service, which authenticates with a long-lived API key sent as `Authorization: Bearer …` (`services/circle_facilitator.py`). That key is held in Secrets Manager like the others, never in env vars, and is restricted to facilitator read/write, but unlike the CDP JWT a captured header is reusable until the key is rotated. If the key is absent the client falls back to Circle's keyless seller proof: an EIP-712 signature by the treasury key over the request body hash, network, nonce and a validity window of at most 300 s.
 
 ---
 
@@ -195,7 +197,7 @@ Everything below references files at `https://github.com/<owner>/anchor-x402` an
 
 **What you'll see.** Four CloudWatch alarms attach to the same `AlarmTopic` SNS topic, each with both `AlarmActions` and `OKActions` so subscribers see both fire and recover events. The Solana failures alarm is the most interesting: it is a *log-derived metric* — the `SolanaAnchorFailuresMetricFilter` (lines 173-182) pattern-matches the literal string `"solana anchor failed"` in the function log group, increments a custom CloudWatch metric, and the alarm (lines 184-200) triggers when that metric exceeds 5 in 5 minutes. The producer of that log line is `services/anchor.py:120` — a single, exact-string call site. The README operations section (lines 226-250) documents how to subscribe an additional endpoint to the topic post-deploy.
 
-**Residual risk.** The thresholds are tuned for the current scale (single-Lambda, sub-cent payments); a higher-volume deployment must re-tune. No alarm covers low-balance treasury (`treasury runs out of ETH/SOL` would surface only as elevated Errors). No alarm covers the CDP facilitator returning unexpected verification failures — a partial-availability customer-impact event that is not separately tracked. There is no AWS Cost Anomaly alarm.
+**Residual risk.** The thresholds are tuned for the current scale (single-Lambda, sub-cent payments); a higher-volume deployment must re-tune. No alarm covers low-balance treasury (`treasury runs out of ETH/SOL` would surface only as elevated Errors). No alarm covers a facilitator (CDP, PayAI or Circle) returning unexpected verification failures — a partial-availability customer-impact event that is not separately tracked. There is no AWS Cost Anomaly alarm.
 
 ---
 
