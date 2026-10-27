@@ -32,7 +32,7 @@ Reviewers should treat the service as a stateless oracle with on-chain evidence 
 | # | Property | Why |
 |---|---|---|
 | A | `anchor-x402` operator integrity, *for `anchor` / `attest` outputs* | The Merkle root that lands on Base + Solana is independently verifiable. The operator cannot forge a past anchor without reorging both chains. |
-| B | `anchor-x402` retention | The service is stateless. There is no DynamoDB, no S3, no log of your input bytes beyond CloudWatch standard request logs (which are operator-private and auto-expire). |
+| B | `anchor-x402` retention | Request bodies are not stored. What is stored is small and listed in the [security questionnaire](security-questionnaire.md#c-information-security--data-privacy) (Q11a): payment claims and agent-to-agent records in DynamoDB, `/v1/investigate` job records, `/v1/ledger/report` files in S3, and CloudWatch request logs (operator-private, 30-day retention). |
 | C | A persistent identity | No API key. No tenant. The service cannot deny you tomorrow based on what you sent today, and cannot link your calls absent payment-side correlation by the facilitator. |
 | D | A custom CA / non-AWS TLS path | All traffic terminates at API Gateway; no homegrown TLS. |
 

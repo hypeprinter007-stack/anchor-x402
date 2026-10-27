@@ -29,7 +29,7 @@
 | Insurance | None (cyber-liability/E&O on the post-revenue roadmap) |
 
 **Q1. Sole proprietor — bus-factor risk?**
-Yes; bus factor is 1. Mitigated by (a) fully stateless system, (b) MIT source so any customer can self-host a fork, (c) one-command deploy (`make build && make deploy-guided` from `template.yaml`) — a successor operator stands up an equivalent stack in ~30 minutes. On-chain anchors on Base + Solana mainnet are durable independent of our infrastructure.
+Yes; bus factor is 1. Mitigated by (a) minimal state: short-lived DynamoDB records and expiring report files (Q11a), (b) MIT source so any customer can self-host a fork, (c) one-command deploy (`make build && make deploy-guided` from `template.yaml`) — a successor operator stands up an equivalent stack in ~30 minutes. On-chain anchors on Base + Solana mainnet are durable independent of our infrastructure.
 
 **Q2. Incorporated?** Not yet. Operating as sole proprietorship under personal liability. LLC formation triggered by first signed-contract customer.
 
@@ -49,7 +49,7 @@ Yes; bus factor is 1. Mitigated by (a) fully stateless system, (b) MIT source so
 | Written InfoSec Policy (WISP) | **Not formalized.** Closest artifact is this questionnaire + README "Operations." Drafting on roadmap. |
 | Annual risk assessment | **Not performed.** First formal risk register planned 2026 Q3. |
 | Incident response plan | **Lightweight; documented in §J.** Single-operator playbook: CloudWatch alarm → SNS → operator triages → 72h customer notification on confirmed data impact. No tabletop exercises yet. |
-| Third-party penetration test | **Not performed.** Compensating controls: < 4 kLOC of public Python; Pydantic-validated input; no DB, no PII path. Pentest planned with first enterprise contract. |
+| Third-party penetration test | **Not performed.** Compensating controls: < 4 kLOC of public Python; Pydantic-validated input; no PII path; the only stored data is described in Q11a. Pentest planned with first enterprise contract. |
 | SOC 2 / ISO 27001 / PCI-DSS | **No** — see §H. |
 | Background checks / security training | N/A — one operator. |
 
@@ -73,14 +73,14 @@ Yes; bus factor is 1. Mitigated by (a) fully stateless system, (b) MIT source so
 | Sell or share data? | No. |
 | Caller-data caching? | Only a 60-second in-process token-price cache (`services/token_price.py`) — public CoinGecko prices, never caller-supplied data. |
 | Data residency | AWS `us-east-1` (Northern Virginia), single region. |
-| Encryption at rest | AWS-managed by default: Lambda code (S3-backed) SSE-KMS; CloudWatch Logs KMS-encrypted; Secrets Manager (treasury keys, CDP secret, Circle API key) AWS-managed KMS. No DB or S3 customer-data bucket. Future stores will use S3 Object Lock + SSE-KMS. |
+| Encryption at rest | AWS-managed by default: Lambda code (S3-backed) SSE-KMS; CloudWatch Logs KMS-encrypted; Secrets Manager (treasury keys, CDP secret, Circle API key) AWS-managed KMS. DynamoDB and S3 (payment claims, job records and report files; Q11a) use AWS default encryption at rest. |
 | Encryption in transit | TLS 1.2+ on API Gateway (ACM-issued cert). All outbound (Base/Solana RPC, the CDP, PayAI and Circle facilitators, CoinGecko, openchain.xyz) is HTTPS. |
 | Key management | Treasury private keys (Base + Solana), the CDP API key secret and the Circle API key live in **AWS Secrets Manager** (`anchor-x402/runtime`). Lambda IAM role: `secretsmanager:GetSecretValue` on that single ARN only. CloudTrail logs every read. Composite secret fetched once at cold-start (`services/secrets.py`); held in process memory. **Sensitive values never appear in Lambda env vars** (which are visible to anyone with `lambda:GetFunctionConfiguration`). |
 | Key rotation | Manual via `aws secretsmanager update-secret` + Lambda config-touch to force fresh cold start. Target 90 days; on-demand on suspicion of compromise. Automated rotation Lambda is roadmap (planned alongside the hot/cold split). |
 | BYOK | Not supported. The customer's own wallet key never leaves the customer's environment; the customer pays into our treasury via x402. |
-| Customer data deletion | Largely N/A — no customer data stored beyond ephemeral logs. Best-effort deletion against logs honored on signed wallet-operator request. |
+| Customer data deletion | Limited by design: the stores in Q11a hold wallet addresses, payment nonces, job records and report files, most of which expire on their own. Best-effort deletion against logs honored on signed wallet-operator request. |
 
-**Q9. Lifecycle of one request.** (1) x402 client signs a payment authorization targeting our treasury: EIP-3009 for USDC on Base or Arc (or JPYC on Polygon), or a signed SPL token transfer for USDC on Solana. (2) Request lands on API Gateway over TLS 1.2+. (3) API Gateway invokes `AnchorFunction` Lambda. (4) The authorization is claimed once in DynamoDB, so a copy of the same payment cannot run the route twice (`services/payment_claim.py`), then the x402 middleware verifies it with the facilitator for its network: CDP for Base (Ed25519 JWT from `services/cdp_auth.py`), PayAI for Solana, Circle for Arc, or in-process for JPYC. (5) On verified payment, dispatch to one of 18 paid route handlers. (6) Handler validates input via Pydantic, calls public RPC/API endpoints as needed, returns JSON. (7) CloudWatch records the invocation; no request body durably stored beyond log retention.
+**Q9. Lifecycle of one request.** (1) x402 client signs a payment authorization targeting our treasury: EIP-3009 for USDC on Base or Arc (or JPYC on Polygon), or a signed SPL token transfer for USDC on Solana. (2) Request lands on API Gateway over TLS 1.2+. (3) API Gateway invokes `AnchorFunction` Lambda. (4) The authorization is claimed once in DynamoDB, so a copy of the same payment cannot run the route twice (`services/payment_claim.py`), then the x402 middleware verifies it with the facilitator for its network: CDP for Base (Ed25519 JWT from `services/cdp_auth.py`), PayAI for Solana, Circle for Arc, or in-process for JPYC. (5) On verified payment, dispatch to one of 18 paid route handlers. (6) Handler validates input via Pydantic, calls public RPC/API endpoints as needed, returns JSON. (7) CloudWatch records the invocation (30-day retention). The request body is not stored; the records listed in Q11a are.
 
 **Q10. Data residency outside `us-east-1`?** Not today. Customers with hard residency requirements should self-host the MIT source in their chosen region — `template.yaml` is region-agnostic.
 
@@ -92,7 +92,18 @@ Yes; bus factor is 1. Mitigated by (a) fully stateless system, (b) MIT source so
 - `/v1/price/token`: symbol or contract address.
 - `/v1/parse/datetime`: freeform strings; could in theory contain PII (e.g. "John's surgery tomorrow at noon"). **Customers should sanitize.** We do not retain.
 
-**Q12. DPA available?** Yes, on request. Standard processor-side DPA with SCCs for EU/UK. Because we store essentially no personal data, the DPA largely covers the AWS sub-processor relationship.
+**Q11a. What does the service store, and for how long?** Request bodies and outputs are not stored, except a `/v1/ledger/report` file and an `/v1/investigate` report. Four small stores exist, none holding names, emails or other direct identifiers. Wallet addresses can still count as personal data under GDPR.
+
+| Store | What is in it | Kept for | Why |
+|---|---|---|---|
+| DynamoDB `A2AStateTable` (this stack) | Payment claims: network, payer wallet address and payment nonce, or the hash of a Solana payment message. Agent-to-agent records: request nonces, quotes, signed receipts and their Merkle roots. | Payment claims until the signed authorization expires (15 min to 1 year); receipt roots up to 400 days; the rest expires automatically sooner | Run each paid route once per payment; keep dispute evidence for agent-to-agent exchanges |
+| DynamoDB `risk-investigator-jobs` (risk-investigator stack) | `/v1/investigate` jobs: target wallet address, status, timestamps, the generated report, and the buyer's wallet address and network | No automatic expiry today | Return the report on status polls; refund the buyer if a job fails |
+| S3 `LedgerReportsBucket` (this stack) | `/v1/ledger/report` files: the requested wallet's x402 spending, as Markdown and CSV | 400 days, then deleted | Serve the report at its unguessable URL |
+| CloudWatch Logs | Request metadata, payment events (payer address, route, network), feedback reports | 30 days | Operations and accounting |
+
+DynamoDB and S3 data are encrypted at rest by AWS defaults (S3 SSE-S3, AES-256); there are no backups or snapshots. Losing `A2AStateTable` reopens a replay window for unexpired payments and loses agent-to-agent receipts; losing `risk-investigator-jobs` loses in-flight job status and the data needed to refund failed jobs. On-chain anchors do not depend on any of these stores.
+
+**Q12. DPA available?** Yes, on request. Standard processor-side DPA with SCCs for EU/UK. Because we store no direct identifiers, only wallet addresses (Q11a), the DPA largely covers the AWS sub-processor relationship.
 
 ---
 
@@ -156,7 +167,7 @@ Disk is FileVault-encrypted. AWS access requires both the IAM access key and a h
 | On-call | Single operator, best-effort, US business-hours-biased. We do not commit to 24/7 on-call until customer contracts justify it. |
 | Uptime targets | **Best-effort today.** No SLA offered to public callers. Underlying AWS API Gateway + Lambda is documented at 99.95% AWS-side. Institutional-tier SLA (99.9%+ with credit) on roadmap, priced per-customer. |
 | Patch cadence | Lambda runtime (Python 3.12) is AWS-managed. App dependencies re-locked and re-deployed on every release. Critical-CVE patches: 5 business days. |
-| Backup / snapshots | None — system is stateless. Secrets Manager secret has `DeletionPolicy: Retain` and `UpdateReplacePolicy: Retain`; rotation history preserved by Secrets Manager versioning. |
+| Backup / snapshots | None. The stores in Q11a are not backed up; what losing each one costs is stated there. Secrets Manager secret has `DeletionPolicy: Retain` and `UpdateReplacePolicy: Retain`; rotation history preserved by Secrets Manager versioning. |
 | Configuration management | IaC: AWS SAM (`template.yaml`). Application: Git. Both versioned and reproducible. |
 | Change management | Operator commits to `main` → `make build && make deploy-guided`. No staging today; smoke tests via paid mainnet e2e (`scripts/test_e2e.py`) post-deploy. Pre-prod stage on roadmap. |
 
@@ -176,7 +187,7 @@ Disk is FileVault-encrypted. AWS access requires both the IAM access key and a h
 |---|---|
 | Single-region today? | **Yes** (`us-east-1`). |
 | RTO | **~10 minutes** — wall-clock time to redeploy `template.yaml` from clean Git (verified during routine deploys). |
-| RPO | **Zero** — system is stateless; no data to lose. On-chain anchor artifacts on Base + Solana mainnet are durable independent of our infrastructure. |
+| RPO | Unbounded for the Q11a stores (no backups): losing them costs a replay window, job status, stored investigation and ledger reports, and the data needed to refund failed jobs. On-chain anchor artifacts on Base + Solana mainnet are durable independent of our infrastructure. |
 | Multi-AZ within `us-east-1`? | Yes — AWS Lambda + API Gateway run multi-AZ by default. |
 | Regional failure plan | Today: downtime until region recovers, or a manual SAM redeploy into a backup region (`us-west-2` is operator-tested). Treasury Secrets Manager values must be re-seeded in the failover region. Estimated full failover: ~30 minutes. |
 | Tested DR drill | Not formally drilled. Redeploy path is exercised in routine development. Quarterly DR drill is a roadmap item. |
@@ -267,7 +278,7 @@ We treat IR as a single-person playbook with crisp obligations rather than a mul
 | Public post-mortem | Operator | Within 14 days of resolution, posted to GitHub Security advisories |
 | Coordinated disclosure | Operator | Standard 90-day default; no threats to good-faith reporters |
 
-**Q30. What counts as "breach affecting customer data" given you store none?** Largely N/A by design. Cases where it would apply: (1) treasury key compromise leading to misuse of inbound USDC — notify all callers identifiable via on-chain payment history within 72h; (2) CloudWatch log exfiltration capturing wallet addresses or freeform datetime strings beyond what's on-chain — best-effort 72h notification; (3) CDP or Circle API key compromise — rotate immediately, notify the provider per their disclosure process.
+**Q30. What counts as "breach affecting customer data" given you store no customer content?** Largely N/A by design. Cases where it would apply: (1) treasury key compromise leading to misuse of inbound USDC — notify all callers identifiable via on-chain payment history within 72h; (2) CloudWatch log exfiltration capturing wallet addresses or freeform datetime strings beyond what's on-chain — best-effort 72h notification; (3) CDP or Circle API key compromise — rotate immediately, notify the provider per their disclosure process.
 
 **Q31. Cyber-liability insurance?** **No.** Known gap. Customers requiring insurer-backed indemnification should treat this as a hard gap.
 

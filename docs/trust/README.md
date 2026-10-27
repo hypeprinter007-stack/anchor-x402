@@ -4,7 +4,7 @@
 
 This portal is for security reviewers, compliance officers, and procurement teams evaluating whether to adopt anchor-x402's services in regulated workflows. The intent is to give you everything you'd normally extract from a vendor over weeks of email — questionnaires, threat models, code-level audit guides, deployment guidance — in one place, all up-front, all current.
 
-We do **not** hold SOC 2, ISO 27001, or PCI certifications. We are explicit about that gap below and on the next page. The compensating controls — open-source codebase, on-chain verifiability, deliberately-stateless architecture, AWS infrastructure inheritance — are intended to give institutional reviewers enough material to make an evidence-based decision without those certifications.
+We do **not** hold SOC 2, ISO 27001, or PCI certifications. We are explicit about that gap below and on the next page. The compensating controls — open-source codebase, on-chain verifiability, deliberately minimal state (listed in the security questionnaire, Q11a), AWS infrastructure inheritance — are intended to give institutional reviewers enough material to make an evidence-based decision without those certifications.
 
 ## What's here
 
