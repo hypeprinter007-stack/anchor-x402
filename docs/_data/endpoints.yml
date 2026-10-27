@@ -12,7 +12,7 @@ rails:
     name: Solana
     asset: USDC
     network: Solana mainnet
-    facilitator: Coinbase CDP
+    facilitator: PayAI
     color: "#14f195"
   - id: arc
     name: Arc

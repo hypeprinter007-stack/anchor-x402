@@ -58,7 +58,7 @@ All on the same Lambda, same x402 v2 protocol, same CDP facilitator. The MCP ser
 ## Specifically for the wallet-curious
 
 - **Protocol**: x402 v2, payment requirements in the `payment-required` response header, EIP-3009 `transferWithAuthorization` settlement on Base or SPL-USDC on Solana
-- **Facilitator**: official Coinbase CDP (`api.cdp.coinbase.com/platform/v2/x402`), which handles ERC-6492 unwrapping so smart-wallet signatures verify correctly
+- **Facilitator**: official Coinbase CDP (`api.cdp.coinbase.com/platform/v2/x402`) for Base USDC (Solana settles via PayAI, Arc via Circle), which handles ERC-6492 unwrapping so smart-wallet signatures verify correctly
 - **Treasury**: [`0x127462e296fAc1A7F5cF33bA57bB2f0FFf5cD0B6`](https://basescan.org/address/0x127462e296fAc1A7F5cF33bA57bB2f0FFf5cD0B6) — on-chain receipts are independent of the service
 - **Source**: [MIT-licensed](https://github.com/hypeprinter007-stack/anchor-x402) — fork it, audit it, deploy your own
 
