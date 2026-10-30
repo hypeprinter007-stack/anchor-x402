@@ -92,8 +92,13 @@ F = T + payment_claim.CLAIM_TTL_S
 ok("short authorization keeps the 900 s floor", payment_claim.claim_expiry(header_vb("0x10", T + 300), T) == F)
 ok("1 h authorization is kept past its validBefore",
    payment_claim.claim_expiry(header_vb("0x11", T + 3600), T) == T + 3600 + payment_claim.CLOCK_SKEW_S)
-ok("absurd validBefore is capped (DynamoDB numbers stop at 38 digits)",
-   payment_claim.claim_expiry(header_vb("0x12", 2**256), T) == T + payment_claim.MAX_CLAIM_S)
+ok("authorization valid > 1 year is beyond retention (refused, not given a shorter claim)",
+   payment_claim.beyond_retention(header_vb("0x12", 2**256), T)
+   and payment_claim.beyond_retention(header_vb("0x15", T + 400 * 86400), T))
+ok("normal and 1 h authorizations are within retention",
+   not payment_claim.beyond_retention(header_vb("0x16", T + 300), T)
+   and not payment_claim.beyond_retention(header_vb("0x17", T + 3600), T)
+   and not payment_claim.beyond_retention(header("0x18"), T) and not payment_claim.beyond_retention(sol, T))
 ok("missing or junk validBefore → floor",
    payment_claim.claim_expiry(header("0x13"), T) == F and payment_claim.claim_expiry(header_vb("0x14", "soon"), T) == F)
 ok("Solana / raw headers → floor", payment_claim.claim_expiry(sol, T) == F and payment_claim.claim_expiry("junk", T) == F)
@@ -134,6 +139,18 @@ ok("second copy → 402 payment_replayed, route not run",
    r2.status_code == 402 and r2.json()["error"] == "payment_replayed" and ran == ["/v1/roll"], f"{r2.status_code} {ran}")
 ok("exactly one PAID_CALL, for the delivered call", sum(ln.startswith("PAID_CALL ") for ln in logs) == 1, str(logs))
 ok("replay is logged as payment_replayed", any('"kind":"payment_replayed"' in ln for ln in logs))
+
+# an authorization valid longer than a claim is kept never reaches the route
+a2a._local_store.clear()
+ran.clear()
+app.payment_middleware = fake_payment_middleware
+far = header_vb("0x88", int(time.time()) + 2 * 366 * 86400)
+out = io.StringIO()
+with contextlib.redirect_stdout(out):
+    r = c.post("/v1/roll", json={"low": 1, "high": 6}, headers={"PAYMENT-SIGNATURE": far})
+ok("over-long authorization → 402 authorization_validity_too_long, route not run, nothing claimed",
+   r.status_code == 402 and r.json()["error"] == "authorization_validity_too_long" and ran == [] and not a2a._local_store,
+   f"{r.status_code} {ran}")
 
 # PAID_CALL follows the final status: a failed settlement is not a sale
 a2a._local_store.clear()

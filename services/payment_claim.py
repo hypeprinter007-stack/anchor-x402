@@ -25,8 +25,11 @@ from services import a2a
 # authorization does; see claim_expiry.
 CLAIM_TTL_S = 900
 CLOCK_SKEW_S = 60
-# The signer can pick any validBefore, up to 2**256; DynamoDB numbers stop at 38
-# digits, and a failed write fails open. A year is far past any real payment.
+# Longest authorization we will guard. The signer can pick any validBefore, up
+# to 2**256; a claim that lapsed before the authorization did would reopen its
+# replay window, so longer authorizations are refused (beyond_retention) rather
+# than given a shorter claim. A year is far past any real payment, and keeps the
+# expiry inside DynamoDB's 38-digit numbers.
 MAX_CLAIM_S = 366 * 24 * 3600
 
 log = logging.getLogger("payment_claim")
@@ -67,6 +70,25 @@ def _svm_message_digest(tx_b64: str) -> str:
         return hashlib.sha256(tx_b64.encode()).hexdigest()
 
 
+def _valid_before(header: str) -> int | None:
+    try:
+        payload = json.loads(base64.b64decode(header))
+        return int(((payload.get("payload") or {}).get("authorization") or {})["validBefore"])
+    except Exception:
+        return None
+
+
+def beyond_retention(header: str, now: int) -> bool:
+    """True if the authorization stays valid longer than a claim can be kept.
+
+    Refuse these before claiming: shortening the claim would let a copy run the
+    route again once it lapsed, while the authorization could still settle.
+    (Raised in review of affaan-m/ECC#3658.)
+    """
+    valid_before = _valid_before(header)
+    return valid_before is not None and valid_before + CLOCK_SKEW_S > now + MAX_CLAIM_S
+
+
 def claim_expiry(header: str, now: int) -> int:
     """When a claim may be dropped: not before the authorization itself expires.
 
@@ -76,12 +98,11 @@ def claim_expiry(header: str, now: int) -> int:
     the claim lapsed. (Found in review of x402-foundation/x402#3865.)
     """
     floor = now + CLAIM_TTL_S
-    try:
-        payload = json.loads(base64.b64decode(header))
-        valid_before = int(((payload.get("payload") or {}).get("authorization") or {})["validBefore"])
-    except Exception:
+    valid_before = _valid_before(header)
+    if valid_before is None:
         return floor
-    return min(max(floor, valid_before + CLOCK_SKEW_S), now + MAX_CLAIM_S)
+    # Callers refuse beyond_retention() first, so this is never past MAX_CLAIM_S.
+    return max(floor, valid_before + CLOCK_SKEW_S)
 
 
 def claim(header: str) -> bool:

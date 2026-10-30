@@ -1546,6 +1546,17 @@ async def x402_mw(request, call_next):
     routes = {**x402_routes, **_SEPOLIA_TRIAL_ROUTES} if _sepolia_trial_open() else x402_routes
     paid_route = f"{request.method} {request.url.path}" in routes
     pay_header = request.headers.get("payment-signature") or request.headers.get("x-payment")
+    if paid_route and pay_header and payment_claim.beyond_retention(pay_header, int(time.time())):
+        # Valid for longer than a claim is kept: guarding it with a shorter claim
+        # would reopen its replay window, so refuse it before anything runs.
+        _log_402(request, "authorization_validity_too_long")
+        return JSONResponse(status_code=402, content={
+            "error": "authorization_validity_too_long",
+            "detail": "The payment authorization stays valid for more than a year. "
+                      "Sign one that expires sooner; standard x402 clients use the "
+                      "route's maxTimeoutSeconds.",
+            "retry_hint": {"retryable": True, "action": "sign_fresh_authorization"},
+        })
     if paid_route and pay_header and not await run_in_threadpool(payment_claim.claim, pay_header):
         # A copy of an authorization already presented: refuse before the route
         # runs, or N concurrent copies run it N times for one settlement.
