@@ -23,6 +23,7 @@ from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from mangum import Mangum
+from paxiom_receipts import PaxiomReceiptMiddleware
 from starlette.concurrency import run_in_threadpool
 from web3.exceptions import TransactionNotFound
 
@@ -1642,6 +1643,24 @@ class HeadAsGetMiddleware:
 app.add_middleware(HeadAsGetMiddleware)
 
 
+# Opt-in Ed25519 delivery receipts (paxiom.receipt.v0). Wraps x402_mw and
+# _related_upsell so X-Paxiom-Receipt signs the final post-upsell JSON body
+# and captures settled payment-response tx hashes; 402 challenges, HEAD
+# probes, and non-JSON responses pass through untouched.
+if os.getenv("PAXIOM_PRIVATE_KEY_PEM", "").strip():
+    app.add_middleware(
+        PaxiomReceiptMiddleware,
+        private_key=os.environ["PAXIOM_PRIVATE_KEY_PEM"],
+        issuer={
+            "name": "anchor-x402",
+            "uri": _RESOURCE_BASE,
+            "keyId": os.getenv("PAXIOM_KEY_ID", "anchor-01"),
+        },
+        service_name="anchor-x402",
+        base_url=_RESOURCE_BASE,
+    )
+
+
 # Pre-payment request validation. The x402 payment layer settles BEFORE FastAPI
 # validates a handler's query params, so a paid GET call missing a required
 # parameter was charged and *then* 422'd — the buyer paid for a validation error
@@ -1827,7 +1846,7 @@ app.add_middleware(
     allow_headers=["content-type", "x-payment", "payment-signature", "authorization",
                    "mcp-protocol-version", "mcp-method", "mcp-name"],
     expose_headers=["payment-response", "x-payment-response", "payment-required",
-                    "payment-error"],
+                    "payment-error", "x-paxiom-receipt"],
     max_age=86400,
 )
 
